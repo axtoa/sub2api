@@ -216,6 +216,21 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/codex-help',
+    redirect: '/help-center'
+  },
+  {
+    path: '/help-center',
+    name: 'HelpCenter',
+    component: () => import('@/views/user/HelpCenterView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Integration Docs',
+      titleKey: 'nav.integrationDocs'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',
