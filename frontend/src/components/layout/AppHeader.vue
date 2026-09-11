@@ -58,6 +58,17 @@
           <span class="hidden sm:inline">{{ t('nav.modelPlaza') }}</span>
         </router-link>
 
+        <!-- Contact Us Entry -->
+        <button
+          v-if="user"
+          type="button"
+          class="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white sm:flex"
+          @click="openContactDialog"
+        >
+          <Icon name="chat" size="sm" />
+          <span class="hidden sm:inline">{{ t('nav.contactUs') }}</span>
+        </button>
+
         <!-- Language Switcher -->
         <LocaleSwitcher />
 
@@ -191,6 +202,15 @@
                   {{ t('nav.github') }}
                 </a>
 
+                <button
+                  type="button"
+                  class="dropdown-item w-full sm:hidden"
+                  @click="openContactDialog"
+                >
+                  <Icon name="chat" size="sm" />
+                  {{ t('nav.contactUs') }}
+                </button>
+
               </div>
 
               <!-- Contact Support (only show if configured) -->
@@ -256,6 +276,63 @@
         </div>
       </div>
     </div>
+
+    <BaseDialog
+      :show="contactDialogOpen"
+      :title="t('contactUs.title')"
+      width="narrow"
+      close-on-click-outside
+      @close="closeContactDialog"
+    >
+      <div class="space-y-6">
+        <p class="text-sm leading-7 text-gray-600 dark:text-dark-300">
+          {{ t('contactUs.description') }}
+        </p>
+
+        <div class="flex justify-center">
+          <div class="flex h-56 w-56 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-900">
+            <img
+              v-if="contactQrAvailable"
+              :src="contactQrSrc"
+              :alt="t('contactUs.qrAlt')"
+              class="h-full w-full object-contain"
+              @error="contactQrAvailable = false"
+            >
+            <div
+              v-else
+              class="flex h-full w-full flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 text-center dark:border-dark-600 dark:bg-dark-800"
+            >
+              <Icon name="upload" size="lg" class="mb-3 text-gray-400 dark:text-dark-500" />
+              <div class="text-sm font-medium text-gray-700 dark:text-dark-200">
+                {{ t('contactUs.qrMissingTitle') }}
+              </div>
+              <div class="mt-2 break-all text-xs leading-5 text-gray-500 dark:text-dark-400">
+                {{ contactQrPath }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-700 dark:bg-dark-800/70">
+          <div class="text-xs text-gray-500 dark:text-dark-400">
+            {{ t('contactUs.groupLabel') }}
+          </div>
+          <div class="mt-1 flex items-center justify-between gap-3">
+            <div class="font-mono text-lg font-semibold text-gray-950 dark:text-white">
+              {{ contactGroupNumber }}
+            </div>
+            <button
+              type="button"
+              class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 dark:text-dark-400 dark:hover:bg-dark-700 dark:hover:text-white"
+              :aria-label="t('contactUs.copyGroup')"
+              @click="copyContactGroup"
+            >
+              <Icon name="copy" size="sm" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </BaseDialog>
   </header>
 </template>
 
@@ -266,11 +343,13 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
+import { useClipboard } from '@/composables/useClipboard'
 
 const router = useRouter()
 const route = useRoute()
@@ -279,13 +358,19 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
+const { copyToClipboard } = useClipboard()
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
+const contactDialogOpen = ref(false)
+const contactQrAvailable = ref(true)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
+const contactGroupNumber = '112861465'
+const contactQrSrc = '/contact-qq-group.png'
+const contactQrPath = 'frontend/public/contact-qq-group.png'
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 const availableBalance = computed(() => Number(user.value?.balance || 0))
 const frozenBalance = computed(() => Number(user.value?.frozen_balance || 0))
@@ -353,6 +438,20 @@ function toggleDropdown() {
 
 function closeDropdown() {
   dropdownOpen.value = false
+}
+
+function openContactDialog() {
+  closeDropdown()
+  contactDialogOpen.value = true
+  contactQrAvailable.value = true
+}
+
+function closeContactDialog() {
+  contactDialogOpen.value = false
+}
+
+function copyContactGroup() {
+  void copyToClipboard(contactGroupNumber, t('contactUs.groupCopied'))
 }
 
 async function handleLogout() {

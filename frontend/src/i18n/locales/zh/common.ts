@@ -161,6 +161,16 @@ export default {
     }
   },
 
+  contactUs: {
+    title: '联系我们',
+    description: '如遇到充值、调用、额度、模型访问等问题，可私聊群内管理员反馈。',
+    groupLabel: '售后群',
+    groupCopied: 'QQ群号已复制',
+    copyGroup: '复制QQ群号',
+    qrAlt: 'QQ群二维码',
+    qrMissingTitle: '请放置二维码图片'
+  },
+
   // Navigation
   nav: {
     dashboard: '仪表盘',
@@ -181,6 +191,7 @@ export default {
     availableChannels: '可用渠道',
     modelPlaza: '模型广场',
     integrationDocs: '接入文档',
+    contactUs: '联系我们',
     subscriptions: '订阅管理',
     accounts: '账号管理',
     plugins: '插件管理',

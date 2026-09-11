@@ -161,6 +161,16 @@ export default {
     }
   },
 
+  contactUs: {
+    title: 'Contact Us',
+    description: 'For recharge, API usage, quota, or model access issues, contact an admin in the group.',
+    groupLabel: 'Support group',
+    groupCopied: 'Group number copied',
+    copyGroup: 'Copy group number',
+    qrAlt: 'Support group QR code',
+    qrMissingTitle: 'Place the QR code image here'
+  },
+
   // Navigation
   nav: {
     dashboard: 'Dashboard',
@@ -181,6 +191,7 @@ export default {
     availableChannels: 'Available Channels',
     modelPlaza: 'Model Plaza',
     integrationDocs: 'Integration Docs',
+    contactUs: 'Contact Us',
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
     plugins: 'Plugins',
