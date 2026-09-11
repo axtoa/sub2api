@@ -290,17 +290,17 @@
         </p>
 
         <div class="flex justify-center">
-          <div class="flex h-56 w-56 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-dark-700 dark:bg-dark-900">
+          <div class="flex h-56 max-w-full items-center justify-center overflow-hidden rounded-lg">
             <img
               v-if="contactQrAvailable"
               :src="contactQrSrc"
               :alt="t('contactUs.qrAlt')"
-              class="h-full w-full object-contain"
+              class="h-full w-auto max-w-none"
               @error="contactQrAvailable = false"
             >
             <div
               v-else
-              class="flex h-full w-full flex-col items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 px-4 text-center dark:border-dark-600 dark:bg-dark-800"
+              class="flex h-full w-56 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 text-center dark:border-dark-600 dark:bg-dark-800"
             >
               <Icon name="upload" size="lg" class="mb-3 text-gray-400 dark:text-dark-500" />
               <div class="text-sm font-medium text-gray-700 dark:text-dark-200">
