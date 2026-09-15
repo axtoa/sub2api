@@ -101,6 +101,8 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	requestInfo := service.ParseGrokMediaRequest(contentType, body)
 	requestModel := requestInfo.Model
 	routingModel := service.NormalizeGrokMediaModelForEndpoint(endpoint, requestModel, requestInfo.HasInputImage())
+	studioVideoRequest := endpoint == service.GrokMediaEndpointVideosGenerations &&
+		service.IsCreativeWorkbenchVideoHeader(c.GetHeader(service.CreativeWorkbenchHeader))
 	if endpoint.IsGenerationRequest() && strings.TrimSpace(requestModel) == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
@@ -108,6 +110,12 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	if endpoint.IsVideoLookupRequest() && strings.TrimSpace(requestID) == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "request_id is required")
 		return
+	}
+	if studioVideoRequest && h.creativeVideoService != nil {
+		if err := h.creativeVideoService.CheckCreateAllowed(c.Request.Context(), subject.UserID); err != nil {
+			batchImageError(c, err)
+			return
+		}
 	}
 
 	reqLog = reqLog.With(zap.String("model", requestModel))
@@ -158,6 +166,30 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		}
 		h.errorResponse(c, status, code, message)
 		return
+	}
+	studioVideoTaskID := ""
+	studioVideoSubmitted := false
+	if studioVideoRequest && h.creativeVideoService != nil {
+		task, err := h.creativeVideoService.CreatePending(c.Request.Context(), service.BatchImageOwner{
+			UserID:   subject.UserID,
+			APIKeyID: apiKey.ID,
+			GroupID:  apiKey.GroupID,
+		}, body, requestInfo)
+		if err != nil {
+			batchImageError(c, err)
+			return
+		}
+		if task != nil {
+			studioVideoTaskID = task.TaskID
+			defer func() {
+				if studioVideoTaskID == "" || studioVideoSubmitted || h.creativeVideoService == nil {
+					return
+				}
+				failCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				h.creativeVideoService.FailTask(failCtx, studioVideoTaskID, "UPSTREAM_REQUEST_FAILED", "video request did not complete")
+			}()
+		}
 	}
 
 	sessionSeed := body
@@ -451,11 +483,32 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 					)
 				}
 			}
+			if studioVideoTaskID != "" && h.creativeVideoService != nil {
+				if err := h.creativeVideoService.CompleteSubmit(requestCtx, studioVideoTaskID, account.ID, result, requestInfo); err != nil {
+					reqLog.Warn("grok_media.creative_video_complete_submit_failed",
+						zap.Int64("account_id", account.ID),
+						zap.String("request_id", result.ResponseID),
+						zap.Error(err),
+					)
+				} else {
+					studioVideoSubmitted = true
+				}
+			}
 		}
 		// Status poll OR content download can observe official done+video.url.
 		// Both paths share the same claim key so the customer is charged once.
 		if endpoint == service.GrokMediaEndpointVideoStatus || endpoint == service.GrokMediaEndpointVideoContent {
 			taskID := strings.TrimSpace(requestID)
+			if h.creativeVideoService != nil {
+				h.creativeVideoService.ObserveGatewayResult(requestCtx, subject.UserID, apiKey.ID, taskID, result)
+				if endpoint == service.GrokMediaEndpointVideoContent {
+					_ = h.creativeVideoService.MarkDownloaded(requestCtx, service.BatchImageOwner{
+						UserID:   subject.UserID,
+						APIKeyID: apiKey.ID,
+						GroupID:  apiKey.GroupID,
+					}, taskID)
+				}
+			}
 			if billResult := prepareGrokVideoCompletionBilling(requestCtx, h, reqLog, apiKey, subject, taskID, result); billResult != nil {
 				recordGrokMediaUsage(c, h, reqLog, apiKey, subject, subscription, account, billResult, billResult.Model, body, taskID)
 			}

@@ -26,6 +26,7 @@ type BatchImageCleanupService struct {
 	AccountResolver   BatchImageAccountResolver
 	Config            *config.Config
 	WorkbenchSettings CreativeWorkbenchSettingsReader
+	CreativeVideo     *CreativeVideoService
 
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -155,11 +156,19 @@ func (s *BatchImageCleanupService) RunOnce(ctx context.Context, now time.Time) (
 		}
 		result.RecordsDeleted++
 	}
+	videoDeleted, err := s.CreativeVideo.CleanupOnce(ctx, now, limit)
+	if err != nil {
+		result.Failures++
+	} else {
+		result.VideoRecordsDeleted += videoDeleted
+	}
 	return result, nil
 }
 
 func (s *BatchImageCleanupService) Start() {
-	if s == nil || s.Repo == nil || s.Config == nil || !s.Config.BatchImage.Enabled || s.cleanupInterval() <= 0 {
+	if s == nil || s.Repo == nil || s.Config == nil ||
+		(!s.Config.BatchImage.Enabled && s.CreativeVideo == nil) ||
+		s.cleanupInterval() <= 0 {
 		return
 	}
 	s.mu.Lock()
@@ -342,10 +351,11 @@ func (s *BatchImageCleanupService) cleanupBatchSize() int {
 }
 
 type BatchImageCleanupRunResult struct {
-	InputCleaned   int
-	OutputCleaned  int
-	RecordsDeleted int
-	Failures       int
+	InputCleaned        int
+	OutputCleaned       int
+	RecordsDeleted      int
+	VideoRecordsDeleted int
+	Failures            int
 }
 
 func cleanupEventPayload(batchID string, target CleanupTarget, reason string, deletedAt *time.Time) map[string]any {

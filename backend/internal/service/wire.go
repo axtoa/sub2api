@@ -106,9 +106,14 @@ func ProvideBatchImagePublicService(repo BatchImageRepository, accountRepo Accou
 	return svc
 }
 
-func ProvideBatchImageCleanupService(repo BatchImageRepository, accountRepo AccountRepository, cfg *config.Config, settingService *SettingService) *BatchImageCleanupService {
+func ProvideCreativeVideoService(repo CreativeVideoRepository, settingService *SettingService) *CreativeVideoService {
+	return NewCreativeVideoService(repo, settingService)
+}
+
+func ProvideBatchImageCleanupService(repo BatchImageRepository, accountRepo AccountRepository, cfg *config.Config, settingService *SettingService, creativeVideo *CreativeVideoService) *BatchImageCleanupService {
 	svc := NewBatchImageCleanupService(repo, accountRepo, cfg)
 	svc.WorkbenchSettings = settingService
+	svc.CreativeVideo = creativeVideo
 	svc.Start()
 	return svc
 }
@@ -853,6 +858,7 @@ var ProviderSet = wire.NewSet(
 	ProvideImageTaskService,
 	ProvideBatchImageModelPricingResolver,
 	ProvideBatchImagePublicService,
+	ProvideCreativeVideoService,
 	NewBatchImageDownloadService,
 	ProvideBatchImageCleanupService,
 	ProvideBatchImageWorkerRuntime,

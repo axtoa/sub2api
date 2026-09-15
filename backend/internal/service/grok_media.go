@@ -753,6 +753,7 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 		ImageOutputSizes:     usage.ImageOutputSizes,
 		VideoCount:           usage.VideoCount,
 		VideoResolution:      usage.VideoResolution,
+		VideoStatus:          usage.VideoStatus,
 		VideoDurationSeconds: usage.VideoDurationSeconds,
 	}, nil
 }
@@ -876,6 +877,7 @@ func (s *OpenAIGatewayService) forwardGrokMediaVideoContent(
 		RequestID:       contentRequestID,
 		UpstreamHeaders: contentResp.Header,
 		ResponseHeaders: contentResp.Header.Clone(),
+		VideoStatus:     ExtractGrokVideoStatus(statusBody),
 		Duration:        time.Since(startTime),
 	}
 	if billed := ExtractGrokVideoBillingFromStatusBody(statusBody, nil, requestID); billed != nil {
@@ -885,6 +887,7 @@ func (s *OpenAIGatewayService) forwardGrokMediaVideoContent(
 		result.UpstreamModel = billed.UpstreamModel
 		result.VideoCount = billed.VideoCount
 		result.VideoResolution = billed.VideoResolution
+		result.VideoStatus = "done"
 		result.VideoDurationSeconds = billed.VideoDurationSeconds
 	}
 	return result, nil
@@ -1165,6 +1168,7 @@ type grokMediaUsageMetadata struct {
 	ImageOutputSizes     []string
 	VideoCount           int
 	VideoResolution      string
+	VideoStatus          string
 	VideoDurationSeconds int
 }
 
@@ -1184,6 +1188,7 @@ func grokMediaUsageFromResponse(endpoint GrokMediaEndpoint, requestInfo GrokMedi
 		meta.VideoResolution = requestInfo.Resolution
 		meta.VideoDurationSeconds = requestInfo.DurationSeconds
 	case GrokMediaEndpointVideoStatus:
+		meta.VideoStatus = ExtractGrokVideoStatus(responseBody)
 		// Prefer status-body URL success + upstream duration/resolution when present.
 		if IsGrokVideoStatusBillable(responseBody) {
 			// provisional units; handler merges with pending snapshot before RecordUsage.

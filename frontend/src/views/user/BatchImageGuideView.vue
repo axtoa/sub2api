@@ -10,21 +10,21 @@
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-dark-700">
-        <button type="button" class="border-b-2 border-primary-600 px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400">
+        <button type="button" :class="activeTab === 'image' ? 'border-b-2 border-primary-600 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" class="px-3 py-2 text-sm font-medium" @click="activeTab = 'image'">
           {{ t('creativeStudio.tabs.image') }}
         </button>
-        <button type="button" class="px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500" disabled>
+        <button type="button" :class="activeTab === 'video' ? 'border-b-2 border-primary-600 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'" class="px-3 py-2 text-sm font-medium" @click="activeTab = 'video'">
           {{ t('creativeStudio.tabs.video') }}
         </button>
         <button type="button" class="px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500" disabled>
           {{ t('creativeStudio.tabs.templates') }}
         </button>
       </div>
-      <div class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
+      <div v-if="activeTab === 'image'" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
         {{ t('creativeStudio.imageNotice') }}
       </div>
     </div>
-    <TablePageLayout>
+    <TablePageLayout v-if="activeTab === 'image'">
       <template #filters>
         <div class="flex flex-col gap-3">
           <div class="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
@@ -301,6 +301,116 @@
         </div>
       </template>
     </TablePageLayout>
+
+    <section v-else class="space-y-4">
+      <div class="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+        <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-800">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base font-semibold text-gray-900 dark:text-white">生成视频</h2>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">视频任务自创建起保留 3 天，完成后请及时下载。</p>
+            </div>
+            <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ videoTasks.length }}/50</span>
+          </div>
+          <form class="space-y-4" @submit.prevent="submitVideo">
+            <div>
+              <label class="input-label">API Key</label>
+              <select v-model.number="videoForm.apiKeyId" class="input" :disabled="loadingKeys">
+                <option :value="0">{{ loadingKeys ? '加载中...' : '选择 API Key' }}</option>
+                <option v-for="key in grokApiKeys" :key="key.id" :value="key.id">
+                  {{ key.name }} · {{ key.group?.name || 'Grok' }}
+                </option>
+              </select>
+              <p v-if="!loadingKeys && grokApiKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">请先在 API Key 中配置可用的 Grok 分组。</p>
+            </div>
+            <div>
+              <label class="input-label">模型</label>
+              <select v-model="videoForm.model" class="input">
+                <option value="grok-imagine-video">grok-imagine-video</option>
+              </select>
+            </div>
+            <div>
+              <label class="input-label">提示词</label>
+              <textarea v-model="videoForm.prompt" rows="5" maxlength="8000" class="input min-h-[132px] resize-y" placeholder="描述你想生成的画面、动作和镜头语言" />
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="input-label">分辨率</label>
+                <select v-model="videoForm.resolution" class="input">
+                  <option value="480p">480p</option>
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                </select>
+              </div>
+              <div>
+                <label class="input-label">时长</label>
+                <select v-model.number="videoForm.duration" class="input">
+                  <option v-for="seconds in [5, 8, 10, 15]" :key="seconds" :value="seconds">{{ seconds }} 秒</option>
+                </select>
+              </div>
+            </div>
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+              生成完成后才会按实际视频时长扣费；生成失败不会扣除视频费用。
+            </div>
+            <button type="submit" class="btn btn-primary w-full justify-center" :disabled="videoSubmitting || !videoForm.apiKeyId || !videoForm.prompt.trim()">
+              <Icon v-if="videoSubmitting" name="refresh" size="sm" class="mr-2 animate-spin" />
+              {{ videoSubmitting ? '提交中...' : '生成视频' }}
+            </button>
+          </form>
+        </div>
+
+        <div class="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-800">
+          <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-700">
+            <div>
+              <h2 class="text-base font-semibold text-gray-900 dark:text-white">任务记录</h2>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">进行中 {{ videoRunningCount }}/5，任务完成后可预览或下载。</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="videoLoadingTasks" title="刷新任务" @click="loadVideoTasks">
+              <Icon name="refresh" size="sm" :class="videoLoadingTasks ? 'animate-spin' : ''" />
+            </button>
+          </div>
+          <div v-if="videoLoadingTasks && !videoTasks.length" class="flex min-h-[280px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">加载任务中...</div>
+          <div v-else-if="!videoTasks.length" class="flex min-h-[280px] flex-col items-center justify-center px-5 text-center">
+            <Icon name="sparkles" size="xl" class="mb-3 text-gray-400 dark:text-dark-500" />
+            <p class="text-sm font-medium text-gray-800 dark:text-gray-200">还没有视频任务</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">提交一个提示词，任务会显示在这里。</p>
+          </div>
+          <div v-else class="divide-y divide-gray-100 dark:divide-dark-700">
+            <div v-for="task in videoTasks" :key="task.id" class="space-y-3 p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ task.model }}</p>
+                  <p class="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ task.prompt_preview || '无提示词' }}</p>
+                </div>
+                <span class="badge whitespace-nowrap" :class="creativeVideoStatusClass(task.status)">{{ creativeVideoStatusLabel(task.status) }}</span>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>{{ formatDate(task.created_at) }} · {{ task.resolution || '480p' }} · {{ task.duration_seconds || 8 }} 秒</span>
+                <div class="flex items-center gap-1">
+                  <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
+                    <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" class="mr-1" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
+                    下载
+                  </button>
+                  <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoPreviewingId === task.id" @click="previewVideoTask(task)">
+                    <Icon :name="videoPreviewingId === task.id ? 'refresh' : 'eye'" size="sm" class="mr-1" :class="videoPreviewingId === task.id ? 'animate-spin' : ''" />
+                    预览
+                  </button>
+                  <button type="button" class="btn-ghost btn-icon text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" title="删除记录" @click="removeVideoTask(task)">
+                    <Icon name="trash" size="sm" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <BaseDialog :show="!!videoPreviewUrl" :title="videoPreviewTitle" width="extra-wide" :z-index="60" @close="closeVideoPreview">
+      <div class="flex min-h-[360px] items-center justify-center rounded-lg bg-black p-3">
+        <video v-if="videoPreviewUrl" :src="videoPreviewUrl" class="max-h-[70vh] max-w-full rounded-md" controls autoplay />
+      </div>
+    </BaseDialog>
 
     <Teleport to="body">
       <div
@@ -807,6 +917,14 @@ import {
   type BatchImageStatus,
   type BatchImageSubmitItem,
 } from '@/api/batchImage'
+import {
+  createCreativeVideo,
+  deleteCreativeVideoTask,
+  downloadCreativeVideo,
+  getCreativeVideoStatus,
+  listCreativeVideoTasks,
+  type CreativeVideoTask,
+} from '@/api/creativeVideo'
 import type { ApiKey } from '@/types'
 import type { Column } from '@/components/common/types'
 
@@ -861,6 +979,7 @@ const batchPageSizeOptions: SelectOption[] = [20, 50, 100].map(size => ({ value:
 const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 const { t, locale } = useI18n()
+const activeTab = ref<'image' | 'video'>('image')
 
 const columns = computed<Column[]>(() => [
   { key: 'select', label: '', sortable: false, class: 'w-12 text-center' },
@@ -969,8 +1088,36 @@ const geminiApiKeys = computed(() =>
   ),
 )
 
+const grokApiKeys = computed(() =>
+  apiKeys.value.filter((key) =>
+    key.status === 'active' &&
+    (key.group?.platform === 'grok' || key.group?.platform === 'composite'),
+  ),
+)
+
 const selectedApiKey = computed(() =>
   geminiApiKeys.value.find((key) => key.id === Number(form.apiKeyId)) || null,
+)
+
+const videoTasks = ref<CreativeVideoTask[]>([])
+const videoForm = reactive({
+  apiKeyId: 0,
+  model: 'grok-imagine-video',
+  prompt: '',
+  resolution: '720p',
+  duration: 8,
+})
+const videoSubmitting = ref(false)
+const videoLoadingTasks = ref(false)
+const videoDownloadingId = ref('')
+const videoPreviewingId = ref('')
+const videoPreviewUrl = ref('')
+const videoPreviewTitle = ref('视频预览')
+const videoTaskKeyMap = reactive<Record<string, string>>({})
+let videoPollTimer: ReturnType<typeof setInterval> | null = null
+
+const videoRunningCount = computed(() =>
+  videoTasks.value.filter(task => ['queued', 'submitted', 'running'].includes(task.status)).length,
 )
 
 const filteredApiKeys = computed(() => {
@@ -1270,6 +1417,9 @@ async function loadApiKeys() {
     if (!selectedApiKey.value && geminiApiKeys.value.length > 0) {
       form.apiKeyId = geminiApiKeys.value[0].id
     }
+    if (!videoForm.apiKeyId && grokApiKeys.value.length > 0) {
+      videoForm.apiKeyId = grokApiKeys.value[0].id
+    }
     if (filters.apiKeyId && !geminiApiKeys.value.some(key => String(key.id) === filters.apiKeyId)) {
       filters.apiKeyId = ''
     }
@@ -1318,7 +1468,209 @@ async function loadAvailableModels() {
 
 async function refreshPage() {
   await loadApiKeys()
-  await loadBatchJobs()
+  if (activeTab.value === 'video') {
+    await loadVideoTasks()
+  } else {
+    await loadBatchJobs()
+  }
+}
+
+function apiKeyValueById(id: number) {
+  return apiKeys.value.find(key => key.id === Number(id))?.key || ''
+}
+
+function creativeVideoRequestId(response: any) {
+  for (const path of ['request_id', 'id', 'data.request_id', 'data.id', 'video.request_id', 'video.id', 'task_id']) {
+    const value = path.split('.').reduce<any>((current, part) => current?.[part], response)
+    if (value) return String(value)
+  }
+  return ''
+}
+
+async function loadVideoTasks() {
+  if (!grokApiKeys.value.length) {
+    videoTasks.value = []
+    return
+  }
+  videoLoadingTasks.value = true
+  try {
+    const rows: CreativeVideoTask[] = []
+    for (const key of grokApiKeys.value) {
+      try {
+        const result = await listCreativeVideoTasks(key.key, 50)
+        for (const task of result.data || []) {
+          rows.push(task)
+          videoTaskKeyMap[task.id] = key.key
+        }
+      } catch {
+        // One key failing should not hide tasks from other keys.
+      }
+    }
+    const seen = new Set<string>()
+    videoTasks.value = rows
+      .filter((task) => {
+        if (!task.id || seen.has(task.id)) return false
+        seen.add(task.id)
+        return true
+      })
+      .sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
+      .slice(0, 50)
+    manageVideoPolling()
+  } catch (error: any) {
+    appStore.showError(error?.message || '加载视频任务失败')
+  } finally {
+    videoLoadingTasks.value = false
+  }
+}
+
+async function submitVideo() {
+  const apiKey = apiKeyValueById(videoForm.apiKeyId)
+  if (!apiKey || !videoForm.prompt.trim()) return
+  videoSubmitting.value = true
+  try {
+    const response = await createCreativeVideo(apiKey, {
+      model: videoForm.model,
+      prompt: videoForm.prompt.trim(),
+      resolution: videoForm.resolution,
+      duration: videoForm.duration,
+    })
+    const requestId = creativeVideoRequestId(response)
+    if (requestId) videoTaskKeyMap[requestId] = apiKey
+    videoForm.prompt = ''
+    appStore.showSuccess('视频任务已提交')
+    await loadVideoTasks()
+  } catch (error: any) {
+    appStore.showError(error?.message || '提交视频任务失败')
+  } finally {
+    videoSubmitting.value = false
+  }
+}
+
+async function refreshRunningVideos() {
+  const running = videoTasks.value.filter(task => ['queued', 'submitted', 'running'].includes(task.status))
+  for (const task of running) {
+    const apiKey = videoTaskKeyMap[task.id]
+    if (!apiKey) continue
+    try {
+      const status = await getCreativeVideoStatus(apiKey, task.id)
+      const next = grokStatusToCreativeStatus(status?.status)
+      if (next) task.status = next
+      if (status?.model) task.model = status.model
+      if (status?.video?.duration) task.duration_seconds = Number(status.video.duration)
+    } catch {
+      // Keep the local task row; the next poll can recover.
+    }
+  }
+  if (running.length > 0) {
+    await loadVideoTasks()
+  }
+}
+
+function manageVideoPolling() {
+  const shouldPoll = activeTab.value === 'video' && videoTasks.value.some(task => ['queued', 'submitted', 'running'].includes(task.status))
+  if (shouldPoll && !videoPollTimer) {
+    videoPollTimer = setInterval(() => {
+      void refreshRunningVideos()
+    }, 8000)
+  } else if (!shouldPoll && videoPollTimer) {
+    clearInterval(videoPollTimer)
+    videoPollTimer = null
+  }
+}
+
+function stopVideoPolling() {
+  if (videoPollTimer) {
+    clearInterval(videoPollTimer)
+    videoPollTimer = null
+  }
+}
+
+function grokStatusToCreativeStatus(status: string) {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'done') return 'completed'
+  if (['pending', 'running', 'queued', 'processing'].includes(normalized)) return 'running'
+  if (normalized === 'failed' || normalized === 'error') return 'failed'
+  if (normalized === 'expired') return 'expired'
+  return ''
+}
+
+function creativeVideoStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    queued: '排队中',
+    submitted: '已提交',
+    running: '生成中',
+    completed: '已完成',
+    failed: '失败',
+    expired: '已过期',
+    output_deleted: '已清理',
+  }
+  return labels[status] || status || '-'
+}
+
+function creativeVideoStatusClass(status: string) {
+  if (status === 'completed') return 'badge-success'
+  if (status === 'failed' || status === 'expired' || status === 'output_deleted') return 'badge-danger'
+  return 'badge-primary'
+}
+
+async function downloadVideoTask(task: CreativeVideoTask) {
+  const apiKey = videoTaskKeyMap[task.id]
+  if (!apiKey) {
+    appStore.showError('未找到该任务对应的 API Key')
+    return
+  }
+  videoDownloadingId.value = task.id
+  try {
+    const blob = await downloadCreativeVideo(apiKey, task.id)
+    saveBlob(blob, `${task.id}.mp4`)
+    await loadVideoTasks()
+  } catch (error: any) {
+    appStore.showError(error?.message || '下载视频失败')
+  } finally {
+    videoDownloadingId.value = ''
+  }
+}
+
+async function previewVideoTask(task: CreativeVideoTask) {
+  const apiKey = videoTaskKeyMap[task.id]
+  if (!apiKey) {
+    appStore.showError('未找到该任务对应的 API Key')
+    return
+  }
+  videoPreviewingId.value = task.id
+  try {
+    closeVideoPreview()
+    const blob = await downloadCreativeVideo(apiKey, task.id)
+    videoPreviewUrl.value = URL.createObjectURL(blob)
+    videoPreviewTitle.value = task.prompt_preview || task.model
+  } catch (error: any) {
+    appStore.showError(error?.message || '加载视频预览失败')
+  } finally {
+    videoPreviewingId.value = ''
+  }
+}
+
+function closeVideoPreview() {
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value)
+  }
+  videoPreviewUrl.value = ''
+  videoPreviewTitle.value = '视频预览'
+}
+
+async function removeVideoTask(task: CreativeVideoTask) {
+  const apiKey = videoTaskKeyMap[task.id]
+  if (!apiKey) {
+    videoTasks.value = videoTasks.value.filter(row => row.id !== task.id)
+    return
+  }
+  try {
+    await deleteCreativeVideoTask(apiKey, task.id)
+    videoTasks.value = videoTasks.value.filter(row => row.id !== task.id)
+    delete videoTaskKeyMap[task.id]
+  } catch (error: any) {
+    appStore.showError(error?.message || '删除视频任务失败')
+  }
 }
 
 function applyFilters() {
@@ -2645,6 +2997,22 @@ watch(
 )
 
 watch(
+  () => activeTab.value,
+  (tab) => {
+    if (tab === 'video') {
+      void loadVideoTasks()
+    } else {
+      stopVideoPolling()
+    }
+  },
+)
+
+watch(
+  () => videoTasks.value.map(task => `${task.id}:${task.status}`).join('|'),
+  () => manageVideoPolling(),
+)
+
+watch(
   () => form.model,
   () => {
     const limit = selectedModelReferenceLimit.value
@@ -2660,6 +3028,8 @@ watch(
 
 onBeforeUnmount(() => {
   stopPolling()
+  stopVideoPolling()
+  closeVideoPreview()
   if (previewCacheCleanupTimer) {
     clearInterval(previewCacheCleanupTimer)
     previewCacheCleanupTimer = null

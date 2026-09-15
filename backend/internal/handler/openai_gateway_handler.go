@@ -42,6 +42,7 @@ type OpenAIGatewayHandler struct {
 	contentModerationService   *service.ContentModerationService
 	securityAuditCoordinator   *securityaudit.Coordinator
 	grokMediaEligibilityProber grokMediaEligibilityProber
+	creativeVideoService       *service.CreativeVideoService
 	opsService                 *service.OpsService
 	concurrencyHelper          *ConcurrencyHelper
 	imageLimiter               *imageConcurrencyLimiter
@@ -239,6 +240,13 @@ func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFu
 		replacedBodies[mappedModel] = replacedBody
 		return replacedBody
 	}
+}
+
+func (h *OpenAIGatewayHandler) SetCreativeVideoService(svc *service.CreativeVideoService) {
+	if h == nil {
+		return
+	}
+	h.creativeVideoService = svc
 }
 
 func usageRecordContext(parent context.Context, base context.Context) context.Context {

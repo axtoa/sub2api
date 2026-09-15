@@ -272,6 +272,8 @@ func RegisterGatewayRoutes(
 		gateway.POST("/videos/generations", videoGenerationHandler)
 		gateway.POST("/videos/edits", videoEditHandler)
 		gateway.POST("/videos/extensions", videoExtensionHandler)
+		gateway.GET("/videos/studio-tasks", h.OpenAIGateway.CreativeVideoTasks)
+		gateway.DELETE("/videos/studio-tasks/:request_id", h.OpenAIGateway.DeleteCreativeVideoTask)
 		gateway.GET("/videos/generations/:request_id/content", videoContentHandler)
 		gateway.GET("/videos/edits/:request_id/content", videoContentHandler)
 		gateway.GET("/videos/extensions/:request_id/content", videoContentHandler)
