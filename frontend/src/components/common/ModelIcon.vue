@@ -189,6 +189,9 @@ const iconKey = computed(() => {
   // DeepSeek
   if (modelLower.includes('deepseek')) return 'deepseek'
 
+  // MiniMax
+  if (modelLower.includes('minimax')) return 'minimax'
+
   // Mistral
   if (modelLower.includes('mistral') || modelLower.includes('mixtral') ||
       modelLower.includes('codestral') || modelLower.includes('pixtral') ||

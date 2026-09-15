@@ -203,6 +203,21 @@
             DeepSeek
           </button>
         </div>
+        <div class="mt-2 flex rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
+          <button
+            type="button"
+            @click="selectMiniMaxPlatform"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
+              form.platform === 'minimax'
+                ? 'bg-white text-rose-600 shadow-sm dark:bg-dark-600 dark:text-rose-400'
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+            ]"
+          >
+            <PlatformIcon platform="minimax" size="sm" />
+            MiniMax
+          </button>
+        </div>
       </div>
 
       <!-- Account Type Selection (Anthropic) -->
@@ -3928,6 +3943,7 @@ const baseUrlHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.baseUrlHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.baseUrlHint')
   if (form.platform === 'grok') return ''
+  if (form.platform === 'minimax') return 'MiniMax OpenAI-compatible API Base URL'
   return t('admin.accounts.baseUrlHint')
 })
 
@@ -3935,6 +3951,7 @@ const apiKeyHint = computed(() => {
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   if (form.platform === 'grok') return ''
+  if (form.platform === 'minimax') return 'Use a MiniMax API key from the MiniMax platform.'
   return t('admin.accounts.apiKeyHint')
 })
 
@@ -3948,6 +3965,8 @@ const apiKeyBaseUrlPlaceholder = computed(() => {
       return 'https://api.openai.com'
     case 'gemini':
       return 'https://generativelanguage.googleapis.com'
+    case 'minimax':
+      return 'https://api.minimaxi.com/v1'
     case 'grok':
       return 'https://api.x.ai/v1'
     default:
@@ -4142,6 +4161,13 @@ function selectCNPlatform(platform: 'kimi' | 'zhipu' | 'deepseek') {
   }
   apiKeyBaseUrl.value = defaultCNBaseUrl(platform, accountMode.value, apiProtocol.value)
   resetAdaptiveBaseUrls(platform, accountMode.value)
+}
+
+function selectMiniMaxPlatform() {
+  form.platform = 'minimax'
+  form.type = 'apikey'
+  accountCategory.value = 'apikey'
+  apiKeyBaseUrl.value = 'https://api.minimaxi.com/v1'
 }
 // 账号类型 / 协议变更时同步默认 base url。
 watch(accountMode, (mode, previousMode) => {
@@ -4695,6 +4721,8 @@ watch(
             ? 'https://generativelanguage.googleapis.com'
             : newPlatform === 'grok'
               ? 'https://api.x.ai/v1'
+              : newPlatform === 'minimax'
+                ? 'https://api.minimaxi.com/v1'
               : 'https://api.anthropic.com'
     }
     // Clear model-related settings
@@ -5618,10 +5646,12 @@ const handleSubmit = async () => {
     form.platform === 'openai'
       ? 'https://api.openai.com'
       : form.platform === 'gemini'
-        ? 'https://generativelanguage.googleapis.com'
-        : form.platform === 'grok'
-          ? 'https://api.x.ai/v1'
-          : 'https://api.anthropic.com'
+          ? 'https://generativelanguage.googleapis.com'
+          : form.platform === 'grok'
+            ? 'https://api.x.ai/v1'
+            : form.platform === 'minimax'
+              ? 'https://api.minimaxi.com/v1'
+            : 'https://api.anthropic.com'
 
   // Build credentials with optional model mapping
   const credentials: Record<string, unknown> = {

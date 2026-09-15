@@ -617,7 +617,7 @@ func upstreamModelRegistryBaseURL(account *Account) string {
 		return ""
 	}
 	switch {
-	case account.IsOpenAI() || account.IsCNProvider():
+	case account.IsOpenAI() || account.IsCNProvider() || account.Platform == PlatformMiniMax:
 		return account.GetOpenAIFormatBaseURL()
 	case account.IsGrok():
 		return account.GetGrokBaseURL()

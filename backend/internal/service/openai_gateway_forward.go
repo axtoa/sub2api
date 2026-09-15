@@ -1325,6 +1325,11 @@ func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {
 	if account == nil || account.Type != AccountTypeAPIKey {
 		return false
 	}
+	// MiniMax is integrated through Chat Completions; keep Responses on the
+	// existing conversion path even if a stale capability flag is present.
+	if account.Platform == PlatformMiniMax {
+		return true
+	}
 	if account.IsCNProvider() {
 		// CN 的显式协议配置优先于异步探针 Extra；adaptive 仅 DeepSeek / Kimi
 		// 有原生 Responses，GLM 回退 Chat Completions。

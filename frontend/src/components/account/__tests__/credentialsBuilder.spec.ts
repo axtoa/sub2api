@@ -106,8 +106,8 @@ describe('isHeaderOverrideCapable', () => {
     expect(isHeaderOverrideCapable('openai', 'oauth')).toBe(false)
   })
 
-  it('kimi/zhipu/deepseek only support apikey accounts', () => {
-    for (const platform of ['kimi', 'zhipu', 'deepseek']) {
+  it('OpenAI-compatible API-key platforms only support apikey accounts', () => {
+    for (const platform of ['kimi', 'zhipu', 'deepseek', 'minimax']) {
       expect(isHeaderOverrideCapable(platform, 'apikey')).toBe(true)
       expect(isHeaderOverrideCapable(platform, 'oauth')).toBe(false)
     }
