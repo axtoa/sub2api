@@ -55,12 +55,13 @@ func (r *BatchImageModelPricingResolver) BatchImageUnitPrice(ctx context.Context
 }
 
 type BatchImageSettlementService struct {
-	Repo         BatchImageRepository
-	BillingRepo  UsageBillingRepository
-	UsageLogRepo UsageLogRepository
-	Pricing      BatchImagePricingResolver
-	AuthCache    APIKeyAuthCacheInvalidator
-	Config       *config.Config
+	Repo              BatchImageRepository
+	BillingRepo       UsageBillingRepository
+	UsageLogRepo      UsageLogRepository
+	Pricing           BatchImagePricingResolver
+	AuthCache         APIKeyAuthCacheInvalidator
+	Config            *config.Config
+	WorkbenchSettings CreativeWorkbenchSettingsReader
 }
 
 type BatchImageSettlementResult struct {
@@ -159,7 +160,7 @@ func (s *BatchImageSettlementService) Settle(ctx context.Context, batchID string
 	s.invalidateAuthCache(ctx, job.UserID)
 
 	now := time.Now()
-	outputExpiresAt := now.Add(s.outputRetentionAfterTerminal())
+	outputExpiresAt := s.outputExpirationAt(ctx, job, now)
 	if err := s.Repo.MarkBatchImageJobSettled(ctx, MarkBatchImageJobSettledParams{
 		BatchID:         job.BatchID,
 		ActualCost:      actualCost,
@@ -308,6 +309,25 @@ func (s *BatchImageSettlementService) outputRetentionAfterTerminal() time.Durati
 		return time.Duration(s.Config.BatchImage.OutputRetentionAfterTerminalHours) * time.Hour
 	}
 	return 72 * time.Hour
+}
+
+func (s *BatchImageSettlementService) outputExpirationAt(ctx context.Context, job *BatchImageJob, now time.Time) time.Time {
+	if s != nil && s.WorkbenchSettings != nil {
+		settings, err := s.WorkbenchSettings.GetCreativeWorkbenchSettings(ctx)
+		if err != nil {
+			logger.L().Warn("batch_image.creative_workbench_settings_load_failed", zap.Error(err))
+		} else if settings != nil {
+			normalizeCreativeWorkbenchSettings(settings)
+			if settings.RetentionDays > 0 {
+				createdAt := now
+				if job != nil && !job.CreatedAt.IsZero() {
+					createdAt = job.CreatedAt
+				}
+				return createdAt.Add(time.Duration(settings.RetentionDays) * 24 * time.Hour)
+			}
+		}
+	}
+	return now.Add(s.outputRetentionAfterTerminal())
 }
 
 func BatchImageSettlementRequestID(batchID string) string {

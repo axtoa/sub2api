@@ -66,6 +66,7 @@ var (
 
 	ErrBatchImageDisabled                   = infraerrors.New(http.StatusNotFound, "BATCH_IMAGE_DISABLED", "batch image API is disabled")
 	ErrBatchImageGroupDisabled              = infraerrors.New(http.StatusForbidden, "BATCH_IMAGE_GROUP_DISABLED", "batch image API is disabled for this group")
+	ErrBatchImageRunningLimitExceeded       = infraerrors.New(http.StatusTooManyRequests, "BATCH_IMAGE_RUNNING_LIMIT_EXCEEDED", "too many running batch image jobs")
 	ErrBatchImageInvalidModel               = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_INVALID_MODEL", "batch image model is required")
 	ErrBatchImageNoAccountAvailable         = infraerrors.New(http.StatusBadGateway, "BATCH_IMAGE_NO_ACCOUNT_AVAILABLE", "no compatible batch image account is available")
 	ErrBatchImageInvalidItems               = infraerrors.New(http.StatusBadRequest, "BATCH_IMAGE_INVALID_ITEMS", "batch image items are invalid")
@@ -201,7 +202,8 @@ type CreateBatchImageJobParams struct {
 
 	RetryCount int
 
-	OutputExpiresAt *time.Time
+	OutputExpiresAt      *time.Time
+	MaxActiveJobsPerUser int
 }
 
 type BatchImageItem struct {
@@ -309,6 +311,7 @@ type BatchImageRepository interface {
 	GetBatchImageJobByBatchIDForOwner(ctx context.Context, userID, apiKeyID int64, batchID string) (*BatchImageJob, error)
 	GetBatchImageJobByID(ctx context.Context, id int64) (*BatchImageJob, error)
 	ListBatchImageJobsForOwner(ctx context.Context, userID, apiKeyID int64, filter BatchImageJobFilter) ([]*BatchImageJob, error)
+	CountActiveBatchImageJobsForUser(ctx context.Context, userID int64) (int, error)
 	TransitionBatchImageJobStatus(ctx context.Context, batchID, toStatus string, opts BatchImageTransitionOptions) error
 	// TouchBatchImageJobSubmitting 刷新未提交（created/uploading）job 的 updated_at，
 	// 作为慢提交期间的心跳，防止被 stale 恢复扫描误杀。
@@ -332,11 +335,13 @@ type BatchImageRepository interface {
 	ListBatchImageItemsForDownload(ctx context.Context, batchID string, status string, limit int) ([]*BatchImageItem, error)
 	ListBatchImageJobsDueForInputCleanup(ctx context.Context, cutoff time.Time, limit int) ([]*BatchImageJob, error)
 	ListBatchImageJobsDueForOutputCleanup(ctx context.Context, now time.Time, limit int) ([]*BatchImageJob, error)
+	ListBatchImageJobsDueForRecordCleanup(ctx context.Context, cutoff time.Time, maxRecordsPerUser, limit int) ([]*BatchImageJob, error)
 	ListStaleUnsubmittedBatchImageJobs(ctx context.Context, cutoff time.Time, limit int) ([]*BatchImageJob, error)
 	MarkBatchImageInputDeleted(ctx context.Context, batchID string, deletedAt time.Time) error
 	MarkBatchImageOutputDeleted(ctx context.Context, batchID string, deletedAt time.Time) error
 	MarkBatchImageDownloaded(ctx context.Context, batchID string, downloadedAt time.Time) error
 	MarkBatchImageJobUserDeleted(ctx context.Context, userID, apiKeyID int64, batchID string, deletedAt time.Time) error
+	MarkBatchImageJobAutoDeleted(ctx context.Context, batchID string, deletedAt time.Time) error
 	SetBatchImageOutputExpiresAt(ctx context.Context, batchID string, expiresAt time.Time) error
 	RecordBatchImageCleanupFailure(ctx context.Context, batchID, code, message string) error
 	AppendBatchImageEvent(ctx context.Context, batchID, eventType string, payload any) error

@@ -47,6 +47,10 @@ type BatchImageUserGroupRateRepository interface {
 	GetByUserAndGroup(ctx context.Context, userID, groupID int64) (*float64, error)
 }
 
+type CreativeWorkbenchSettingsReader interface {
+	GetCreativeWorkbenchSettings(ctx context.Context) (*CreativeWorkbenchSettings, error)
+}
+
 type BatchImageSubmitRequest struct {
 	Model            string                 `json:"model"`
 	TaskName         string                 `json:"task_name"`
@@ -92,6 +96,7 @@ type BatchImagePublicService struct {
 	BillingRepo       UsageBillingRepository
 	AuthCache         APIKeyAuthCacheInvalidator
 	Config            *config.Config
+	WorkbenchSettings CreativeWorkbenchSettingsReader
 }
 
 type BatchImagePricingSnapshot struct {
@@ -201,6 +206,10 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	if !s.enabled() {
 		return nil, ErrBatchImageDisabled
 	}
+	workbenchSettings := s.creativeWorkbenchSettings(ctx)
+	if workbenchSettings != nil && (!workbenchSettings.Enabled || !workbenchSettings.ImageEnabled) {
+		return nil, ErrBatchImageDisabled
+	}
 	normalized, err := s.validateSubmitRequest(req)
 	if err != nil {
 		return nil, err
@@ -229,6 +238,9 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		if !errors.Is(err, ErrBatchImageJobNotFound) {
 			return nil, err
 		}
+	}
+	if err := s.ensureImageRunningLimit(ctx, owner.UserID, workbenchSettings); err != nil {
+		return nil, err
 	}
 
 	provider, account, err := s.selectProviderAndAccount(ctx, owner, normalized.Provider, normalized.Model)
@@ -283,6 +295,7 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		IdempotencyKey:          batchImageOptionalStringPtr(idempotencyKey),
 		RequestHash:             batchImageStringPtr(requestHash),
 		SessionID:               normalized.SessionID,
+		MaxActiveJobsPerUser:    creativeWorkbenchImageRunningLimit(workbenchSettings),
 	})
 	if err != nil {
 		return nil, err
@@ -616,6 +629,10 @@ func (s *BatchImagePublicService) DeleteRecord(ctx context.Context, owner BatchI
 
 func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchImageOwner) (*BatchImagePublicModelsResponse, error) {
 	if !s.enabled() {
+		return nil, ErrBatchImageDisabled
+	}
+	settings := s.creativeWorkbenchSettings(ctx)
+	if settings != nil && (!settings.Enabled || !settings.ImageEnabled) {
 		return nil, ErrBatchImageDisabled
 	}
 	if s.Pricing == nil {
@@ -1089,6 +1106,45 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 
 func (s *BatchImagePublicService) enabled() bool {
 	return s != nil && s.Repo != nil && s.AccountRepo != nil && s.Config != nil && s.Config.BatchImage.Enabled
+}
+
+func (s *BatchImagePublicService) ensureImageRunningLimit(ctx context.Context, userID int64, settings *CreativeWorkbenchSettings) error {
+	if s == nil || s.Repo == nil || userID <= 0 {
+		return nil
+	}
+	if settings == nil || settings.ImageMaxRunningPerUser <= 0 {
+		return nil
+	}
+	count, err := s.Repo.CountActiveBatchImageJobsForUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if count >= settings.ImageMaxRunningPerUser {
+		return ErrBatchImageRunningLimitExceeded
+	}
+	return nil
+}
+
+func creativeWorkbenchImageRunningLimit(settings *CreativeWorkbenchSettings) int {
+	if settings == nil || settings.ImageMaxRunningPerUser <= 0 {
+		return 0
+	}
+	return settings.ImageMaxRunningPerUser
+}
+
+func (s *BatchImagePublicService) creativeWorkbenchSettings(ctx context.Context) *CreativeWorkbenchSettings {
+	if s == nil || s.WorkbenchSettings == nil {
+		return DefaultCreativeWorkbenchSettings()
+	}
+	settings, err := s.WorkbenchSettings.GetCreativeWorkbenchSettings(ctx)
+	if err != nil || settings == nil {
+		if err != nil {
+			logger.L().Warn("batch_image.creative_workbench_settings_load_failed", zap.Error(err))
+		}
+		return DefaultCreativeWorkbenchSettings()
+	}
+	normalizeCreativeWorkbenchSettings(settings)
+	return settings
 }
 
 func (s *BatchImagePublicService) invalidateAuthCache(ctx context.Context, userID int64) {

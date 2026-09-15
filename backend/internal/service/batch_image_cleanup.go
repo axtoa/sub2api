@@ -21,10 +21,11 @@ const (
 )
 
 type BatchImageCleanupService struct {
-	Repo             BatchImageRepository
-	ProviderRegistry *BatchImageProviderRegistry
-	AccountResolver  BatchImageAccountResolver
-	Config           *config.Config
+	Repo              BatchImageRepository
+	ProviderRegistry  *BatchImageProviderRegistry
+	AccountResolver   BatchImageAccountResolver
+	Config            *config.Config
+	WorkbenchSettings CreativeWorkbenchSettingsReader
 
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -100,6 +101,10 @@ func (s *BatchImageCleanupService) RunOnce(ctx context.Context, now time.Time) (
 	if now.IsZero() {
 		now = time.Now()
 	}
+	settings := s.creativeWorkbenchSettings(ctx)
+	if settings != nil && !settings.AutoCleanupEnabled {
+		return BatchImageCleanupRunResult{}, nil
+	}
 	limit := s.cleanupBatchSize()
 	result := BatchImageCleanupRunResult{}
 	inputCutoff := now.Add(-s.inputRetentionAfterTerminal())
@@ -130,6 +135,25 @@ func (s *BatchImageCleanupService) RunOnce(ctx context.Context, now time.Time) (
 			continue
 		}
 		result.OutputCleaned++
+	}
+	recordCutoff := now.Add(-s.recordRetentionAfterTerminal(ctx))
+	maxRecords := CreativeWorkbenchMaxRecordsDefault
+	if settings != nil && settings.MaxRecordsPerUser > 0 {
+		maxRecords = settings.MaxRecordsPerUser
+	}
+	recordJobs, err := s.Repo.ListBatchImageJobsDueForRecordCleanup(ctx, recordCutoff, maxRecords, limit)
+	if err != nil {
+		return result, err
+	}
+	for _, job := range recordJobs {
+		if job == nil {
+			continue
+		}
+		if err := s.cleanupRecord(ctx, job, "retention_or_record_limit"); err != nil {
+			result.Failures++
+			continue
+		}
+		result.RecordsDeleted++
 	}
 	return result, nil
 }
@@ -228,6 +252,27 @@ func (s *BatchImageCleanupService) cleanupJob(ctx context.Context, job *BatchIma
 	return s.Repo.MarkBatchImageOutputDeleted(ctx, job.BatchID, deletedAt)
 }
 
+func (s *BatchImageCleanupService) cleanupRecord(ctx context.Context, job *BatchImageJob, reason string) error {
+	if job == nil {
+		return ErrBatchImageJobNotFound
+	}
+	if !IsTerminalBatchImageJobStatus(job.Status) {
+		return ErrBatchImageRecordDeleteNotReady
+	}
+	if job.InputDeletedAt == nil && batchImageDerefString(job.ProviderInputRef) != "" {
+		if err := s.cleanupJob(ctx, job, CleanupTargetInput, reason); err != nil {
+			return err
+		}
+	}
+	if job.OutputDeletedAt == nil && batchImageDerefString(job.ProviderOutputRef) != "" {
+		if err := s.cleanupJob(ctx, job, CleanupTargetOutput, reason); err != nil {
+			return err
+		}
+	}
+	deletedAt := time.Now()
+	return s.Repo.MarkBatchImageJobAutoDeleted(ctx, job.BatchID, deletedAt)
+}
+
 func (s *BatchImageCleanupService) callProviderCleanup(ctx context.Context, job *BatchImageJob, target CleanupTarget) error {
 	if s == nil || s.ProviderRegistry == nil || s.AccountResolver == nil {
 		return ErrBatchImageCleanupFailed
@@ -259,6 +304,29 @@ func (s *BatchImageCleanupService) inputRetentionAfterTerminal() time.Duration {
 	return defaultBatchImageInputRetentionAfterTerminal
 }
 
+func (s *BatchImageCleanupService) recordRetentionAfterTerminal(ctx context.Context) time.Duration {
+	settings := s.creativeWorkbenchSettings(ctx)
+	if settings != nil && settings.RetentionDays > 0 {
+		return time.Duration(settings.RetentionDays) * 24 * time.Hour
+	}
+	return defaultBatchImageOutputRetentionAfterTerminal
+}
+
+func (s *BatchImageCleanupService) creativeWorkbenchSettings(ctx context.Context) *CreativeWorkbenchSettings {
+	if s == nil || s.WorkbenchSettings == nil {
+		return DefaultCreativeWorkbenchSettings()
+	}
+	settings, err := s.WorkbenchSettings.GetCreativeWorkbenchSettings(ctx)
+	if err != nil || settings == nil {
+		if err != nil {
+			logger.L().Warn("batch_image.creative_workbench_settings_load_failed", zap.Error(err))
+		}
+		return DefaultCreativeWorkbenchSettings()
+	}
+	normalizeCreativeWorkbenchSettings(settings)
+	return settings
+}
+
 func (s *BatchImageCleanupService) cleanupInterval() time.Duration {
 	if s != nil && s.Config != nil && s.Config.BatchImage.CleanupIntervalMinutes > 0 {
 		return time.Duration(s.Config.BatchImage.CleanupIntervalMinutes) * time.Minute
@@ -274,9 +342,10 @@ func (s *BatchImageCleanupService) cleanupBatchSize() int {
 }
 
 type BatchImageCleanupRunResult struct {
-	InputCleaned  int
-	OutputCleaned int
-	Failures      int
+	InputCleaned   int
+	OutputCleaned  int
+	RecordsDeleted int
+	Failures       int
 }
 
 func cleanupEventPayload(batchID string, target CleanupTarget, reason string, deletedAt *time.Time) map[string]any {

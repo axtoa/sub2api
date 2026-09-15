@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -426,6 +427,7 @@ func (r *fakeBatchImageRepository) CreateBatchImageJob(_ context.Context, params
 		IdempotencyKey:          params.IdempotencyKey,
 		RequestHash:             params.RequestHash,
 		SessionID:               params.SessionID,
+		OutputExpiresAt:         params.OutputExpiresAt,
 		CreatedAt:               time.Now(),
 	}
 	r.jobs[job.BatchID] = job
@@ -502,6 +504,19 @@ func (r *fakeBatchImageRepository) ListBatchImageJobsForOwner(_ context.Context,
 		}
 	}
 	return jobs, nil
+}
+
+func (r *fakeBatchImageRepository) CountActiveBatchImageJobsForUser(_ context.Context, userID int64) (int, error) {
+	count := 0
+	for _, job := range r.jobs {
+		if job.UserID != userID || job.UserDeletedAt != nil {
+			continue
+		}
+		if !IsTerminalBatchImageJobStatus(job.Status) {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (r *fakeBatchImageRepository) GetBatchImageJobByID(_ context.Context, id int64) (*BatchImageJob, error) {
@@ -816,6 +831,63 @@ func (r *fakeBatchImageRepository) ListBatchImageJobsDueForOutputCleanup(_ conte
 	return jobs, nil
 }
 
+func (r *fakeBatchImageRepository) ListBatchImageJobsDueForRecordCleanup(_ context.Context, cutoff time.Time, maxRecordsPerUser, limit int) ([]*BatchImageJob, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if maxRecordsPerUser <= 0 {
+		maxRecordsPerUser = CreativeWorkbenchMaxRecordsDefault
+	}
+	visible := make([]*BatchImageJob, 0, len(r.jobs))
+	for _, job := range r.jobs {
+		if job.UserDeletedAt == nil {
+			visible = append(visible, job)
+		}
+	}
+	sort.SliceStable(visible, func(i, j int) bool {
+		if visible[i].UserID != visible[j].UserID {
+			return visible[i].UserID < visible[j].UserID
+		}
+		if !visible[i].CreatedAt.Equal(visible[j].CreatedAt) {
+			return visible[i].CreatedAt.After(visible[j].CreatedAt)
+		}
+		return visible[i].ID > visible[j].ID
+	})
+	rankByBatch := make(map[string]int, len(visible))
+	lastUserID := int64(0)
+	rank := 0
+	for _, job := range visible {
+		if job.UserID != lastUserID {
+			lastUserID = job.UserID
+			rank = 0
+		}
+		rank++
+		rankByBatch[job.BatchID] = rank
+	}
+	candidates := make([]*BatchImageJob, 0)
+	for _, job := range visible {
+		if !IsTerminalBatchImageJobStatus(job.Status) {
+			continue
+		}
+		if job.CreatedAt.After(cutoff) && rankByBatch[job.BatchID] <= maxRecordsPerUser {
+			continue
+		}
+		candidates = append(candidates, job)
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		left := candidates[i].CreatedAt
+		right := candidates[j].CreatedAt
+		if !left.Equal(right) {
+			return left.Before(right)
+		}
+		return candidates[i].ID < candidates[j].ID
+	})
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+	return candidates, nil
+}
+
 func (r *fakeBatchImageRepository) ListStaleUnsubmittedBatchImageJobs(_ context.Context, cutoff time.Time, limit int) ([]*BatchImageJob, error) {
 	if limit <= 0 {
 		limit = 100
@@ -894,6 +966,21 @@ func (r *fakeBatchImageRepository) MarkBatchImageJobUserDeleted(_ context.Contex
 		job.UserDeletedAt = &deletedAt
 	}
 	r.events[batchID] = append(r.events[batchID], "user_record_deleted")
+	return nil
+}
+
+func (r *fakeBatchImageRepository) MarkBatchImageJobAutoDeleted(_ context.Context, batchID string, deletedAt time.Time) error {
+	job, ok := r.jobs[batchID]
+	if !ok {
+		return ErrBatchImageJobNotFound
+	}
+	if !isBatchImageProcessorDoneStatus(job.Status) {
+		return ErrBatchImageRecordDeleteNotReady
+	}
+	if job.UserDeletedAt == nil {
+		job.UserDeletedAt = &deletedAt
+	}
+	r.events[batchID] = append(r.events[batchID], "user_record_auto_deleted")
 	return nil
 }
 

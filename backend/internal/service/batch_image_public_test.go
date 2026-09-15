@@ -25,6 +25,55 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.ErrorIs(t, err, ErrBatchImageDisabled)
 	})
 
+	t.Run("rejects when creative workbench image is disabled", func(t *testing.T) {
+		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(true)
+		svc.WorkbenchSettings = staticCreativeWorkbenchSettings{settings: &CreativeWorkbenchSettings{
+			Enabled:                true,
+			ImageEnabled:           false,
+			VideoEnabled:           false,
+			AutoCleanupEnabled:     true,
+			RetentionDays:          3,
+			MaxRecordsPerUser:      50,
+			ImageMaxRunningPerUser: 10,
+			VideoMaxRunningPerUser: 5,
+		}}
+
+		_, err := svc.Submit(ctx, testBatchImageOwner(), validBatchImageSubmitRequest(), "")
+		require.ErrorIs(t, err, ErrBatchImageDisabled)
+		require.Empty(t, repo.jobs)
+		require.Empty(t, queue.enqueued)
+		require.Empty(t, gemini.submits)
+	})
+
+	t.Run("rejects new jobs above per user running limit", func(t *testing.T) {
+		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(true)
+		svc.WorkbenchSettings = staticCreativeWorkbenchSettings{settings: &CreativeWorkbenchSettings{
+			Enabled:                true,
+			ImageEnabled:           true,
+			VideoEnabled:           false,
+			AutoCleanupEnabled:     true,
+			RetentionDays:          3,
+			MaxRecordsPerUser:      50,
+			ImageMaxRunningPerUser: 1,
+			VideoMaxRunningPerUser: 5,
+		}}
+		apiKeyID := int64(22)
+		repo.jobs["imgbatch_running_limit"] = &BatchImageJob{
+			BatchID:   "imgbatch_running_limit",
+			UserID:    11,
+			APIKeyID:  &apiKeyID,
+			Status:    BatchImageJobStatusRunning,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		_, err := svc.Submit(ctx, testBatchImageOwner(), validBatchImageSubmitRequest(), "")
+		require.ErrorIs(t, err, ErrBatchImageRunningLimitExceeded)
+		require.Empty(t, queue.enqueued)
+		require.Empty(t, gemini.submits)
+		require.Len(t, repo.jobs, 1)
+	})
+
 	t.Run("accepts valid request stores refs and enqueues once", func(t *testing.T) {
 		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(true)
 		req := validBatchImageSubmitRequest()
@@ -744,6 +793,22 @@ func newTestBatchImagePublicService(enabled bool) (*BatchImagePublicService, *fa
 
 func testBatchImageOwner() BatchImageOwner {
 	return BatchImageOwner{UserID: 11, APIKeyID: 22}
+}
+
+type staticCreativeWorkbenchSettings struct {
+	settings *CreativeWorkbenchSettings
+	err      error
+}
+
+func (s staticCreativeWorkbenchSettings) GetCreativeWorkbenchSettings(context.Context) (*CreativeWorkbenchSettings, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.settings == nil {
+		return DefaultCreativeWorkbenchSettings(), nil
+	}
+	cp := *s.settings
+	return &cp, nil
 }
 
 type fakeBatchImageAuthCacheInvalidator struct {

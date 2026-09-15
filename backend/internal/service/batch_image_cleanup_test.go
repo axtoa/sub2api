@@ -169,6 +169,104 @@ func TestBatchImageSettlementOutputExpiration(t *testing.T) {
 	require.Equal(t, existing, *repo.jobs[second.BatchID].OutputExpiresAt)
 }
 
+func TestBatchImageSettlementUsesCreativeWorkbenchRetention(t *testing.T) {
+	repo := newFakeBatchImageRepository()
+	job := testSettlingBatchImageJob("imgbatch_creative_expire")
+	repo.jobs[job.BatchID] = job
+	billing := &fakeBatchImageBillingRepo{}
+	svc := &BatchImageSettlementService{
+		Repo:        repo,
+		BillingRepo: billing,
+		Pricing:     &fakeBatchImagePricingResolver{unitPrice: 0.25},
+		Config:      &config.Config{BatchImage: config.BatchImageConfig{OutputRetentionAfterTerminalHours: 5}},
+		WorkbenchSettings: staticCreativeWorkbenchSettings{settings: &CreativeWorkbenchSettings{
+			Enabled:                true,
+			ImageEnabled:           true,
+			VideoEnabled:           false,
+			AutoCleanupEnabled:     true,
+			RetentionDays:          3,
+			MaxRecordsPerUser:      50,
+			ImageMaxRunningPerUser: 10,
+			VideoMaxRunningPerUser: 5,
+		}},
+	}
+
+	_, err := svc.Settle(context.Background(), job.BatchID)
+	require.NoError(t, err)
+	require.NotNil(t, repo.jobs[job.BatchID].OutputExpiresAt)
+	require.WithinDuration(t, time.Now().Add(72*time.Hour), *repo.jobs[job.BatchID].OutputExpiresAt, time.Minute)
+}
+
+func TestBatchImageCleanupService_RecordRetentionAndCap(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+	repo := newFakeBatchImageRepository()
+	provider := &publicBatchImageProvider{name: BatchImageProviderGeminiAPI}
+	accountID := int64(101)
+	apiKeyID := int64(22)
+	svc := &BatchImageCleanupService{
+		Repo:             repo,
+		ProviderRegistry: NewBatchImageProviderRegistry(provider),
+		AccountResolver:  &fakeBatchImageAccountResolver{account: &Account{ID: accountID, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true}},
+		Config:           &config.Config{BatchImage: config.BatchImageConfig{CleanupBatchSize: 10}},
+		WorkbenchSettings: staticCreativeWorkbenchSettings{settings: &CreativeWorkbenchSettings{
+			Enabled:                true,
+			ImageEnabled:           true,
+			VideoEnabled:           false,
+			AutoCleanupEnabled:     true,
+			RetentionDays:          3,
+			MaxRecordsPerUser:      1,
+			ImageMaxRunningPerUser: 10,
+			VideoMaxRunningPerUser: 5,
+		}},
+	}
+	old := cleanupTestJob("imgbatch_old", BatchImageJobStatusCompleted)
+	old.APIKeyID = &apiKeyID
+	old.AccountID = &accountID
+	old.CreatedAt = now.Add(-96 * time.Hour)
+	old.UpdatedAt = old.CreatedAt
+	old.FinishedAt = &old.CreatedAt
+	old.SettledAt = &old.CreatedAt
+	old.OutputExpiresAt = batchImageTimePtr(now.Add(24 * time.Hour))
+	repo.jobs[old.BatchID] = old
+	recentKeep := cleanupTestJob("imgbatch_recent_keep", BatchImageJobStatusCompleted)
+	recentKeep.APIKeyID = &apiKeyID
+	recentKeep.AccountID = &accountID
+	recentKeep.CreatedAt = now.Add(-time.Hour)
+	recentKeep.UpdatedAt = recentKeep.CreatedAt
+	recentKeep.FinishedAt = &recentKeep.CreatedAt
+	recentKeep.SettledAt = &recentKeep.CreatedAt
+	recentKeep.OutputExpiresAt = batchImageTimePtr(now.Add(24 * time.Hour))
+	repo.jobs[recentKeep.BatchID] = recentKeep
+	recentOverflow := cleanupTestJob("imgbatch_recent_overflow", BatchImageJobStatusCompleted)
+	recentOverflow.APIKeyID = &apiKeyID
+	recentOverflow.AccountID = &accountID
+	recentOverflow.CreatedAt = now.Add(-2 * time.Hour)
+	recentOverflow.UpdatedAt = recentOverflow.CreatedAt
+	recentOverflow.FinishedAt = &recentOverflow.CreatedAt
+	recentOverflow.SettledAt = &recentOverflow.CreatedAt
+	recentOverflow.OutputExpiresAt = batchImageTimePtr(now.Add(24 * time.Hour))
+	repo.jobs[recentOverflow.BatchID] = recentOverflow
+	active := cleanupTestJob("imgbatch_active", BatchImageJobStatusRunning)
+	active.APIKeyID = &apiKeyID
+	active.AccountID = &accountID
+	active.CreatedAt = now.Add(-120 * time.Hour)
+	active.UpdatedAt = active.CreatedAt
+	active.FinishedAt = nil
+	active.SettledAt = nil
+	repo.jobs[active.BatchID] = active
+
+	result, err := svc.RunOnce(ctx, now)
+	require.NoError(t, err)
+	require.Equal(t, 2, result.RecordsDeleted)
+	require.NotNil(t, repo.jobs["imgbatch_old"].UserDeletedAt)
+	require.NotNil(t, repo.jobs["imgbatch_recent_overflow"].UserDeletedAt)
+	require.Nil(t, repo.jobs["imgbatch_recent_keep"].UserDeletedAt)
+	require.Nil(t, repo.jobs["imgbatch_active"].UserDeletedAt)
+	require.Equal(t, BatchImageJobStatusOutputDeleted, repo.jobs["imgbatch_old"].Status)
+	require.Equal(t, BatchImageJobStatusOutputDeleted, repo.jobs["imgbatch_recent_overflow"].Status)
+}
+
 func TestBatchImageDownloadAfterOutputDeletedReturnsGone(t *testing.T) {
 	svc, repo, _ := newTestBatchImageDownloadService()
 	now := time.Now()
@@ -183,6 +281,10 @@ func TestBatchImageDownloadAfterOutputDeletedReturnsGone(t *testing.T) {
 	result, err := svc.StreamZip(context.Background(), testBatchImageOwner(), "imgbatch_download", BatchImageZipOptions{}, &out)
 	require.Nil(t, result)
 	require.ErrorIs(t, err, ErrBatchImageOutputDeleted)
+}
+
+func batchImageTimePtr(v time.Time) *time.Time {
+	return &v
 }
 
 func newTestBatchImageCleanupService() (*BatchImageCleanupService, *fakeBatchImageRepository, *publicBatchImageProvider) {

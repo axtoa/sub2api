@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"time"
 
@@ -43,11 +44,66 @@ func (r *batchImageRepository) CreateBatchImageJob(ctx context.Context, params s
 		params.Currency = "USD"
 	}
 
-	job, err := createBatchImageJobWithSQL(ctx, r.sql, params)
+	var job *service.BatchImageJob
+	var err error
+	if params.MaxActiveJobsPerUser > 0 {
+		job, err = r.createBatchImageJobWithActiveLimit(ctx, params)
+	} else {
+		job, err = createBatchImageJobWithSQL(ctx, r.sql, params)
+	}
 	if err != nil {
+		if errors.Is(err, service.ErrBatchImageRunningLimitExceeded) {
+			return nil, err
+		}
 		return nil, translatePersistenceError(err, nil, service.ErrBatchImageJobExists)
 	}
 	return job, nil
+}
+
+func (r *batchImageRepository) createBatchImageJobWithActiveLimit(ctx context.Context, params service.CreateBatchImageJobParams) (*service.BatchImageJob, error) {
+	if r.db == nil {
+		return createBatchImageJobWithActiveLimitSQL(ctx, r.sql, params)
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+	job, err := createBatchImageJobWithActiveLimitSQL(ctx, tx, params)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
+func createBatchImageJobWithActiveLimitSQL(ctx context.Context, sqlq batchImageSQLExecutor, params service.CreateBatchImageJobParams) (*service.BatchImageJob, error) {
+	if params.UserID <= 0 || params.MaxActiveJobsPerUser <= 0 {
+		return createBatchImageJobWithSQL(ctx, sqlq, params)
+	}
+	rows, err := sqlq.QueryContext(ctx, `SELECT pg_advisory_xact_lock($1)`, advisoryLockHash("creative_workbench:image:"+strconv.FormatInt(params.UserID, 10)))
+	if err != nil {
+		return nil, err
+	}
+	_ = rows.Close()
+
+	var activeCount int
+	if err := sqlq.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM batch_image_jobs
+WHERE user_id = $1
+  AND user_deleted_at IS NULL
+  AND status IN ('created', 'uploading', 'submitted', 'running', 'indexing', 'settling')`, params.UserID).Scan(&activeCount); err != nil {
+		return nil, err
+	}
+	if activeCount >= params.MaxActiveJobsPerUser {
+		return nil, service.ErrBatchImageRunningLimitExceeded
+	}
+	return createBatchImageJobWithSQL(ctx, sqlq, params)
 }
 
 func (r *batchImageRepository) GetBatchImageJobByBatchID(ctx context.Context, batchID string) (*service.BatchImageJob, error) {
@@ -123,6 +179,20 @@ func (r *batchImageRepository) ListBatchImageJobsForOwner(ctx context.Context, u
 	}
 	defer func() { _ = rows.Close() }()
 	return scanBatchImageJobs(rows)
+}
+
+func (r *batchImageRepository) CountActiveBatchImageJobsForUser(ctx context.Context, userID int64) (int, error) {
+	var count int
+	err := r.sql.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM batch_image_jobs
+WHERE user_id = $1
+  AND user_deleted_at IS NULL
+  AND status IN ('created', 'uploading', 'submitted', 'running', 'indexing', 'settling')`, userID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (r *batchImageRepository) GetBatchImageJobByID(ctx context.Context, id int64) (*service.BatchImageJob, error) {
@@ -604,6 +674,38 @@ func (r *batchImageRepository) ListBatchImageJobsDueForOutputCleanup(ctx context
 	return scanBatchImageJobs(rows)
 }
 
+func (r *batchImageRepository) ListBatchImageJobsDueForRecordCleanup(ctx context.Context, cutoff time.Time, maxRecordsPerUser, limit int) ([]*service.BatchImageJob, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 100
+	}
+	if maxRecordsPerUser <= 0 {
+		maxRecordsPerUser = service.CreativeWorkbenchMaxRecordsDefault
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+WITH visible_jobs AS (
+    SELECT
+        id AS job_id,
+        ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS visible_rank
+    FROM batch_image_jobs
+    WHERE user_deleted_at IS NULL
+)
+`+batchImageJobSelectSQL+`
+ INNER JOIN visible_jobs v ON v.job_id = batch_image_jobs.id
+ WHERE batch_image_jobs.user_deleted_at IS NULL
+   AND batch_image_jobs.status IN ('completed', 'failed', 'cancelled', 'output_deleted')
+   AND (
+        batch_image_jobs.created_at <= $1
+        OR v.visible_rank > $2
+   )
+ ORDER BY batch_image_jobs.created_at ASC, batch_image_jobs.id ASC
+ LIMIT $3`, cutoff, maxRecordsPerUser, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanBatchImageJobs(rows)
+}
+
 func (r *batchImageRepository) ListStaleUnsubmittedBatchImageJobs(ctx context.Context, cutoff time.Time, limit int) ([]*service.BatchImageJob, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 100
@@ -703,6 +805,26 @@ WHERE batch_id = $1
 		"deleted_at": deletedAt.UTC().Format(time.RFC3339),
 		"user_id":    userID,
 		"api_key_id": apiKeyID,
+	})
+}
+
+func (r *batchImageRepository) MarkBatchImageJobAutoDeleted(ctx context.Context, batchID string, deletedAt time.Time) error {
+	res, err := r.sql.ExecContext(ctx, `
+UPDATE batch_image_jobs
+SET user_deleted_at = CASE WHEN user_deleted_at IS NULL THEN $2 ELSE user_deleted_at END,
+    updated_at = $2
+WHERE batch_id = $1
+  AND user_deleted_at IS NULL
+  AND status IN ('completed', 'failed', 'cancelled', 'output_deleted')`, batchID, deletedAt)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return service.ErrBatchImageRecordDeleteNotReady
+	}
+	return appendBatchImageEventWithSQL(ctx, r.sql, batchID, "user_record_auto_deleted", map[string]any{
+		"batch_id":   batchID,
+		"deleted_at": deletedAt.UTC().Format(time.RFC3339),
 	})
 }
 
