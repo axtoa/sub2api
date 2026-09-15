@@ -308,9 +308,9 @@
           <div class="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 class="text-base font-semibold text-gray-900 dark:text-white">生成视频</h2>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">视频任务自创建起保留 3 天，完成后请及时下载。</p>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">视频任务自创建起保留 {{ videoLimits.retentionDays }} 天，完成后请及时下载。</p>
             </div>
-            <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ videoTasks.length }}/50</span>
+            <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">{{ videoTasks.length }}/{{ videoLimits.maxRecords }}</span>
           </div>
           <form class="space-y-4" @submit.prevent="submitVideo">
             <div>
@@ -363,7 +363,7 @@
           <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-700">
             <div>
               <h2 class="text-base font-semibold text-gray-900 dark:text-white">任务记录</h2>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">进行中 {{ videoRunningCount }}/5，任务完成后可预览或下载。</p>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">进行中 {{ videoRunningCount }}/{{ videoLimits.maxRunning }}，任务完成后可预览或下载。</p>
             </div>
             <button type="button" class="btn btn-secondary btn-sm" :disabled="videoLoadingTasks" title="刷新任务" @click="loadVideoTasks">
               <Icon name="refresh" size="sm" :class="videoLoadingTasks ? 'animate-spin' : ''" />
@@ -395,7 +395,7 @@
                     <Icon :name="videoPreviewingId === task.id ? 'refresh' : 'eye'" size="sm" class="mr-1" :class="videoPreviewingId === task.id ? 'animate-spin' : ''" />
                     预览
                   </button>
-                  <button type="button" class="btn-ghost btn-icon text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" title="删除记录" @click="removeVideoTask(task)">
+                  <button v-if="isCreativeVideoTerminal(task.status)" type="button" class="btn-ghost btn-icon text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" title="删除记录" @click="removeVideoTask(task)">
                     <Icon name="trash" size="sm" />
                   </button>
                 </div>
@@ -1114,6 +1114,11 @@ const videoPreviewingId = ref('')
 const videoPreviewUrl = ref('')
 const videoPreviewTitle = ref('视频预览')
 const videoTaskKeyMap = reactive<Record<string, string>>({})
+const videoLimits = reactive({
+  retentionDays: 3,
+  maxRecords: 50,
+  maxRunning: 5,
+})
 let videoPollTimer: ReturnType<typeof setInterval> | null = null
 
 const videoRunningCount = computed(() =>
@@ -1490,14 +1495,24 @@ function creativeVideoRequestId(response: any) {
 async function loadVideoTasks() {
   if (!grokApiKeys.value.length) {
     videoTasks.value = []
+    videoLimits.retentionDays = 3
+    videoLimits.maxRecords = 50
+    videoLimits.maxRunning = 5
     return
   }
   videoLoadingTasks.value = true
   try {
     const rows: CreativeVideoTask[] = []
+    let limitsLoaded = false
     for (const key of grokApiKeys.value) {
       try {
-        const result = await listCreativeVideoTasks(key.key, 50)
+        const result = await listCreativeVideoTasks(key.key, 500)
+        if (!limitsLoaded) {
+          videoLimits.retentionDays = Number(result.retention_days) || 3
+          videoLimits.maxRecords = Number(result.max_records_per_user) || 50
+          videoLimits.maxRunning = Number(result.max_running_per_user) || 5
+          limitsLoaded = true
+        }
         for (const task of result.data || []) {
           rows.push(task)
           videoTaskKeyMap[task.id] = key.key
@@ -1514,7 +1529,7 @@ async function loadVideoTasks() {
         return true
       })
       .sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
-      .slice(0, 50)
+      .slice(0, videoLimits.maxRecords)
     manageVideoPolling()
   } catch (error: any) {
     appStore.showError(error?.message || '加载视频任务失败')
@@ -1613,6 +1628,10 @@ function creativeVideoStatusClass(status: string) {
   return 'badge-primary'
 }
 
+function isCreativeVideoTerminal(status: string) {
+  return ['completed', 'failed', 'expired', 'output_deleted'].includes(status)
+}
+
 async function downloadVideoTask(task: CreativeVideoTask) {
   const apiKey = videoTaskKeyMap[task.id]
   if (!apiKey) {
@@ -1659,6 +1678,7 @@ function closeVideoPreview() {
 }
 
 async function removeVideoTask(task: CreativeVideoTask) {
+  if (!window.confirm('确认删除这条视频任务记录吗？删除后将不再显示，视频仍受上游有效期限制。')) return
   const apiKey = videoTaskKeyMap[task.id]
   if (!apiKey) {
     videoTasks.value = videoTasks.value.filter(row => row.id !== task.id)

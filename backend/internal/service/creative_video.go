@@ -131,9 +131,12 @@ type CreativeVideoTaskPublic struct {
 }
 
 type CreativeVideoTasksResponse struct {
-	Object  string                    `json:"object"`
-	Data    []CreativeVideoTaskPublic `json:"data"`
-	HasMore bool                      `json:"has_more"`
+	Object            string                    `json:"object"`
+	Data              []CreativeVideoTaskPublic `json:"data"`
+	HasMore           bool                      `json:"has_more"`
+	RetentionDays     int                       `json:"retention_days"`
+	MaxRecordsPerUser int                       `json:"max_records_per_user"`
+	MaxRunningPerUser int                       `json:"max_running_per_user"`
 }
 
 type CreativeVideoTasksQuery struct {
@@ -204,9 +207,13 @@ func (s *CreativeVideoService) CompleteSubmit(ctx context.Context, taskID string
 	if s == nil || s.Repo == nil || strings.TrimSpace(taskID) == "" || result == nil {
 		return nil
 	}
+	providerRequestID := strings.TrimSpace(result.ResponseID)
+	if providerRequestID == "" {
+		return infraerrors.New(http.StatusBadGateway, "CREATIVE_VIDEO_MISSING_REQUEST_ID", "creative video upstream response did not include a request id")
+	}
 	return s.Repo.CompleteCreativeVideoTaskSubmit(ctx, CompleteCreativeVideoTaskSubmitParams{
 		TaskID:            taskID,
-		ProviderRequestID: strings.TrimSpace(result.ResponseID),
+		ProviderRequestID: providerRequestID,
 		AccountID:         accountID,
 		Status:            CreativeVideoStatusRunning,
 		Model:             firstNonEmpty(strings.TrimSpace(result.Model), strings.TrimSpace(fallback.Model)),
@@ -242,11 +249,12 @@ func (s *CreativeVideoService) ObserveGatewayResult(ctx context.Context, userID,
 }
 
 func (s *CreativeVideoService) List(ctx context.Context, owner BatchImageOwner, query CreativeVideoTasksQuery) (*CreativeVideoTasksResponse, error) {
+	settings := s.creativeWorkbenchSettings(ctx)
 	if s == nil || s.Repo == nil {
-		return &CreativeVideoTasksResponse{Object: "list", Data: []CreativeVideoTaskPublic{}}, nil
+		return creativeVideoTasksResponseWithSettings(settings, nil, false), nil
 	}
 	limit := query.Limit
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 || limit > 500 {
 		limit = 20
 	}
 	offset := 0
@@ -272,7 +280,24 @@ func (s *CreativeVideoService) List(ctx context.Context, owner BatchImageOwner, 
 	for _, task := range tasks {
 		data = append(data, CreativeVideoTaskToPublic(task))
 	}
-	return &CreativeVideoTasksResponse{Object: "list", Data: data, HasMore: hasMore}, nil
+	return creativeVideoTasksResponseWithSettings(settings, data, hasMore), nil
+}
+
+func creativeVideoTasksResponseWithSettings(settings *CreativeWorkbenchSettings, data []CreativeVideoTaskPublic, hasMore bool) *CreativeVideoTasksResponse {
+	if settings == nil {
+		settings = DefaultCreativeWorkbenchSettings()
+	}
+	if data == nil {
+		data = []CreativeVideoTaskPublic{}
+	}
+	return &CreativeVideoTasksResponse{
+		Object:            "list",
+		Data:              data,
+		HasMore:           hasMore,
+		RetentionDays:     settings.RetentionDays,
+		MaxRecordsPerUser: settings.MaxRecordsPerUser,
+		MaxRunningPerUser: settings.VideoMaxRunningPerUser,
+	}
 }
 
 func (s *CreativeVideoService) MarkDownloaded(ctx context.Context, owner BatchImageOwner, requestID string) error {

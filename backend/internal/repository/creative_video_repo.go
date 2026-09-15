@@ -190,7 +190,7 @@ WHERE provider_request_id = $1
 
 func (r *creativeVideoRepository) ListCreativeVideoTasksForOwner(ctx context.Context, userID, apiKeyID int64, filter service.CreativeVideoTaskFilter) ([]*service.CreativeVideoTask, error) {
 	limit := filter.Limit
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 || limit > 501 {
 		limit = 20
 	}
 	if filter.Offset < 0 {
@@ -257,7 +257,8 @@ SET user_deleted_at = $4,
 WHERE (provider_request_id = $1 OR task_id = $1)
   AND user_id = $2
   AND api_key_id = $3
-  AND user_deleted_at IS NULL`, strings.TrimSpace(providerRequestID), userID, apiKeyID, deletedAt)
+  AND user_deleted_at IS NULL
+  AND status IN ('completed', 'failed', 'expired', 'output_deleted')`, strings.TrimSpace(providerRequestID), userID, apiKeyID, deletedAt)
 	if err != nil {
 		return translatePersistenceError(err, nil, nil)
 	}
@@ -283,8 +284,9 @@ due AS (
     FROM creative_video_tasks t
     LEFT JOIN ranked r ON r.id = t.id
     WHERE t.user_deleted_at IS NULL
+      AND t.status IN ('completed', 'failed', 'expired', 'output_deleted')
       AND (
-          t.created_at < $1
+          t.created_at <= $1
           OR COALESCE(r.rn, 0) > $2
       )
     ORDER BY t.created_at ASC, t.id ASC
@@ -309,7 +311,8 @@ SET user_deleted_at = $2,
     status = CASE WHEN status = 'completed' THEN 'output_deleted' ELSE status END,
     updated_at = $2
 WHERE task_id = $1
-  AND user_deleted_at IS NULL`, strings.TrimSpace(taskID), deletedAt)
+  AND user_deleted_at IS NULL
+  AND status IN ('completed', 'failed', 'expired', 'output_deleted')`, strings.TrimSpace(taskID), deletedAt)
 	return translatePersistenceError(err, nil, nil)
 }
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,6 +53,17 @@ func TestCreativeVideoObserveRequiresDoneWithVideoURL(t *testing.T) {
 	require.Equal(t, CreativeVideoStatusCompleted, repo.observedStatus)
 }
 
+func TestCreativeVideoCompleteSubmitRejectsMissingRequestID(t *testing.T) {
+	t.Parallel()
+	svc := NewCreativeVideoService(&fakeCreativeVideoRepo{}, fakeCreativeWorkbenchReader{settings: DefaultCreativeWorkbenchSettings()})
+
+	err := svc.CompleteSubmit(context.Background(), "vidtask_1", 7, &OpenAIForwardResult{}, GrokMediaRequestInfo{
+		Model: "grok-imagine-video",
+	})
+	require.Error(t, err)
+	require.Equal(t, "CREATIVE_VIDEO_MISSING_REQUEST_ID", infraerrors.Reason(err))
+}
+
 func TestCreativeVideoCleanupSoftDeletesRecords(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -78,6 +90,41 @@ func TestCreativeVideoCleanupSoftDeletesRecords(t *testing.T) {
 	require.True(t, repo.cleanupCutoff.Equal(now.AddDate(0, 0, -3)))
 }
 
+func TestCreativeVideoListIncludesRuntimeLimits(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := &fakeCreativeVideoRepo{
+		listTasks: []*CreativeVideoTask{
+			{
+				TaskID:    "vidtask_1",
+				UserID:    1,
+				APIKeyID:  2,
+				Provider:  CreativeVideoProviderGrok,
+				Model:     "grok-imagine-video",
+				Status:    CreativeVideoStatusRunning,
+				CreatedAt: time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+	svc := NewCreativeVideoService(repo, fakeCreativeWorkbenchReader{settings: &CreativeWorkbenchSettings{
+		Enabled:                true,
+		VideoEnabled:           true,
+		AutoCleanupEnabled:     true,
+		RetentionDays:          7,
+		MaxRecordsPerUser:      80,
+		ImageMaxRunningPerUser: 10,
+		VideoMaxRunningPerUser: 6,
+	}})
+
+	got, err := svc.List(ctx, BatchImageOwner{UserID: 1, APIKeyID: 2}, CreativeVideoTasksQuery{Limit: 500})
+	require.NoError(t, err)
+	require.Len(t, got.Data, 1)
+	require.Equal(t, 7, got.RetentionDays)
+	require.Equal(t, 80, got.MaxRecordsPerUser)
+	require.Equal(t, 6, got.MaxRunningPerUser)
+	require.Equal(t, 501, repo.listFilter.Limit)
+}
+
 type fakeCreativeWorkbenchReader struct {
 	settings *CreativeWorkbenchSettings
 }
@@ -89,6 +136,8 @@ func (r fakeCreativeWorkbenchReader) GetCreativeWorkbenchSettings(context.Contex
 type fakeCreativeVideoRepo struct {
 	activeCount        int
 	observedStatus     string
+	listTasks          []*CreativeVideoTask
+	listFilter         CreativeVideoTaskFilter
 	dueTasks           []*CreativeVideoTask
 	cleanupCutoff      time.Time
 	autoDeletedTaskIDs []string
@@ -114,8 +163,9 @@ func (r *fakeCreativeVideoRepo) ObserveCreativeVideoTask(_ context.Context, para
 	return nil
 }
 
-func (r *fakeCreativeVideoRepo) ListCreativeVideoTasksForOwner(context.Context, int64, int64, CreativeVideoTaskFilter) ([]*CreativeVideoTask, error) {
-	return nil, nil
+func (r *fakeCreativeVideoRepo) ListCreativeVideoTasksForOwner(_ context.Context, _ int64, _ int64, filter CreativeVideoTaskFilter) ([]*CreativeVideoTask, error) {
+	r.listFilter = filter
+	return r.listTasks, nil
 }
 
 func (r *fakeCreativeVideoRepo) CountActiveCreativeVideoTasksForUser(context.Context, int64) (int, error) {

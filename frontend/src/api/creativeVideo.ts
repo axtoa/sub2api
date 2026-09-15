@@ -30,6 +30,9 @@ export interface CreativeVideoTasksResponse {
   object: string
   data: CreativeVideoTask[]
   has_more: boolean
+  retention_days: number
+  max_records_per_user: number
+  max_running_per_user: number
 }
 
 export interface CreativeVideoCreateRequest {

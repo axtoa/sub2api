@@ -16,7 +16,13 @@ func (h *OpenAIGatewayHandler) CreativeVideoTasks(c *gin.Context) {
 		return
 	}
 	if h == nil || h.creativeVideoService == nil {
-		c.JSON(http.StatusOK, service.CreativeVideoTasksResponse{Object: "list", Data: []service.CreativeVideoTaskPublic{}})
+		c.JSON(http.StatusOK, service.CreativeVideoTasksResponse{
+			Object:            "list",
+			Data:              []service.CreativeVideoTaskPublic{},
+			RetentionDays:     service.CreativeWorkbenchRetentionDaysDefault,
+			MaxRecordsPerUser: service.CreativeWorkbenchMaxRecordsDefault,
+			MaxRunningPerUser: service.CreativeWorkbenchVideoRunningDefault,
+		})
 		return
 	}
 	limit, _ := strconv.Atoi(c.Query("limit"))
