@@ -420,9 +420,10 @@ type PublicSettings struct {
 
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
-	ModelPlazaEnabled       bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth   bool `json:"model_plaza_require_auth"`
-	PluginManagementEnabled bool `json:"plugin_management_enabled"`
+	ModelPlazaEnabled        bool `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth    bool `json:"model_plaza_require_auth"`
+	PluginManagementEnabled  bool `json:"plugin_management_enabled"`
+	CreativeWorkbenchEnabled bool `json:"creative_workbench_enabled"`
 
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 

@@ -49,6 +49,17 @@ func DefaultCreativeWorkbenchSettings() *CreativeWorkbenchSettings {
 	}
 }
 
+func creativeWorkbenchEnabledFromValue(value string) bool {
+	settings := DefaultCreativeWorkbenchSettings()
+	if strings.TrimSpace(value) == "" {
+		return settings.Enabled
+	}
+	if err := json.Unmarshal([]byte(value), settings); err != nil {
+		return DefaultCreativeWorkbenchSettings().Enabled
+	}
+	return settings.Enabled
+}
+
 func normalizeCreativeWorkbenchSettings(settings *CreativeWorkbenchSettings) {
 	if settings == nil {
 		return

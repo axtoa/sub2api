@@ -1,19 +1,28 @@
 import { computed, ref } from 'vue'
 import { keysAPI } from '@/api/keys'
 import { useAuthStore } from '@/stores/auth'
+import { useAppStore } from '@/stores/app'
 import type { ApiKey } from '@/types'
 
 const loaded = ref(false)
 const loading = ref(false)
 const hasAllowedBatchImageKey = ref(false)
+const hasAllowedCreativeVideoKey = ref(false)
 let pendingLoad: Promise<boolean> | null = null
 const pageSize = 100
 
-function keyAllowsBatchImage(key: ApiKey): boolean {
+export function keyAllowsBatchImage(key: ApiKey): boolean {
   return (
     key.status === 'active' &&
     key.group?.platform === 'gemini' &&
     key.group?.allow_batch_image_generation === true
+  )
+}
+
+export function keyAllowsCreativeVideo(key: ApiKey): boolean {
+  return (
+    key.status === 'active' &&
+    (key.group?.platform === 'grok' || key.group?.platform === 'composite')
   )
 }
 
@@ -22,6 +31,7 @@ async function loadBatchImageAccess(force = false): Promise<boolean> {
   if (!authStore.isAuthenticated) {
     loaded.value = true
     hasAllowedBatchImageKey.value = false
+    hasAllowedCreativeVideoKey.value = false
     return false
   }
 
@@ -36,6 +46,8 @@ async function loadBatchImageAccess(force = false): Promise<boolean> {
   loading.value = true
   pendingLoad = (async () => {
     let page = 1
+    let foundBatchImageKey = false
+    let foundCreativeVideoKey = false
     while (true) {
       const response = await keysAPI.list(page, pageSize, {
         status: 'active',
@@ -43,16 +55,22 @@ async function loadBatchImageAccess(force = false): Promise<boolean> {
         sort_order: 'desc'
       })
 
-      if ((response.items || []).some(keyAllowsBatchImage)) {
-        hasAllowedBatchImageKey.value = true
-        loaded.value = true
-        return true
+      for (const key of response.items || []) {
+        if (keyAllowsBatchImage(key)) foundBatchImageKey = true
+        if (keyAllowsCreativeVideo(key)) foundCreativeVideoKey = true
       }
 
-      if (page >= response.pages || (response.items || []).length === 0) {
-        hasAllowedBatchImageKey.value = false
+      // Keep scanning until both capabilities are known so video-only users
+      // can see the studio without changing the image access flag.
+      if (
+        (foundBatchImageKey && foundCreativeVideoKey) ||
+        page >= response.pages ||
+        (response.items || []).length === 0
+      ) {
+        hasAllowedBatchImageKey.value = foundBatchImageKey
+        hasAllowedCreativeVideoKey.value = foundCreativeVideoKey
         loaded.value = true
-        return false
+        return foundBatchImageKey
       }
 
       page += 1
@@ -60,6 +78,7 @@ async function loadBatchImageAccess(force = false): Promise<boolean> {
   })()
     .catch(() => {
       hasAllowedBatchImageKey.value = false
+      hasAllowedCreativeVideoKey.value = false
       loaded.value = true
       return false
     })
@@ -72,10 +91,17 @@ async function loadBatchImageAccess(force = false): Promise<boolean> {
 }
 
 export function useBatchImageAccess() {
+  const appStore = useAppStore()
   const canUseBatchImage = computed(() => hasAllowedBatchImageKey.value)
+  const canUseCreativeStudio = computed(
+    () =>
+      appStore.cachedPublicSettings?.creative_workbench_enabled !== false &&
+      (hasAllowedBatchImageKey.value || hasAllowedCreativeVideoKey.value),
+  )
 
   return {
     canUseBatchImage,
+    canUseCreativeStudio,
     batchImageAccessLoaded: computed(() => loaded.value),
     batchImageAccessLoading: computed(() => loading.value),
     refreshBatchImageAccess: loadBatchImageAccess,
