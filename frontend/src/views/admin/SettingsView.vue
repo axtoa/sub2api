@@ -7710,7 +7710,166 @@
 
         </div><!-- /Tab: Features -->
 
-        <!-- Tab: Email -->
+        <!-- Tab: Creative Workbench -->
+        <div v-show="activeTab === 'creative'" class="space-y-6">
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ t("admin.settings.creativeWorkbench.title") }}
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.creativeWorkbench.description") }}
+              </p>
+            </div>
+            <div class="space-y-5 p-6">
+              <div
+                v-if="creativeWorkbenchLoading"
+                class="flex items-center gap-2 text-gray-500"
+              >
+                <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"></div>
+                {{ t("common.loading") }}
+              </div>
+
+              <template v-else>
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">
+                      {{ t("admin.settings.creativeWorkbench.enabled") }}
+                    </label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.enabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="creativeWorkbenchForm.enabled" />
+                </div>
+
+                <div class="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2 dark:border-dark-700">
+                  <div class="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                    <div>
+                      <label class="font-medium text-gray-900 dark:text-white">
+                        {{ t("admin.settings.creativeWorkbench.imageEnabled") }}
+                      </label>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {{ t("admin.settings.creativeWorkbench.imageEnabledHint") }}
+                      </p>
+                    </div>
+                    <Toggle v-model="creativeWorkbenchForm.image_enabled" />
+                  </div>
+                  <div class="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                    <div>
+                      <label class="font-medium text-gray-900 dark:text-white">
+                        {{ t("admin.settings.creativeWorkbench.videoEnabled") }}
+                      </label>
+                      <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {{ t("admin.settings.creativeWorkbench.videoEnabledHint") }}
+                      </p>
+                    </div>
+                    <Toggle v-model="creativeWorkbenchForm.video_enabled" />
+                  </div>
+                </div>
+
+                <div class="grid gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2 lg:grid-cols-4 dark:border-dark-700">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.creativeWorkbench.retentionDays") }}
+                    </label>
+                    <input
+                      v-model.number="creativeWorkbenchForm.retention_days"
+                      type="number"
+                      min="1"
+                      max="30"
+                      class="input"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.retentionDaysHint") }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.creativeWorkbench.maxRecords") }}
+                    </label>
+                    <input
+                      v-model.number="creativeWorkbenchForm.max_records_per_user"
+                      type="number"
+                      min="1"
+                      max="500"
+                      class="input"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.maxRecordsHint") }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.creativeWorkbench.imageRunning") }}
+                    </label>
+                    <input
+                      v-model.number="creativeWorkbenchForm.image_max_running_per_user"
+                      type="number"
+                      min="1"
+                      max="50"
+                      class="input"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.imageRunningHint") }}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.creativeWorkbench.videoRunning") }}
+                    </label>
+                    <input
+                      v-model.number="creativeWorkbenchForm.video_max_running_per_user"
+                      type="number"
+                      min="1"
+                      max="50"
+                      class="input"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.videoRunningHint") }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">
+                      {{ t("admin.settings.creativeWorkbench.autoCleanup") }}
+                    </label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.autoCleanupHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="creativeWorkbenchForm.auto_cleanup_enabled" />
+                </div>
+
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                  {{ t("admin.settings.creativeWorkbench.storageHint") }}
+                </div>
+
+                <div class="flex justify-end border-t border-gray-100 pt-4 dark:border-dark-700">
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    :disabled="creativeWorkbenchSaving"
+                    @click="saveCreativeWorkbenchSettings"
+                  >
+                    {{
+                      creativeWorkbenchSaving
+                        ? t("common.saving")
+                        : t("common.save")
+                    }}
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <!-- /Tab: Creative Workbench -->
+
         <!-- Tab: Payment -->
         <div v-show="activeTab === 'payment'" class="space-y-6">
           <!-- Payment System Settings -->
@@ -8690,7 +8849,7 @@
         </div>
 
         <!-- Save Button -->
-        <div v-show="activeTab !== 'backup'" class="flex justify-end">
+        <div v-show="activeTab !== 'backup' && activeTab !== 'creative'" class="flex justify-end">
           <button
             type="submit"
             :disabled="saving || loadFailed"
@@ -8791,6 +8950,7 @@ import type {
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
   WebSearchTestResult,
+  CreativeWorkbenchSettings,
 } from "@/api/admin/settings";
 import type {
   AdminGroup,
@@ -8869,6 +9029,7 @@ type SettingsTab =
   | "security"
   | "users"
   | "gateway"
+  | "creative"
   | "payment"
   | "email"
   | "backup";
@@ -8880,6 +9041,7 @@ const settingsTabs = [
   { key: "security" as SettingsTab, icon: "shield" as const },
   { key: "users" as SettingsTab, icon: "user" as const },
   { key: "gateway" as SettingsTab, icon: "server" as const },
+  { key: "creative" as SettingsTab, icon: "bolt" as const },
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
@@ -8998,6 +9160,20 @@ const panelRateLimitForm = reactive({
   heavy_rpm: 60,
   exempt_admin: true,
   public_ip_rpm: 300,
+});
+
+// AI 创作台设置
+const creativeWorkbenchLoading = ref(true);
+const creativeWorkbenchSaving = ref(false);
+const creativeWorkbenchForm = reactive<CreativeWorkbenchSettings>({
+  enabled: true,
+  image_enabled: true,
+  video_enabled: false,
+  auto_cleanup_enabled: true,
+  retention_days: 3,
+  max_records_per_user: 50,
+  image_max_running_per_user: 10,
+  video_max_running_per_user: 5,
 });
 
 // Stream Timeout 状态
@@ -11874,6 +12050,46 @@ async function savePanelRateLimitSettings() {
   }
 }
 
+// AI 创作台设置方法
+async function loadCreativeWorkbenchSettings() {
+  creativeWorkbenchLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getCreativeWorkbenchSettings();
+    Object.assign(creativeWorkbenchForm, settings);
+  } catch (_error: unknown) {
+    // Silent fail - settings will use defaults
+  } finally {
+    creativeWorkbenchLoading.value = false;
+  }
+}
+
+async function saveCreativeWorkbenchSettings() {
+  creativeWorkbenchSaving.value = true;
+  try {
+    const updated = await adminAPI.settings.updateCreativeWorkbenchSettings({
+      enabled: creativeWorkbenchForm.enabled,
+      image_enabled: creativeWorkbenchForm.image_enabled,
+      video_enabled: creativeWorkbenchForm.video_enabled,
+      auto_cleanup_enabled: creativeWorkbenchForm.auto_cleanup_enabled,
+      retention_days: Math.floor(Number(creativeWorkbenchForm.retention_days)),
+      max_records_per_user: Math.floor(Number(creativeWorkbenchForm.max_records_per_user)),
+      image_max_running_per_user: Math.floor(Number(creativeWorkbenchForm.image_max_running_per_user)),
+      video_max_running_per_user: Math.floor(Number(creativeWorkbenchForm.video_max_running_per_user)),
+    });
+    Object.assign(creativeWorkbenchForm, updated);
+    appStore.showSuccess(t("admin.settings.creativeWorkbench.saved"));
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        t("admin.settings.creativeWorkbench.saveFailed"),
+      ),
+    );
+  } finally {
+    creativeWorkbenchSaving.value = false;
+  }
+}
+
 // Rate Limit Cooldown (429) 方法
 async function loadRateLimit429CooldownSettings() {
   rateLimit429CooldownLoading.value = true;
@@ -12555,6 +12771,7 @@ onMounted(() => {
   loadOverloadCooldownSettings();
   loadRateLimit429CooldownSettings();
   loadPanelRateLimitSettings();
+  loadCreativeWorkbenchSettings();
   loadStreamTimeoutSettings();
   loadRectifierSettings();
   loadBetaPolicySettings();

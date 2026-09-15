@@ -245,6 +245,78 @@ func (h *SettingHandler) UpdatePanelRateLimitSettings(c *gin.Context) {
 	})
 }
 
+// GetCreativeWorkbenchSettings 获取 AI 创作台配置
+// GET /api/v1/admin/settings/creative-workbench
+func (h *SettingHandler) GetCreativeWorkbenchSettings(c *gin.Context) {
+	settings, err := h.settingService.GetCreativeWorkbenchSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.CreativeWorkbenchSettings{
+		Enabled:                settings.Enabled,
+		ImageEnabled:           settings.ImageEnabled,
+		VideoEnabled:           settings.VideoEnabled,
+		AutoCleanupEnabled:     settings.AutoCleanupEnabled,
+		RetentionDays:          settings.RetentionDays,
+		MaxRecordsPerUser:      settings.MaxRecordsPerUser,
+		ImageMaxRunningPerUser: settings.ImageMaxRunningPerUser,
+		VideoMaxRunningPerUser: settings.VideoMaxRunningPerUser,
+	})
+}
+
+type UpdateCreativeWorkbenchSettingsRequest struct {
+	Enabled                bool `json:"enabled"`
+	ImageEnabled           bool `json:"image_enabled"`
+	VideoEnabled           bool `json:"video_enabled"`
+	AutoCleanupEnabled     bool `json:"auto_cleanup_enabled"`
+	RetentionDays          int  `json:"retention_days"`
+	MaxRecordsPerUser      int  `json:"max_records_per_user"`
+	ImageMaxRunningPerUser int  `json:"image_max_running_per_user"`
+	VideoMaxRunningPerUser int  `json:"video_max_running_per_user"`
+}
+
+// UpdateCreativeWorkbenchSettings 更新 AI 创作台配置
+// PUT /api/v1/admin/settings/creative-workbench
+func (h *SettingHandler) UpdateCreativeWorkbenchSettings(c *gin.Context) {
+	var req UpdateCreativeWorkbenchSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	settings := &service.CreativeWorkbenchSettings{
+		Enabled:                req.Enabled,
+		ImageEnabled:           req.ImageEnabled,
+		VideoEnabled:           req.VideoEnabled,
+		AutoCleanupEnabled:     req.AutoCleanupEnabled,
+		RetentionDays:          req.RetentionDays,
+		MaxRecordsPerUser:      req.MaxRecordsPerUser,
+		ImageMaxRunningPerUser: req.ImageMaxRunningPerUser,
+		VideoMaxRunningPerUser: req.VideoMaxRunningPerUser,
+	}
+	if err := h.settingService.SetCreativeWorkbenchSettings(c.Request.Context(), settings); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	updated, err := h.settingService.GetCreativeWorkbenchSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, dto.CreativeWorkbenchSettings{
+		Enabled:                updated.Enabled,
+		ImageEnabled:           updated.ImageEnabled,
+		VideoEnabled:           updated.VideoEnabled,
+		AutoCleanupEnabled:     updated.AutoCleanupEnabled,
+		RetentionDays:          updated.RetentionDays,
+		MaxRecordsPerUser:      updated.MaxRecordsPerUser,
+		ImageMaxRunningPerUser: updated.ImageMaxRunningPerUser,
+		VideoMaxRunningPerUser: updated.VideoMaxRunningPerUser,
+	})
+}
+
 // GetStreamTimeoutSettings 获取流超时处理配置
 // GET /api/v1/admin/settings/stream-timeout
 func (h *SettingHandler) GetStreamTimeoutSettings(c *gin.Context) {

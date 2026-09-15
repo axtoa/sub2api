@@ -462,6 +462,17 @@ type PanelRateLimitSettings struct {
 	PublicIPRPM int  `json:"public_ip_rpm"`
 }
 
+type CreativeWorkbenchSettings struct {
+	Enabled                bool `json:"enabled"`
+	ImageEnabled           bool `json:"image_enabled"`
+	VideoEnabled           bool `json:"video_enabled"`
+	AutoCleanupEnabled     bool `json:"auto_cleanup_enabled"`
+	RetentionDays          int  `json:"retention_days"`
+	MaxRecordsPerUser      int  `json:"max_records_per_user"`
+	ImageMaxRunningPerUser int  `json:"image_max_running_per_user"`
+	VideoMaxRunningPerUser int  `json:"video_max_running_per_user"`
+}
+
 // StreamTimeoutSettings 流超时处理配置 DTO
 type StreamTimeoutSettings struct {
 	Enabled                bool   `json:"enabled"`

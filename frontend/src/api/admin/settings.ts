@@ -1344,6 +1344,36 @@ export async function updatePanelRateLimitSettings(
   return data;
 }
 
+// ==================== Creative Workbench Settings ====================
+
+export interface CreativeWorkbenchSettings {
+  enabled: boolean;
+  image_enabled: boolean;
+  video_enabled: boolean;
+  auto_cleanup_enabled: boolean;
+  retention_days: number;
+  max_records_per_user: number;
+  image_max_running_per_user: number;
+  video_max_running_per_user: number;
+}
+
+export async function getCreativeWorkbenchSettings(): Promise<CreativeWorkbenchSettings> {
+  const { data } = await apiClient.get<CreativeWorkbenchSettings>(
+    "/admin/settings/creative-workbench",
+  );
+  return data;
+}
+
+export async function updateCreativeWorkbenchSettings(
+  settings: CreativeWorkbenchSettings,
+): Promise<CreativeWorkbenchSettings> {
+  const { data } = await apiClient.put<CreativeWorkbenchSettings>(
+    "/admin/settings/creative-workbench",
+    settings,
+  );
+  return data;
+}
+
 // ==================== Stream Timeout Settings ====================
 
 /**
@@ -1573,6 +1603,8 @@ export const settingsAPI = {
   updateRateLimit429CooldownSettings,
   getPanelRateLimitSettings,
   updatePanelRateLimitSettings,
+  getCreativeWorkbenchSettings,
+  updateCreativeWorkbenchSettings,
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,
   getRectifierSettings,

@@ -1,4 +1,14 @@
 export default {
+  creativeStudio: {
+    title: 'AI Studio',
+    description: 'Manage image, video, and future template tasks in one place',
+    imageNotice: 'Image generation currently reuses the existing batch image pipeline, including billing, usage records, moderation, and downloads.',
+    tabs: {
+      image: 'Image',
+      video: 'Video',
+      templates: 'Templates',
+    },
+  },
   batchImageGuide: {
     title: 'Batch Image Generation',
     description: 'Submit multiple prompts in one job and download the generated images when complete'

@@ -177,6 +177,7 @@ export default {
     announcements: '公告',
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
+    creativeStudio: 'AI 创作台',
     usage: '使用记录',
     redeem: '兑换充值',
     affiliate: '邀请返利',

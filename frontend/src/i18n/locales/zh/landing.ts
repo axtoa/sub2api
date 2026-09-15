@@ -1,4 +1,14 @@
 export default {
+  creativeStudio: {
+    title: 'AI 创作台',
+    description: '统一管理图片、视频和后续模板任务',
+    imageNotice: '当前图片能力复用现有批量生图链路，保留原有扣费、使用记录、内容审查和下载能力。',
+    tabs: {
+      image: '图片',
+      video: '视频',
+      templates: '模板',
+    },
+  },
   batchImageGuide: {
     title: '图片批量生成',
     description: '一次提交多条提示词，任务完成后可统一下载图片结果'

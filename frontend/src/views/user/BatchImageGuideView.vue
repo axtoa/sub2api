@@ -1,5 +1,29 @@
 <template>
   <AppLayout>
+    <div class="mb-4 space-y-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+          {{ t('creativeStudio.title') }}
+        </h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {{ t('creativeStudio.description') }}
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-dark-700">
+        <button type="button" class="border-b-2 border-primary-600 px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400">
+          {{ t('creativeStudio.tabs.image') }}
+        </button>
+        <button type="button" class="px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500" disabled>
+          {{ t('creativeStudio.tabs.video') }}
+        </button>
+        <button type="button" class="px-3 py-2 text-sm font-medium text-gray-400 dark:text-gray-500" disabled>
+          {{ t('creativeStudio.tabs.templates') }}
+        </button>
+      </div>
+      <div class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
+        {{ t('creativeStudio.imageNotice') }}
+      </div>
+    </div>
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col gap-3">
