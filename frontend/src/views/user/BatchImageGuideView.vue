@@ -547,7 +547,7 @@
               <select v-model="videoForm.model" class="input">
                 <option value="grok-imagine-video">grok-imagine-video</option>
                 <option value="sora-2">sora-2</option>
-                <option value="video-01">video-01</option>
+                <option value="MiniMax-H3">MiniMax-H3</option>
               </select>
             </div>
             <div>
@@ -1844,7 +1844,7 @@ function maskApiKey(value: string | null | undefined) {
 function videoModelForKey(key: ApiKey) {
   const platform = key.group?.platform || ''
   if (platform === 'openai') return 'sora-2'
-  if (platform === 'minimax') return 'video-01'
+  if (platform === 'minimax') return 'MiniMax-H3'
   return 'grok-imagine-video'
 }
 

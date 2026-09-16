@@ -125,6 +125,13 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		if task != nil {
 			h.creativeVideoService.FailTask(c.Request.Context(), task.TaskID, "UPSTREAM_REQUEST_FAILED", err.Error())
 		}
+		logger.L().Warn("creative_video.provider_submit_failed",
+			zap.String("provider", provider.Name()),
+			zap.Int64("account_id", selection.Account.ID),
+			zap.String("base_url", selection.Account.GetOpenAIBaseURL()),
+			zap.String("model", req.Model),
+			zap.Error(err),
+		)
 		h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream video request failed")
 		return
 	}

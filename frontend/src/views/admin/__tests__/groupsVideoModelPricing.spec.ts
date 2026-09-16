@@ -14,7 +14,10 @@ describe('video model pricing form', () => {
       'grok-imagine-video',
       'grok-imagine-video-1.5',
       'sora-2',
-      'video-01'
+      'minimax-h3',
+      'minimax-h3-max',
+      'minimax-hailuo-02',
+      't2v-01'
     ])
     expect(form['grok-imagine-video']['480p']).toBeNull()
     expect(form['grok-imagine-video-1.5']['1080p']).toBeNull()

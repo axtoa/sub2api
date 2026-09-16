@@ -41,6 +41,59 @@ func TestCreativeVideoHTTPProvider_OpenAISubmit(t *testing.T) {
 	require.Equal(t, "sora-2", got.Model)
 }
 
+func TestCreativeVideoHTTPProvider_MiniMaxV2SubmitAndStatus(t *testing.T) {
+	client := &http.Client{Transport: batchImageProviderRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		require.Equal(t, "Bearer sk-test", r.Header.Get("Authorization"))
+		switch r.URL.Path {
+		case "/v2/video_generation":
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.Contains(t, string(body), `"model":"MiniMax-H3"`)
+			require.Contains(t, string(body), `"resolution":"768P"`)
+			require.Contains(t, string(body), `"ratio":"9:16"`)
+			require.Contains(t, string(body), `"content"`)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"base_resp":{"status_code":0},"task_id":"task_h3","status":"Queueing","model":"MiniMax-H3"}`)),
+			}, nil
+		case "/v2/query/video_generation/task_h3":
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"base_resp":{"status_code":0},"task":{"task_id":"task_h3","status":"Success","model":"MiniMax-H3","resolution":"768P","duration":6,"content":{"url":"https://minimax.test/video-h3.mp4"}}}`)),
+			}, nil
+		default:
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(""))}, nil
+		}
+	})}
+	provider := NewCreativeVideoHTTPProvider(PlatformMiniMax, client)
+	account := &Account{
+		ID:          1,
+		Platform:    PlatformMiniMax,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://minimax.test/v1"},
+	}
+
+	submitted, err := provider.Submit(context.Background(), account, CreativeVideoProviderRequest{
+		Model:       "minimax-h3",
+		Prompt:      "rainy street",
+		AspectRatio: "9:16",
+		Resolution:  "720p",
+		Duration:    6,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "task_h3", submitted.ID)
+	require.Equal(t, CreativeVideoStatusRunning, submitted.Status)
+
+	status, err := provider.Get(context.Background(), account, "task_h3")
+	require.NoError(t, err)
+	require.Equal(t, CreativeVideoStatusCompleted, status.Status)
+	require.Equal(t, "https://minimax.test/video-h3.mp4", status.DownloadURL)
+	require.Equal(t, VideoBillingResolution720P, status.Resolution)
+	require.Equal(t, 6, status.DurationSeconds)
+}
+
 func TestCreativeVideoHTTPProvider_MiniMaxStatusAndDownload(t *testing.T) {
 	client := &http.Client{Transport: batchImageProviderRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {

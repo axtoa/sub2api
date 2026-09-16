@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -17,6 +18,8 @@ import (
 const (
 	CreativeVideoProviderOpenAI  = "openai"
 	CreativeVideoProviderMiniMax = "minimax"
+
+	DefaultMiniMaxCreativeVideoModel = "MiniMax-H3"
 )
 
 var (
@@ -117,8 +120,16 @@ func (p *CreativeVideoHTTPProvider) Get(ctx context.Context, account *Account, r
 		return normalizeOpenAIVideoStatus(resp), nil
 	case PlatformMiniMax:
 		var resp map[string]any
-		path := "/v1/query/video_generation?task_id=" + requestID
-		if err := client.doJSON(ctx, http.MethodGet, path, nil, &resp); err != nil {
+		v2Path := "/v2/query/video_generation/" + url.PathEscape(requestID)
+		if err := client.doJSON(ctx, http.MethodGet, v2Path, nil, &resp); err == nil {
+			if err := minimaxBaseResponseError(resp); err == nil {
+				return normalizeMiniMaxVideoStatus(resp, requestID), nil
+			}
+		}
+
+		resp = nil
+		v1Path := "/v1/query/video_generation?task_id=" + url.QueryEscape(requestID)
+		if err := client.doJSON(ctx, http.MethodGet, v1Path, nil, &resp); err != nil {
 			return nil, err
 		}
 		if err := minimaxBaseResponseError(resp); err != nil {
@@ -181,6 +192,9 @@ func (p *CreativeVideoHTTPProvider) submitOpenAI(ctx context.Context, client *cr
 }
 
 func (p *CreativeVideoHTTPProvider) submitMiniMax(ctx context.Context, client *creativeVideoHTTPClient, req CreativeVideoProviderRequest) (*CreativeVideoProviderStatus, error) {
+	if miniMaxUsesV2VideoAPI(req.Model) {
+		return p.submitMiniMaxV2(ctx, client, req)
+	}
 	payload := map[string]any{
 		"model":  req.Model,
 		"prompt": req.Prompt,
@@ -200,6 +214,45 @@ func (p *CreativeVideoHTTPProvider) submitMiniMax(ctx context.Context, client *c
 	}
 	var resp map[string]any
 	if err := client.doJSON(ctx, http.MethodPost, "/v1/video_generation", payload, &resp); err != nil {
+		return nil, err
+	}
+	if err := minimaxBaseResponseError(resp); err != nil {
+		return nil, err
+	}
+	return normalizeMiniMaxVideoStatus(resp, ""), nil
+}
+
+func (p *CreativeVideoHTTPProvider) submitMiniMaxV2(ctx context.Context, client *creativeVideoHTTPClient, req CreativeVideoProviderRequest) (*CreativeVideoProviderStatus, error) {
+	content := []map[string]any{{
+		"type": "text",
+		"text": req.Prompt,
+	}}
+	if image := strings.TrimSpace(req.ImageURL); image != "" {
+		content = append(content, map[string]any{
+			"type":      "image_url",
+			"role":      "first_frame",
+			"image_url": map[string]any{"url": image},
+		})
+	}
+
+	payload := map[string]any{
+		"model":   normalizeMiniMaxCreativeVideoModel(req.Model),
+		"content": content,
+	}
+	if req.Duration > 0 {
+		payload["duration"] = req.Duration
+	}
+	if resolution := miniMaxV2Resolution(req.Model, req.Resolution); resolution != "" {
+		payload["resolution"] = resolution
+	}
+	if len(content) == 1 {
+		if ratio := miniMaxV2Ratio(req.AspectRatio); ratio != "" {
+			payload["ratio"] = ratio
+		}
+	}
+
+	var resp map[string]any
+	if err := client.doJSON(ctx, http.MethodPost, "/v2/video_generation", payload, &resp); err != nil {
 		return nil, err
 	}
 	if err := minimaxBaseResponseError(resp); err != nil {
@@ -290,13 +343,22 @@ func (c *creativeVideoHTTPClient) newRequest(ctx context.Context, method, path s
 	if strings.TrimSpace(c.apiKey) == "" {
 		return nil, ErrCreativeVideoProviderMissingAPIKey
 	}
-	req, err := http.NewRequestWithContext(ctx, method, batchImageProviderJoinURL(c.baseURL, path), body)
+	req, err := http.NewRequestWithContext(ctx, method, creativeVideoProviderJoinURL(c.baseURL, path), body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Accept", "application/json")
 	return req, nil
+}
+
+func creativeVideoProviderJoinURL(baseURL, path string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	p := "/" + strings.TrimLeft(strings.TrimSpace(path), "/")
+	if (strings.HasPrefix(p, "/v1/") || strings.HasPrefix(p, "/v2/")) && strings.HasSuffix(base, "/v1") {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	return base + p
 }
 
 func (c *creativeVideoHTTPClient) do(req *http.Request, out any) error {
@@ -307,7 +369,7 @@ func (c *creativeVideoHTTPClient) do(req *http.Request, out any) error {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-		return fmt.Errorf("upstream status %d: %s", resp.StatusCode, truncateBatchImageMessage(string(data), 500))
+		return fmt.Errorf("upstream %s %s status %d: %s", req.Method, req.URL.Path, resp.StatusCode, truncateBatchImageMessage(string(data), 500))
 	}
 	if out == nil {
 		return nil
@@ -323,7 +385,7 @@ func (c *creativeVideoHTTPClient) doOpen(req *http.Request) (io.ReadCloser, stri
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		defer func() { _ = resp.Body.Close() }()
 		data, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-		return nil, "", fmt.Errorf("upstream status %d: %s", resp.StatusCode, truncateBatchImageMessage(string(data), 500))
+		return nil, "", fmt.Errorf("upstream %s %s status %d: %s", req.Method, req.URL.Path, resp.StatusCode, truncateBatchImageMessage(string(data), 500))
 	}
 	contentType := strings.TrimSpace(resp.Header.Get("Content-Type"))
 	if contentType == "" {
@@ -354,36 +416,106 @@ func normalizeMiniMaxVideoStatus(resp map[string]any, fallbackID string) *Creati
 	status := strings.ToLower(firstNonEmptyString(
 		gjson.GetBytes(data, "status").String(),
 		gjson.GetBytes(data, "data.status").String(),
+		gjson.GetBytes(data, "task.status").String(),
 		gjson.GetBytes(data, "task_status").String(),
 		gjson.GetBytes(data, "data.task_status").String(),
 	))
 	fileID := firstNonEmptyString(
 		gjson.GetBytes(data, "file_id").String(),
 		gjson.GetBytes(data, "data.file_id").String(),
+		gjson.GetBytes(data, "task.file_id").String(),
 		gjson.GetBytes(data, "video.file_id").String(),
 		gjson.GetBytes(data, "data.video.file_id").String(),
+		gjson.GetBytes(data, "task.content.file_id").String(),
 	)
 	downloadURL := firstNonEmptyString(
 		gjson.GetBytes(data, "download_url").String(),
 		gjson.GetBytes(data, "data.download_url").String(),
+		gjson.GetBytes(data, "task.download_url").String(),
 		gjson.GetBytes(data, "video.url").String(),
 		gjson.GetBytes(data, "data.video.url").String(),
+		gjson.GetBytes(data, "content.url").String(),
+		gjson.GetBytes(data, "content.video_url").String(),
+		gjson.GetBytes(data, "task.content.url").String(),
+		gjson.GetBytes(data, "task.content.video_url").String(),
 	)
 	done := fileID != "" || downloadURL != ""
 	return &CreativeVideoProviderStatus{
 		ID: firstNonEmptyString(
 			gjson.GetBytes(data, "task_id").String(),
 			gjson.GetBytes(data, "data.task_id").String(),
+			gjson.GetBytes(data, "task.task_id").String(),
 			gjson.GetBytes(data, "id").String(),
 			fallbackID,
 		),
 		Status:          normalizeCreativeVideoProviderStatus(status, done),
-		Model:           firstNonEmptyString(gjson.GetBytes(data, "model").String(), gjson.GetBytes(data, "data.model").String()),
-		Resolution:      firstNonEmptyString(gjson.GetBytes(data, "resolution").String(), gjson.GetBytes(data, "data.resolution").String()),
-		DurationSeconds: int(firstPositive(int(gjson.GetBytes(data, "duration").Int()), int(gjson.GetBytes(data, "data.duration").Int()))),
+		Model:           firstNonEmptyString(gjson.GetBytes(data, "model").String(), gjson.GetBytes(data, "data.model").String(), gjson.GetBytes(data, "task.model").String()),
+		Resolution:      normalizeMiniMaxReturnedResolution(firstNonEmptyString(gjson.GetBytes(data, "resolution").String(), gjson.GetBytes(data, "data.resolution").String(), gjson.GetBytes(data, "task.resolution").String())),
+		DurationSeconds: int(firstPositive(int(gjson.GetBytes(data, "duration").Int()), int(gjson.GetBytes(data, "data.duration").Int()), int(gjson.GetBytes(data, "task.duration").Int()))),
 		DownloadURL:     downloadURL,
 		FileID:          fileID,
 		Raw:             resp,
+	}
+}
+
+func miniMaxUsesV2VideoAPI(model string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "minimax-h3")
+}
+
+func normalizeMiniMaxCreativeVideoModel(model string) string {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return DefaultMiniMaxCreativeVideoModel
+	}
+	if strings.EqualFold(model, "minimax-h3") {
+		return "MiniMax-H3"
+	}
+	if strings.EqualFold(model, "minimax-h3-max") {
+		return "MiniMax-H3-Max"
+	}
+	return model
+}
+
+func miniMaxV2Resolution(model, resolution string) string {
+	resolution = strings.ToLower(strings.TrimSpace(resolution))
+	model = strings.ToLower(strings.TrimSpace(model))
+	switch resolution {
+	case "1080p", "2k":
+		if model == "" || model == "minimax-h3" {
+			return "2K"
+		}
+		return "768P"
+	case "480p":
+		if strings.Contains(model, "h3-max") {
+			return "480P"
+		}
+		return "768P"
+	case "720p", "768p", "":
+		return "768P"
+	default:
+		return strings.ToUpper(resolution)
+	}
+}
+
+func miniMaxV2Ratio(aspectRatio string) string {
+	switch strings.TrimSpace(aspectRatio) {
+	case "1:1", "16:9", "9:16", "4:3", "3:4", "21:9":
+		return strings.TrimSpace(aspectRatio)
+	default:
+		return "16:9"
+	}
+}
+
+func normalizeMiniMaxReturnedResolution(resolution string) string {
+	switch strings.ToUpper(strings.TrimSpace(resolution)) {
+	case "480P":
+		return VideoBillingResolution480P
+	case "720P", "768P":
+		return VideoBillingResolution720P
+	case "1080P", "2K":
+		return VideoBillingResolution1080P
+	default:
+		return strings.TrimSpace(resolution)
 	}
 }
 
@@ -395,7 +527,7 @@ func normalizeCreativeVideoProviderStatus(status string, done bool) string {
 		return CreativeVideoStatusFailed
 	case "expired":
 		return CreativeVideoStatusExpired
-	case "queued", "pending", "running", "processing", "in_progress":
+	case "queued", "queueing", "pending", "running", "processing", "in_progress", "prepare":
 		return CreativeVideoStatusRunning
 	default:
 		if done {
