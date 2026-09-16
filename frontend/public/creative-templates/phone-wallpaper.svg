@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop stop-color="#bfdbfe"/>
+      <stop offset=".5" stop-color="#fecdd3"/>
+      <stop offset="1" stop-color="#fdf2f8"/>
+    </linearGradient>
+    <radialGradient id="sun">
+      <stop stop-color="#fff7ed"/>
+      <stop offset="1" stop-color="#fff7ed" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="480" fill="url(#sky)"/>
+  <circle cx="460" cy="130" r="95" fill="url(#sun)"/>
+  <path d="M0 385c90-46 150-30 229 2 72 29 156 31 233-4 67-31 111-27 178 8v89H0Z" fill="#86efac" opacity=".72"/>
+  <path d="M0 419c88-43 151-13 237 9 80 21 149 10 224-18 72-27 115-17 179 17v53H0Z" fill="#4ade80" opacity=".7"/>
+  <g fill="#fb7185">
+    <circle cx="96" cy="354" r="13"/><circle cx="135" cy="330" r="11"/><circle cx="175" cy="366" r="14"/>
+    <circle cx="514" cy="348" r="12"/><circle cx="550" cy="327" r="10"/><circle cx="588" cy="363" r="14"/>
+  </g>
+  <g stroke="#15803d" stroke-width="6" stroke-linecap="round">
+    <path d="M96 406v-52m39 52v-76m40 76v-40m339 40v-58m36 58v-79m38 79v-46"/>
+  </g>
+</svg>

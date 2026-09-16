@@ -212,7 +212,16 @@
                   class="mb-3 w-full break-inside-avoid overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700/60"
                   @click="applyCreativeTemplate(template)"
                 >
-                  <div class="aspect-[4/3] bg-cover bg-center" :class="template.previewClass"></div>
+                  <div class="relative aspect-[4/3] overflow-hidden bg-cover bg-center" :class="template.previewClass">
+                    <img
+                      v-if="!templatePreviewErrors.has(template.id)"
+                      :src="templatePreviewUrl(template)"
+                      :alt="template.title"
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                      @error="handleTemplatePreviewError(template.id)"
+                    />
+                  </div>
                   <div class="space-y-2 p-3">
                     <div class="flex items-center justify-between gap-2">
                       <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ template.title }}</p>
@@ -1259,6 +1268,7 @@ const activeTab = ref<'image' | 'video'>('image')
 const imageTool = ref<ImageCreativeTool>('text')
 const templateDrawerState = ref<TemplateDrawerState>(readTemplateDrawerState())
 const templateCategory = ref(readStoredString(STORAGE_TEMPLATE_CATEGORY_KEY, '全部'))
+const templatePreviewErrors = ref(new Set<string>())
 const showModelPicker = ref(false)
 const creativePrompt = ref('')
 const composerAspectRatio = ref('1:1')
@@ -1868,6 +1878,14 @@ function applyCreativeTemplate(template: CreativeTemplate) {
   if (template.mode === 'edit') {
     appStore.showSuccess('已切换到改图，请先上传参考图。')
   }
+}
+
+function templatePreviewUrl(template: CreativeTemplate) {
+  return `/creative-templates/${template.id}.png`
+}
+
+function handleTemplatePreviewError(templateID: string) {
+  templatePreviewErrors.value = new Set([...templatePreviewErrors.value, templateID])
 }
 
 function selectModelChoice(choice: ModelChoice) {
