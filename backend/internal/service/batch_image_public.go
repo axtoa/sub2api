@@ -203,7 +203,7 @@ func NewBatchImagePublicService(repo BatchImageRepository, accountRepo AccountRe
 }
 
 func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, idempotencyKey string) (*BatchImagePublicBatch, error) {
-	if !s.enabled() {
+	if !s.enabled(ctx) {
 		return nil, ErrBatchImageDisabled
 	}
 	workbenchSettings := s.creativeWorkbenchSettings(ctx)
@@ -628,7 +628,7 @@ func (s *BatchImagePublicService) DeleteRecord(ctx context.Context, owner BatchI
 }
 
 func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchImageOwner) (*BatchImagePublicModelsResponse, error) {
-	if !s.enabled() {
+	if !s.enabled(ctx) {
 		return nil, ErrBatchImageDisabled
 	}
 	settings := s.creativeWorkbenchSettings(ctx)
@@ -1122,8 +1122,18 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 	}, nil
 }
 
-func (s *BatchImagePublicService) enabled() bool {
-	return s != nil && s.Repo != nil && s.AccountRepo != nil && s.Config != nil && s.Config.BatchImage.Enabled
+func (s *BatchImagePublicService) enabled(ctx context.Context) bool {
+	if s == nil || s.Repo == nil || s.AccountRepo == nil {
+		return false
+	}
+	if s.Config != nil && s.Config.BatchImage.Enabled {
+		return true
+	}
+	if s.WorkbenchSettings == nil {
+		return false
+	}
+	settings := s.creativeWorkbenchSettings(ctx)
+	return settings != nil && settings.Enabled && settings.ImageEnabled
 }
 
 func (s *BatchImagePublicService) ensureImageRunningLimit(ctx context.Context, userID int64, settings *CreativeWorkbenchSettings) error {

@@ -93,7 +93,7 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		apiKey.GroupID,
 		"",
 		h.gatewayService.GenerateExplicitSessionHash(c, body),
-		req.Model,
+		"",
 		nil,
 		service.OpenAIUpstreamTransportHTTPSSE,
 		"",

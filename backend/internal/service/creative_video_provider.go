@@ -218,10 +218,10 @@ func (p *CreativeVideoHTTPProvider) miniMaxDownloadURL(ctx context.Context, clie
 		return "", err
 	}
 	return firstNonEmptyString(
-		gjson.GetBytes(mustJSON(resp), "file.download_url").String(),
-		gjson.GetBytes(mustJSON(resp), "file.url").String(),
-		gjson.GetBytes(mustJSON(resp), "download_url").String(),
-		gjson.GetBytes(mustJSON(resp), "url").String(),
+		gjson.GetBytes(creativeVideoProviderMustJSON(resp), "file.download_url").String(),
+		gjson.GetBytes(creativeVideoProviderMustJSON(resp), "file.url").String(),
+		gjson.GetBytes(creativeVideoProviderMustJSON(resp), "download_url").String(),
+		gjson.GetBytes(creativeVideoProviderMustJSON(resp), "url").String(),
 	), nil
 }
 
@@ -333,7 +333,7 @@ func (c *creativeVideoHTTPClient) doOpen(req *http.Request) (io.ReadCloser, stri
 }
 
 func normalizeOpenAIVideoStatus(resp map[string]any) *CreativeVideoProviderStatus {
-	data := mustJSON(resp)
+	data := creativeVideoProviderMustJSON(resp)
 	status := strings.ToLower(firstNonEmptyString(
 		gjson.GetBytes(data, "status").String(),
 		gjson.GetBytes(data, "state").String(),
@@ -350,7 +350,7 @@ func normalizeOpenAIVideoStatus(resp map[string]any) *CreativeVideoProviderStatu
 }
 
 func normalizeMiniMaxVideoStatus(resp map[string]any, fallbackID string) *CreativeVideoProviderStatus {
-	data := mustJSON(resp)
+	data := creativeVideoProviderMustJSON(resp)
 	status := strings.ToLower(firstNonEmptyString(
 		gjson.GetBytes(data, "status").String(),
 		gjson.GetBytes(data, "data.status").String(),
@@ -444,7 +444,7 @@ func CreativeVideoProviderResponseJSON(status *CreativeVideoProviderStatus) map[
 	return resp
 }
 
-func mustJSON(value any) []byte {
+func creativeVideoProviderMustJSON(value any) []byte {
 	data, _ := json.Marshal(value)
 	return data
 }

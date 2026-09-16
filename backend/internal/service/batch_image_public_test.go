@@ -45,6 +45,27 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.Empty(t, gemini.submits)
 	})
 
+	t.Run("allows creative workbench image when legacy batch config is disabled", func(t *testing.T) {
+		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(false)
+		svc.WorkbenchSettings = staticCreativeWorkbenchSettings{settings: &CreativeWorkbenchSettings{
+			Enabled:                true,
+			ImageEnabled:           true,
+			VideoEnabled:           false,
+			AutoCleanupEnabled:     true,
+			RetentionDays:          3,
+			MaxRecordsPerUser:      50,
+			ImageMaxRunningPerUser: 10,
+			VideoMaxRunningPerUser: 5,
+		}}
+
+		got, err := svc.Submit(ctx, testBatchImageOwner(), validBatchImageSubmitRequest(), "")
+		require.NoError(t, err)
+		require.Equal(t, "image.batch", got.Object)
+		require.Len(t, repo.jobs, 1)
+		require.Len(t, queue.enqueued, 1)
+		require.Len(t, gemini.submits, 1)
+	})
+
 	t.Run("rejects new jobs above per user running limit", func(t *testing.T) {
 		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(true)
 		svc.WorkbenchSettings = staticCreativeWorkbenchSettings{settings: &CreativeWorkbenchSettings{
