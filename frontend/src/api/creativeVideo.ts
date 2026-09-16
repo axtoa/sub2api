@@ -38,8 +38,13 @@ export interface CreativeVideoTasksResponse {
 export interface CreativeVideoCreateRequest {
   model: string
   prompt: string
+  aspect_ratio?: string
   resolution?: string
   duration?: number
+  image?: {
+    type?: 'image_url' | string
+    url: string
+  }
 }
 
 async function parseError(response: Response): Promise<Error> {

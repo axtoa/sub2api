@@ -31,8 +31,16 @@
                 class="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700/60"
                 @click="selectJob(job.id)"
               >
-                <div class="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-sky-50 via-rose-50 to-emerald-50 dark:from-sky-950/30 dark:via-rose-950/20 dark:to-emerald-950/20">
-                  <Icon name="sparkles" size="xl" class="text-primary-500/80" />
+                <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-rose-50 to-emerald-50 dark:from-sky-950/30 dark:via-rose-950/20 dark:to-emerald-950/20">
+                  <img
+                    v-if="imageJobPreviewUrls[job.id]"
+                    :src="imageJobPreviewUrls[job.id]"
+                    :alt="job.task_name || '图片作品'"
+                    class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                    @error="handleJobPreviewError(job.id)"
+                  />
+                  <Icon v-else-if="imageJobPreviewLoadingIds.has(job.id)" name="refresh" size="lg" class="animate-spin text-primary-500/80" />
+                  <Icon v-else name="sparkles" size="xl" class="text-primary-500/80" />
                 </div>
                 <div class="space-y-2 p-3">
                   <div class="flex items-center justify-between gap-2">
@@ -132,6 +140,21 @@
                   <Icon name="upload" size="sm" class="mr-2" />
                   {{ referenceImageDrafts.length ? `已选择 ${referenceImageDrafts.length} 张参考图` : '上传参考图后再告诉我想怎么改' }}
                   <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleSingleEditReferenceImage" />
+                </label>
+              </div>
+
+              <div v-if="activeTab === 'video'" class="mb-3">
+                <div v-if="videoFrameDraft" class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-900">
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ videoFrameDraft.name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">作为视频首帧参考，会随本次任务提交</p>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" @click="videoFrameDraft = null">移除</button>
+                </div>
+                <label v-else class="flex min-h-[64px] cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-3 py-3 text-sm text-gray-500 transition hover:border-primary-300 hover:text-primary-600 dark:border-dark-600 dark:bg-dark-900 dark:text-gray-400 dark:hover:border-primary-700 dark:hover:text-primary-300">
+                  <Icon name="upload" size="sm" class="mr-2" />
+                  上传首帧图（可选）
+                  <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleVideoFrameImage" />
                 </label>
               </div>
 
@@ -593,7 +616,7 @@
       </div>
     </BaseDialog>
 
-    <BaseDialog :show="showModelPicker" title="选择模型" width="wide" :z-index="70" @close="showModelPicker = false">
+    <BaseDialog :show="showModelPicker" title="模型选择" width="wide" :z-index="70" @close="showModelPicker = false">
       <div class="space-y-3">
         <div v-if="currentModelChoices.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-10 text-center dark:border-dark-700">
           <Icon name="sparkles" size="lg" class="mx-auto mb-3 text-gray-400" />
@@ -605,16 +628,18 @@
             v-for="choice in currentModelChoices"
             :key="choice.id"
             type="button"
-            class="flex w-full items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition hover:border-primary-200 hover:bg-primary-50/40 dark:border-dark-700 dark:hover:border-primary-700/60 dark:hover:bg-primary-950/20"
-            :class="choice.selected ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-950/30' : 'bg-white dark:bg-dark-800'"
+            class="flex w-full items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left transition dark:border-dark-700"
+            :class="choice.disabled ? 'cursor-not-allowed bg-gray-50 opacity-70 dark:bg-dark-900' : choice.selected ? 'border-primary-300 bg-primary-50 hover:border-primary-300 dark:border-primary-700 dark:bg-primary-950/30' : 'bg-white hover:border-primary-200 hover:bg-primary-50/40 dark:bg-dark-800 dark:hover:border-primary-700/60 dark:hover:bg-primary-950/20'"
+            :disabled="choice.disabled"
             @click="selectModelChoice(choice)"
           >
             <span class="min-w-0">
               <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ choice.label }}</span>
               <span class="mt-1 block truncate text-xs text-gray-500 dark:text-gray-400">{{ choice.platformLabel }} · {{ choice.maskedKey }}</span>
+              <span v-if="choice.reason" class="mt-1 block truncate text-xs text-amber-600 dark:text-amber-400">{{ choice.reason }}</span>
             </span>
             <span class="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium" :class="choice.selected ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-300'">
-              {{ choice.selected ? '当前' : '切换' }}
+              {{ choice.selected ? '当前' : choice.disabled ? '不可用' : '切换' }}
             </span>
           </button>
         </template>
@@ -1162,6 +1187,13 @@ type ReferenceImageDraft = BatchImageReferenceImage & {
   size: number
 }
 
+type VideoFrameDraft = {
+  name: string
+  mimeType: string
+  size: number
+  data: string
+}
+
 type ImageCreativeTool = 'text' | 'edit'
 type TemplateDrawerState = 'collapsed' | 'rail' | 'expanded'
 
@@ -1185,6 +1217,8 @@ type ModelChoice = {
   maskedKey: string
   platformLabel: string
   selected: boolean
+  disabled: boolean
+  reason: string
   mode: 'image' | 'video'
 }
 
@@ -1208,6 +1242,7 @@ const PREVIEW_CACHE_MAX_ENTRIES = 120
 const PREVIEW_CACHE_MAX_BYTES = 48 * 1024 * 1024
 const BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM = 4
 const BATCH_IMAGE_MAX_OUTPUTS_PER_JOB = 200
+const IMAGE_JOB_PREVIEW_LIMIT = 8
 const imageRecordLimit = 50
 const STORAGE_IMAGE_MODEL_KEY = 'creative-studio.selected.imageApiKeyId'
 const STORAGE_VIDEO_MODEL_KEY = 'creative-studio.selected.videoApiKeyId'
@@ -1455,6 +1490,9 @@ const promptDraft = ref('')
 const customIdDraft = ref('')
 const outputCountDraft = ref(1)
 const referenceImageDrafts = ref<ReferenceImageDraft[]>([])
+const videoFrameDraft = ref<VideoFrameDraft | null>(null)
+const imageJobPreviewUrls = reactive<Record<string, string>>({})
+const imageJobPreviewLoadingIds = ref(new Set<string>())
 const itemPreviewUrls = reactive<Record<string, string>>({})
 const previewLoadingIds = ref(new Set<string>())
 const previewErrorIds = ref(new Set<string>())
@@ -1469,6 +1507,7 @@ const promptPopover = reactive({
   style: {} as Record<string, string>,
 })
 let modelRequestSeq = 0
+let imagePreviewRequestSeq = 0
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let previewCacheDBPromise: Promise<IDBDatabase | null> | null = null
 let previewCacheCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -1477,18 +1516,11 @@ let promptPopoverOpenTimer: ReturnType<typeof setTimeout> | null = null
 let activePromptPopoverTarget: HTMLElement | null = null
 
 const geminiApiKeys = computed(() =>
-  apiKeys.value.filter((key) =>
-    key.status === 'active' &&
-    key.group?.platform === 'gemini' &&
-    key.group?.allow_batch_image_generation === true,
-  ),
+  apiKeys.value.filter(isImageCreativeKey),
 )
 
 const grokApiKeys = computed(() =>
-  apiKeys.value.filter((key) =>
-    key.status === 'active' &&
-    (key.group?.platform === 'grok' || key.group?.platform === 'composite'),
-  ),
+  apiKeys.value.filter(isVideoCreativeKey),
 )
 
 const selectedApiKey = computed(() =>
@@ -1522,7 +1554,7 @@ const aspectRatioOptions = computed(() => {
 })
 
 const currentSizeOptions = computed(() =>
-  activeTab.value === 'video' ? ['480p', '720p', '1080p'] : ['1K', '2K', '4K'],
+  activeTab.value === 'video' ? ['480p', '720p', '1080p'] : ['1K'],
 )
 
 const currentCountOptions = computed(() =>
@@ -1540,25 +1572,35 @@ const selectedModelLabel = computed(() => {
 
 const currentModelChoices = computed<ModelChoice[]>(() => {
   if (activeTab.value === 'video') {
-    return grokApiKeys.value.map(key => ({
-      id: `video-${key.id}`,
+    return apiKeys.value.map((key) => {
+      const disabled = !isVideoCreativeKey(key)
+      return {
+        id: `video-${key.id}`,
+        apiKeyId: key.id,
+        label: `${videoModelForKey(key)} · ${key.name || `API Key #${key.id}`}`,
+        maskedKey: maskApiKey(key.key),
+        platformLabel: platformLabel(key),
+        selected: !disabled && Number(videoForm.apiKeyId) === key.id,
+        disabled,
+        reason: disabled ? creativeKeyUnavailableReason(key, 'video') : '',
+        mode: 'video',
+      }
+    })
+  }
+  return apiKeys.value.map((key) => {
+    const disabled = !isImageCreativeKey(key)
+    return {
+      id: `image-${key.id}`,
       apiKeyId: key.id,
-      label: `${videoModelForKey(key)} · ${key.name || `API Key #${key.id}`}`,
+      label: `${Number(form.apiKeyId) === key.id && form.model ? form.model : '图片模型'} · ${key.name || `API Key #${key.id}`}`,
       maskedKey: maskApiKey(key.key),
       platformLabel: platformLabel(key),
-      selected: Number(videoForm.apiKeyId) === key.id,
-      mode: 'video',
-    }))
-  }
-  return geminiApiKeys.value.map(key => ({
-    id: `image-${key.id}`,
-    apiKeyId: key.id,
-    label: `${Number(form.apiKeyId) === key.id && form.model ? form.model : '图片模型'} · ${key.name || `API Key #${key.id}`}`,
-    maskedKey: maskApiKey(key.key),
-    platformLabel: platformLabel(key),
-    selected: Number(form.apiKeyId) === key.id,
-    mode: 'image',
-  }))
+      selected: !disabled && Number(form.apiKeyId) === key.id,
+      disabled,
+      reason: disabled ? creativeKeyUnavailableReason(key, 'image') : '',
+      mode: 'image',
+    }
+  })
 })
 
 const creativePromptPlaceholder = computed(() => {
@@ -1737,6 +1779,29 @@ function readTemplateDrawerState(): TemplateDrawerState {
   return value === 'collapsed' || value === 'expanded' || value === 'rail' ? value : 'rail'
 }
 
+function isImageCreativeKey(key: ApiKey) {
+  return key.status === 'active' &&
+    key.group?.platform === 'gemini' &&
+    key.group?.allow_batch_image_generation === true
+}
+
+function isVideoCreativeKey(key: ApiKey) {
+  return key.status === 'active' &&
+    key.group?.platform === 'grok'
+}
+
+function creativeKeyUnavailableReason(key: ApiKey, mode: 'image' | 'video') {
+  if (key.status !== 'active') return '当前 API Key 未启用'
+  const platform = key.group?.platform || ''
+  if (mode === 'image') {
+    if (platform !== 'gemini') return '当前仅 Gemini 图片批量链路支持图片创作'
+    if (key.group?.allow_batch_image_generation !== true) return '所属分组未开启图片生成能力'
+    return '暂不可用于图片创作'
+  }
+  if (platform !== 'grok') return '当前仅 Grok 视频链路支持视频创作'
+  return '暂不可用于视频创作'
+}
+
 function platformLabel(key: ApiKey) {
   const platform = String(key.group?.platform || '').trim()
   const group = String(key.group?.name || '').trim()
@@ -1806,6 +1871,7 @@ function applyCreativeTemplate(template: CreativeTemplate) {
 }
 
 function selectModelChoice(choice: ModelChoice) {
+  if (choice.disabled) return
   if (choice.mode === 'image') {
     form.apiKeyId = choice.apiKeyId
     writeStoredString(STORAGE_IMAGE_MODEL_KEY, String(choice.apiKeyId))
@@ -1821,6 +1887,32 @@ function selectModelChoice(choice: ModelChoice) {
 async function handleSingleEditReferenceImage(event: Event) {
   referenceImageDrafts.value = []
   await handleReferenceImageFiles(event)
+}
+
+async function handleVideoFrameImage(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    appStore.showError('首帧图仅支持 PNG、JPG、WebP 格式')
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    appStore.showError('首帧图不能超过 10MB')
+    return
+  }
+  try {
+    const data = await readFileAsBase64(file)
+    videoFrameDraft.value = {
+      name: file.name,
+      mimeType: file.type,
+      size: file.size,
+      data,
+    }
+  } catch {
+    appStore.showError('首帧图读取失败，请重新选择')
+  }
 }
 
 async function submitCreative() {
@@ -2027,7 +2119,7 @@ function readFileAsBase64(file: File): Promise<string> {
 async function loadApiKeys() {
   loadingKeys.value = true
   try {
-    const response = await keysAPI.list(1, 100, { status: 'active', sort_by: 'created_at', sort_order: 'desc' })
+    const response = await keysAPI.list(1, 100, { sort_by: 'created_at', sort_order: 'desc' })
     apiKeys.value = response.items || []
     selectDefaultCreativeModels()
     if (filters.apiKeyId && !geminiApiKeys.value.some(key => String(key.id) === filters.apiKeyId)) {
@@ -2148,15 +2240,28 @@ async function submitVideo(): Promise<boolean> {
   if (!apiKey || !videoForm.prompt.trim()) return false
   videoSubmitting.value = true
   try {
-    const response = await createCreativeVideo(apiKey, {
+    const payload = {
       model: videoForm.model,
       prompt: videoForm.prompt.trim(),
+      aspect_ratio: composerAspectRatio.value,
       resolution: videoForm.resolution,
       duration: videoForm.duration,
+      ...(videoFrameDraft.value
+        ? {
+            image: {
+              type: 'image_url',
+              url: `data:${videoFrameDraft.value.mimeType};base64,${videoFrameDraft.value.data}`,
+            },
+          }
+        : {}),
+    }
+    const response = await createCreativeVideo(apiKey, {
+      ...payload,
     })
     const requestId = creativeVideoRequestId(response)
     if (requestId) videoTaskKeyMap[requestId] = apiKey
     videoForm.prompt = ''
+    videoFrameDraft.value = null
     appStore.showSuccess('视频任务已提交')
     await loadVideoTasks()
     return true
@@ -2498,6 +2603,8 @@ function copyPromptPopover() {
 }
 
 async function loadBatchJobs() {
+  clearImageJobPreviews()
+  const previewRequestID = ++imagePreviewRequestSeq
   const keys = filteredApiKeys.value
   if (!keys.length) {
     batchJobs.value = []
@@ -2521,6 +2628,9 @@ async function loadBatchJobs() {
       .slice(0, pagination.page_size))
     pagination.has_more = results.some(result => result.hasMore)
     selectedJobIds.value = new Set([...selectedJobIds.value].filter(id => visibleBatchJobs.value.some(job => job.id === id)))
+    if (previewRequestID === imagePreviewRequestSeq) {
+      void hydrateRecentImageJobPreviews(batchJobs.value)
+    }
   } catch (error: any) {
     appStore.showError(batchImageErrorMessage(error, batchImageText('loadJobsFailed')))
   } finally {
@@ -2675,7 +2785,10 @@ async function refreshSelected() {
     const job = await getBatchImageJob(key.key, selectedBatchId.value)
     currentJob.value = job
     upsertJob(job)
-    if (TERMINAL_STATUSES.has(job.status)) stopPolling()
+    if (TERMINAL_STATUSES.has(job.status)) {
+      stopPolling()
+      void hydrateRecentImageJobPreviews(batchJobs.value)
+    }
   } catch (error: any) {
     appStore.showError(batchImageErrorMessage(error, batchImageText('refreshFailed')))
   } finally {
@@ -3070,6 +3183,62 @@ async function hydrateCachedItemPreviews(detailItems: BatchImageDetailItem[]) {
   }))
 }
 
+async function hydrateRecentImageJobPreviews(jobs: BatchImageJobRow[]) {
+  const requestID = imagePreviewRequestSeq
+  const recentJobs = jobs
+    .filter(job => !job.parent_batch_id)
+    .slice(0, IMAGE_JOB_PREVIEW_LIMIT)
+  if (!recentJobs.length) return
+
+  await Promise.all(recentJobs.map(async (job) => {
+    if (requestID !== imagePreviewRequestSeq || imageJobPreviewUrls[job.id]) return
+    const key = apiKeyForJob(job)
+    if (!key) return
+    imageJobPreviewLoadingIds.value = new Set([...imageJobPreviewLoadingIds.value, job.id])
+    try {
+      const previewJobs = detailJobsForBatch(job.id)
+      const candidates: BatchImageDetailItem[] = []
+      for (const previewJob of previewJobs) {
+        try {
+          const result = await listBatchImageItems(key.key, previewJob.id)
+          candidates.push(...(result.data || []).map(item => ({
+            ...item,
+            batch_id: previewJob.id,
+            source_task_name: previewJob.task_name || previewJob.id,
+          })))
+        } catch {
+          // A preview is optional; keep the task card available when details expire.
+        }
+        if (candidates.some(item => canLoadItemPreview(item))) break
+      }
+      const item = candidates.find(candidate => canLoadItemPreview(candidate))
+      if (!item || requestID !== imagePreviewRequestSeq) return
+      const batchID = item.batch_id || job.id
+      const cacheKey = previewCacheKey(batchID, item.custom_id, 0)
+      try {
+        const cached = await getCachedPreviewBlob(cacheKey)
+        if (cached) {
+          if (requestID === imagePreviewRequestSeq) imageJobPreviewUrls[job.id] = URL.createObjectURL(cached)
+          return
+        }
+        const blob = await getBatchImageItemContent(key.key, batchID, item.custom_id, 0)
+        const thumbnail = await createThumbnailBlob(blob).catch(() => blob)
+        if (requestID !== imagePreviewRequestSeq) return
+        imageJobPreviewUrls[job.id] = URL.createObjectURL(thumbnail)
+        if (thumbnail !== blob || thumbnail.size <= 1024 * 1024) {
+          void putCachedPreviewBlob(cacheKey, thumbnail)
+        }
+      } catch {
+        // A preview is optional; keep the placeholder when the content is unavailable.
+      }
+    } finally {
+      const next = new Set(imageJobPreviewLoadingIds.value)
+      next.delete(job.id)
+      imageJobPreviewLoadingIds.value = next
+    }
+  }))
+}
+
 async function putCachedPreviewBlob(cacheKey: string, blob: Blob) {
   const db = await openPreviewCacheDB()
   if (!db) return
@@ -3285,6 +3454,24 @@ function handlePreviewError(customID: string) {
     delete itemPreviewUrls[customID]
   }
   previewErrorIds.value = new Set([...previewErrorIds.value, customID])
+}
+
+function handleJobPreviewError(jobID: string) {
+  if (imageJobPreviewUrls[jobID]) {
+    URL.revokeObjectURL(imageJobPreviewUrls[jobID])
+    delete imageJobPreviewUrls[jobID]
+  }
+}
+
+function clearImageJobPreviews() {
+  imagePreviewRequestSeq += 1
+  for (const url of Object.values(imageJobPreviewUrls)) {
+    if (url) URL.revokeObjectURL(url)
+  }
+  for (const key of Object.keys(imageJobPreviewUrls)) {
+    delete imageJobPreviewUrls[key]
+  }
+  imageJobPreviewLoadingIds.value = new Set()
 }
 
 function clearItemPreviews() {
@@ -3681,6 +3868,7 @@ onBeforeUnmount(() => {
     clearInterval(previewCacheCleanupTimer)
     previewCacheCleanupTimer = null
   }
+  clearImageJobPreviews()
   clearItemPreviews()
   document.removeEventListener('click', closeMoreMenu)
   window.removeEventListener('resize', closeMoreMenu)
