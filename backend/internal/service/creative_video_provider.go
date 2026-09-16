@@ -119,6 +119,13 @@ func (p *CreativeVideoHTTPProvider) Get(ctx context.Context, account *Account, r
 		}
 		return normalizeOpenAIVideoStatus(resp), nil
 	case PlatformMiniMax:
+		if client.isHappyCodeRelay() {
+			var resp map[string]any
+			if err := client.doJSON(ctx, http.MethodGet, "/v1/videos/"+url.PathEscape(requestID), nil, &resp); err != nil {
+				return nil, err
+			}
+			return normalizeMiniMaxVideoStatus(resp, requestID), nil
+		}
 		var resp map[string]any
 		v2Path := "/v2/query/video_generation/" + url.PathEscape(requestID)
 		if err := client.doJSON(ctx, http.MethodGet, v2Path, nil, &resp); err == nil {
@@ -164,6 +171,9 @@ func (p *CreativeVideoHTTPProvider) OpenContent(ctx context.Context, account *Ac
 		if downloadURL == "" {
 			return nil, "", ErrCreativeVideoProviderOutputUnavailable
 		}
+		if strings.HasPrefix(downloadURL, "/") {
+			return client.open(ctx, downloadURL)
+		}
 		return client.openAbsolute(ctx, downloadURL)
 	default:
 		return nil, "", ErrCreativeVideoProviderUnsupportedAccount
@@ -192,6 +202,9 @@ func (p *CreativeVideoHTTPProvider) submitOpenAI(ctx context.Context, client *cr
 }
 
 func (p *CreativeVideoHTTPProvider) submitMiniMax(ctx context.Context, client *creativeVideoHTTPClient, req CreativeVideoProviderRequest) (*CreativeVideoProviderStatus, error) {
+	if client.isHappyCodeRelay() {
+		return p.submitMiniMaxHappyCode(ctx, client, req)
+	}
 	if miniMaxUsesV2VideoAPI(req.Model) {
 		return p.submitMiniMaxV2(ctx, client, req)
 	}
@@ -217,6 +230,32 @@ func (p *CreativeVideoHTTPProvider) submitMiniMax(ctx context.Context, client *c
 		return nil, err
 	}
 	if err := minimaxBaseResponseError(resp); err != nil {
+		return nil, err
+	}
+	return normalizeMiniMaxVideoStatus(resp, ""), nil
+}
+
+func (p *CreativeVideoHTTPProvider) submitMiniMaxHappyCode(ctx context.Context, client *creativeVideoHTTPClient, req CreativeVideoProviderRequest) (*CreativeVideoProviderStatus, error) {
+	content := []map[string]any{{
+		"type": "text",
+		"text": req.Prompt,
+	}}
+	if image := strings.TrimSpace(req.ImageURL); image != "" {
+		content = append(content, map[string]any{
+			"type":      "image_url",
+			"role":      "first_frame",
+			"image_url": map[string]any{"url": image},
+		})
+	}
+	payload := map[string]any{
+		"model":      normalizeMiniMaxCreativeVideoModel(req.Model),
+		"content":    content,
+		"resolution": "768P",
+		"duration":   NormalizeVideoBillingDurationSecondsOrDefault(req.Duration),
+		"ratio":      miniMaxV2Ratio(req.AspectRatio),
+	}
+	var resp map[string]any
+	if err := client.doJSON(ctx, http.MethodPost, "/v1/videos/generations", payload, &resp); err != nil {
 		return nil, err
 	}
 	return normalizeMiniMaxVideoStatus(resp, ""), nil
@@ -339,6 +378,15 @@ func (c *creativeVideoHTTPClient) openAbsolute(ctx context.Context, rawURL strin
 	return c.doOpen(req)
 }
 
+func (c *creativeVideoHTTPClient) isHappyCodeRelay() bool {
+	u, err := url.Parse(strings.TrimSpace(c.baseURL))
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(strings.TrimPrefix(u.Hostname(), "www."))
+	return host == "happycodeai.com"
+}
+
 func (c *creativeVideoHTTPClient) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
 	if strings.TrimSpace(c.apiKey) == "" {
 		return nil, ErrCreativeVideoProviderMissingAPIKey
@@ -442,6 +490,9 @@ func normalizeMiniMaxVideoStatus(resp map[string]any, fallbackID string) *Creati
 	done := fileID != "" || downloadURL != ""
 	return &CreativeVideoProviderStatus{
 		ID: firstNonEmptyString(
+			gjson.GetBytes(data, "request_id").String(),
+			gjson.GetBytes(data, "data.request_id").String(),
+			gjson.GetBytes(data, "task.request_id").String(),
 			gjson.GetBytes(data, "task_id").String(),
 			gjson.GetBytes(data, "data.task_id").String(),
 			gjson.GetBytes(data, "task.task_id").String(),
@@ -450,8 +501,8 @@ func normalizeMiniMaxVideoStatus(resp map[string]any, fallbackID string) *Creati
 		),
 		Status:          normalizeCreativeVideoProviderStatus(status, done),
 		Model:           firstNonEmptyString(gjson.GetBytes(data, "model").String(), gjson.GetBytes(data, "data.model").String(), gjson.GetBytes(data, "task.model").String()),
-		Resolution:      normalizeMiniMaxReturnedResolution(firstNonEmptyString(gjson.GetBytes(data, "resolution").String(), gjson.GetBytes(data, "data.resolution").String(), gjson.GetBytes(data, "task.resolution").String())),
-		DurationSeconds: int(firstPositive(int(gjson.GetBytes(data, "duration").Int()), int(gjson.GetBytes(data, "data.duration").Int()), int(gjson.GetBytes(data, "task.duration").Int()))),
+		Resolution:      normalizeMiniMaxReturnedResolution(firstNonEmptyString(gjson.GetBytes(data, "resolution").String(), gjson.GetBytes(data, "data.resolution").String(), gjson.GetBytes(data, "task.resolution").String(), gjson.GetBytes(data, "video.resolution").String(), gjson.GetBytes(data, "data.video.resolution").String())),
+		DurationSeconds: int(firstPositive(int(gjson.GetBytes(data, "duration").Int()), int(gjson.GetBytes(data, "data.duration").Int()), int(gjson.GetBytes(data, "task.duration").Int()), int(gjson.GetBytes(data, "video.duration").Int()), int(gjson.GetBytes(data, "data.video.duration").Int()))),
 		DownloadURL:     downloadURL,
 		FileID:          fileID,
 		Raw:             resp,
