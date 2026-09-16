@@ -93,6 +93,16 @@
                         <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" class="mr-1" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
                         下载
                       </button>
+                      <button
+                        v-if="isCreativeVideoTerminal(task.status)"
+                        type="button"
+                        class="btn-ghost btn-icon text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        :disabled="videoDeletingId === task.id"
+                        title="删除记录"
+                        @click="removeVideoTask(task)"
+                      >
+                        <Icon :name="videoDeletingId === task.id ? 'refresh' : 'trash'" size="sm" :class="videoDeletingId === task.id ? 'animate-spin' : ''" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1645,6 +1655,7 @@ const videoSubmitting = ref(false)
 const videoLoadingTasks = ref(false)
 const videoDownloadingId = ref('')
 const videoPreviewingId = ref('')
+const videoDeletingId = ref('')
 const videoPreviewUrl = ref('')
 const videoPreviewTitle = ref('视频预览')
 const videoTaskKeyMap = reactive<Record<string, string>>({})
@@ -2408,10 +2419,13 @@ function closeVideoPreview() {
 }
 
 async function removeVideoTask(task: CreativeVideoTask) {
+  if (videoDeletingId.value) return
   if (!window.confirm('确认删除这条视频任务记录吗？删除后将不再显示，视频仍受上游有效期限制。')) return
+  videoDeletingId.value = task.id
   const apiKey = videoTaskKeyMap[task.id]
   if (!apiKey) {
     videoTasks.value = videoTasks.value.filter(row => row.id !== task.id)
+    videoDeletingId.value = ''
     return
   }
   try {
@@ -2420,6 +2434,8 @@ async function removeVideoTask(task: CreativeVideoTask) {
     delete videoTaskKeyMap[task.id]
   } catch (error: any) {
     appStore.showError(error?.message || '删除视频任务失败')
+  } finally {
+    videoDeletingId.value = ''
   }
 }
 
