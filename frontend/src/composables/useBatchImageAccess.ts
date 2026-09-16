@@ -94,9 +94,7 @@ export function useBatchImageAccess() {
   const appStore = useAppStore()
   const canUseBatchImage = computed(() => hasAllowedBatchImageKey.value)
   const canUseCreativeStudio = computed(
-    () =>
-      appStore.cachedPublicSettings?.creative_workbench_enabled !== false &&
-      (hasAllowedBatchImageKey.value || hasAllowedCreativeVideoKey.value),
+    () => appStore.cachedPublicSettings?.creative_workbench_enabled !== false,
   )
 
   return {
