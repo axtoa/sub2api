@@ -1,8 +1,8 @@
 <template>
   <AppLayout>
-    <section class="relative min-h-[calc(100vh-7.5rem)] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
-      <div class="grid min-h-[calc(100vh-7.5rem)] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <div class="flex min-h-[calc(100vh-7.5rem)] flex-col">
+    <section class="relative h-[calc(100vh-7.5rem)] min-h-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
+      <div class="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div class="flex h-full min-h-0 min-w-0 flex-col">
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-dark-700 sm:px-5">
             <div class="min-w-0">
               <p class="text-sm font-medium text-gray-900 dark:text-white">任务记录 {{ activeTab === 'image' ? `${batchJobs.length}/${imageRecordLimit}` : `${videoTasks.length}/${videoLimits.maxRecords}` }}</p>
@@ -110,7 +110,7 @@
             </div>
           </div>
 
-          <div class="border-t border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900 sm:p-4">
+          <div class="flex-shrink-0 border-t border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900 sm:p-4">
             <form class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-800/70" @submit.prevent="submitCreative">
               <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div class="inline-flex rounded-lg bg-white p-1 shadow-sm ring-1 ring-gray-200 dark:bg-dark-900 dark:ring-dark-700">
@@ -187,7 +187,7 @@
 
         <aside
           v-if="activeTab === 'image'"
-          class="relative border-l border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
+          class="relative h-full min-h-0 border-l border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
           :class="templateDrawerState === 'expanded' ? 'absolute inset-y-0 right-0 z-20 w-full lg:w-[calc(100%-0px)]' : templateDrawerState === 'rail' ? 'w-[280px]' : 'w-12'"
         >
           <button
@@ -200,8 +200,8 @@
           <div v-if="templateDrawerState === 'collapsed'" class="flex h-full items-center justify-center">
             <button type="button" class="vertical-rl text-sm font-medium tracking-normal text-gray-500 dark:text-gray-400" @click="templateDrawerState = 'rail'">图片模板</button>
           </div>
-          <div v-else class="flex h-full flex-col">
-            <div class="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-dark-700">
+          <div v-else class="flex h-full min-h-0 flex-col">
+            <div class="flex flex-shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-dark-700">
               <div>
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">图片模板</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">点击模板会带入提示词和参数</p>
@@ -210,10 +210,10 @@
                 {{ templateDrawerState === 'expanded' ? '收起全部' : '查看全部' }}
               </button>
             </div>
+            <div class="flex flex-shrink-0 flex-wrap gap-2 border-b border-gray-100 p-3 dark:border-dark-800">
+              <button v-for="category in templateCategories" :key="category" type="button" class="rounded-full px-3 py-1 text-xs font-medium transition" :class="templateCategory === category ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700'" @click="templateCategory = category">{{ category }}</button>
+            </div>
             <div class="min-h-0 flex-1 overflow-y-auto p-3">
-              <div class="mb-3 flex flex-wrap gap-2">
-                <button v-for="category in templateCategories" :key="category" type="button" class="rounded-full px-3 py-1 text-xs font-medium transition" :class="templateCategory === category ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700'" @click="templateCategory = category">{{ category }}</button>
-              </div>
               <div :class="templateDrawerState === 'expanded' ? 'columns-1 gap-3 sm:columns-2 xl:columns-3 2xl:columns-4' : 'space-y-3'">
                 <button
                   v-for="template in filteredCreativeTemplates"
@@ -223,14 +223,10 @@
                   @click="applyCreativeTemplate(template)"
                 >
                   <div class="relative aspect-[4/3] overflow-hidden bg-cover bg-center" :class="template.previewClass">
-                    <img
-                      v-if="!templatePreviewErrors.has(template.id)"
-                      :src="templatePreviewUrl(template)"
-                      :alt="template.title"
-                      class="h-full w-full object-cover"
-                      loading="lazy"
-                      @error="handleTemplatePreviewError(template.id)"
-                    />
+                    <div class="absolute inset-0 template-preview-sheen" />
+                    <div class="absolute left-3 top-3 rounded-full bg-white/75 px-2 py-0.5 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur dark:bg-dark-900/70 dark:text-gray-200">
+                      {{ template.mode === 'text' ? '文生图' : '改图' }}
+                    </div>
                   </div>
                   <div class="space-y-2 p-3">
                     <div class="flex items-center justify-between gap-2">
@@ -637,6 +633,9 @@
 
     <BaseDialog :show="showModelPicker" title="模型选择" width="wide" :z-index="70" @close="showModelPicker = false">
       <div class="space-y-3">
+        <div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+          这里会展示你拥有的所有 API Key；能否用于当前创作模式，由平台能力接入状态和分组开关自动判断。
+        </div>
         <div v-if="currentModelChoices.length === 0" class="rounded-lg border border-dashed border-gray-200 px-4 py-10 text-center dark:border-dark-700">
           <Icon name="sparkles" size="lg" class="mx-auto mb-3 text-gray-400" />
           <p class="text-sm font-medium text-gray-900 dark:text-white">{{ activeTab === 'image' ? '还没有可用于图片创作的模型' : '还没有可用于视频创作的模型' }}</p>
@@ -1278,7 +1277,6 @@ const activeTab = ref<'image' | 'video'>('image')
 const imageTool = ref<ImageCreativeTool>('text')
 const templateDrawerState = ref<TemplateDrawerState>(readTemplateDrawerState())
 const templateCategory = ref(readStoredString(STORAGE_TEMPLATE_CATEGORY_KEY, '全部'))
-const templatePreviewErrors = ref(new Set<string>())
 const showModelPicker = ref(false)
 const creativePrompt = ref('')
 const composerAspectRatio = ref('1:1')
@@ -1815,11 +1813,11 @@ function creativeKeyUnavailableReason(key: ApiKey, mode: 'image' | 'video') {
   if (key.status !== 'active') return '当前 API Key 未启用'
   const platform = key.group?.platform || ''
   if (mode === 'image') {
-    if (platform !== 'gemini') return '当前仅 Gemini 图片批量链路支持图片创作'
+    if (platform !== 'gemini') return '该平台的图片创作能力暂未接入当前创作台'
     if (key.group?.allow_batch_image_generation !== true) return '所属分组未开启图片生成能力'
     return '暂不可用于图片创作'
   }
-  if (platform !== 'grok') return '当前仅 Grok 视频链路支持视频创作'
+  if (platform !== 'grok') return '该平台的视频创作能力暂未接入当前创作台'
   return '暂不可用于视频创作'
 }
 
@@ -1889,14 +1887,6 @@ function applyCreativeTemplate(template: CreativeTemplate) {
   if (template.mode === 'edit') {
     appStore.showSuccess('已切换到改图，请先上传参考图。')
   }
-}
-
-function templatePreviewUrl(template: CreativeTemplate) {
-  return `/creative-templates/${template.id}.png`
-}
-
-function handleTemplatePreviewError(templateID: string) {
-  templatePreviewErrors.value = new Set([...templatePreviewErrors.value, templateID])
 }
 
 function selectModelChoice(choice: ModelChoice) {
@@ -3917,72 +3907,93 @@ onBeforeUnmount(() => {
   writing-mode: vertical-rl;
 }
 
+.template-preview-sheen {
+  background:
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.34) 42%, transparent 58%),
+    radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.42), transparent 28%);
+  mix-blend-mode: soft-light;
+}
+
 .template-preview-portrait {
   background:
-    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.85) 0 16%, transparent 17%),
+    radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.9) 0 14%, transparent 15%),
+    linear-gradient(180deg, transparent 48%, rgba(15, 23, 42, 0.18) 49% 64%, transparent 65%),
     linear-gradient(135deg, #dbeafe 0%, #f8fafc 42%, #d1fae5 100%);
 }
 
 .template-preview-id {
   background:
-    radial-gradient(circle at 50% 28%, rgba(252, 231, 243, 0.95) 0 17%, transparent 18%),
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.92) 0 15%, transparent 16%),
+    linear-gradient(180deg, transparent 50%, rgba(251, 207, 232, 0.7) 51% 66%, transparent 67%),
     linear-gradient(135deg, #f8fafc 0%, #e0f2fe 54%, #fce7f3 100%);
 }
 
 .template-preview-magazine {
   background:
-    linear-gradient(160deg, rgba(17, 24, 39, 0.1) 0 30%, transparent 31%),
+    radial-gradient(circle at 62% 34%, rgba(253, 230, 138, 0.36), transparent 26%),
+    linear-gradient(160deg, rgba(17, 24, 39, 0.58) 0 36%, transparent 37%),
     linear-gradient(135deg, #111827 0%, #9f1239 48%, #fde68a 100%);
 }
 
 .template-preview-travel {
   background:
+    radial-gradient(circle at 78% 22%, rgba(254, 240, 138, 0.9) 0 9%, transparent 10%),
     linear-gradient(180deg, #bae6fd 0%, #fef3c7 52%, #fb7185 100%);
 }
 
 .template-preview-cyber {
   background:
-    radial-gradient(circle at 62% 42%, rgba(236, 72, 153, 0.65) 0 15%, transparent 16%),
+    radial-gradient(circle at 62% 42%, rgba(236, 72, 153, 0.7) 0 13%, transparent 14%),
+    linear-gradient(90deg, transparent 0 44%, rgba(255, 255, 255, 0.2) 45% 46%, transparent 47%),
     linear-gradient(135deg, #0f172a 0%, #1d4ed8 48%, #db2777 100%);
 }
 
 .template-preview-product {
   background:
-    radial-gradient(circle at 52% 48%, rgba(255, 255, 255, 0.95) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 50% 54%, rgba(255, 255, 255, 0.95) 0 17%, transparent 18%),
+    radial-gradient(ellipse at 50% 74%, rgba(15, 23, 42, 0.12), transparent 25%),
     linear-gradient(135deg, #ecfccb 0%, #f8fafc 45%, #bfdbfe 100%);
 }
 
 .template-preview-wallpaper {
   background:
+    radial-gradient(circle at 24% 72%, rgba(255, 255, 255, 0.55), transparent 22%),
     linear-gradient(180deg, #bfdbfe 0%, #fecdd3 46%, #fdf2f8 100%);
 }
 
 .template-preview-sticker {
   background:
-    radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.95) 0 22%, transparent 23%),
+    radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.94) 0 20%, transparent 21%),
+    radial-gradient(circle at 43% 41%, rgba(15, 23, 42, 0.34) 0 2%, transparent 3%),
+    radial-gradient(circle at 57% 41%, rgba(15, 23, 42, 0.34) 0 2%, transparent 3%),
     linear-gradient(135deg, #fde68a 0%, #a7f3d0 48%, #bfdbfe 100%);
 }
 
 .template-preview-bg {
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0 36%, transparent 37%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.88) 0 38%, transparent 39%),
+    radial-gradient(circle at 72% 38%, rgba(34, 197, 94, 0.28), transparent 24%),
     linear-gradient(135deg, #f8fafc 0%, #bbf7d0 48%, #bae6fd 100%);
 }
 
 .template-preview-comic {
   background:
-    radial-gradient(circle at 48% 36%, rgba(255, 255, 255, 0.9) 0 20%, transparent 21%),
+    radial-gradient(circle at 48% 36%, rgba(255, 255, 255, 0.9) 0 18%, transparent 19%),
+    linear-gradient(135deg, transparent 0 48%, rgba(15, 23, 42, 0.16) 49% 50%, transparent 51%),
     linear-gradient(135deg, #fef3c7 0%, #fbcfe8 45%, #c7d2fe 100%);
 }
 
 .template-preview-pet {
   background:
-    radial-gradient(circle at 50% 44%, rgba(251, 191, 36, 0.8) 0 20%, transparent 21%),
+    radial-gradient(circle at 50% 44%, rgba(251, 191, 36, 0.78) 0 18%, transparent 19%),
+    radial-gradient(circle at 45% 40%, rgba(120, 53, 15, 0.28) 0 2%, transparent 3%),
+    radial-gradient(circle at 55% 40%, rgba(120, 53, 15, 0.28) 0 2%, transparent 3%),
     linear-gradient(135deg, #fefce8 0%, #ccfbf1 48%, #dbeafe 100%);
 }
 
 .template-preview-outfit {
   background:
+    linear-gradient(90deg, transparent 0 42%, rgba(255, 255, 255, 0.62) 43% 58%, transparent 59%),
     linear-gradient(135deg, #f5f5f4 0%, #ddd6fe 48%, #fecaca 100%);
 }
 </style>
