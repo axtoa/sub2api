@@ -106,6 +106,7 @@ type CreativeVideoRepository interface {
 	CompleteCreativeVideoTaskSubmit(ctx context.Context, params CompleteCreativeVideoTaskSubmitParams) error
 	MarkCreativeVideoTaskFailed(ctx context.Context, taskID, code, message string) error
 	ObserveCreativeVideoTask(ctx context.Context, params ObserveCreativeVideoTaskParams) error
+	GetCreativeVideoTaskForOwner(ctx context.Context, userID, apiKeyID int64, requestID string) (*CreativeVideoTask, error)
 	ListCreativeVideoTasksForOwner(ctx context.Context, userID, apiKeyID int64, filter CreativeVideoTaskFilter) ([]*CreativeVideoTask, error)
 	CountActiveCreativeVideoTasksForUser(ctx context.Context, userID int64) (int, error)
 	MarkCreativeVideoTaskDownloaded(ctx context.Context, userID, apiKeyID int64, providerRequestID string, downloadedAt time.Time) error
@@ -203,6 +204,35 @@ func (s *CreativeVideoService) CreatePending(ctx context.Context, owner BatchIma
 	})
 }
 
+func (s *CreativeVideoService) CreateProviderPending(ctx context.Context, owner BatchImageOwner, provider string, req CreativeVideoProviderRequest) (*CreativeVideoTask, error) {
+	if s == nil || s.Repo == nil {
+		return nil, nil
+	}
+	settings := s.creativeWorkbenchSettings(ctx)
+	if !settings.Enabled || !settings.VideoEnabled {
+		return nil, ErrCreativeVideoDisabled
+	}
+	taskID, err := NewCreativeVideoTaskID()
+	if err != nil {
+		return nil, err
+	}
+	expiresAt := time.Now().AddDate(0, 0, settings.RetentionDays)
+	return s.Repo.CreateCreativeVideoTask(ctx, CreateCreativeVideoTaskParams{
+		TaskID:                taskID,
+		UserID:                owner.UserID,
+		APIKeyID:              owner.APIKeyID,
+		GroupID:               owner.GroupID,
+		Provider:              strings.TrimSpace(provider),
+		Model:                 strings.TrimSpace(req.Model),
+		PromptPreview:         creativeVideoPromptPreview(req.Prompt),
+		Status:                CreativeVideoStatusQueued,
+		Resolution:            optionalStringPtr(req.Resolution),
+		DurationSeconds:       optionalIntPtr(req.Duration),
+		OutputExpiresAt:       &expiresAt,
+		MaxActiveTasksPerUser: settings.VideoMaxRunningPerUser,
+	})
+}
+
 func (s *CreativeVideoService) CompleteSubmit(ctx context.Context, taskID string, accountID int64, result *OpenAIForwardResult, fallback GrokMediaRequestInfo) error {
 	if s == nil || s.Repo == nil || strings.TrimSpace(taskID) == "" || result == nil {
 		return nil
@@ -222,11 +252,60 @@ func (s *CreativeVideoService) CompleteSubmit(ctx context.Context, taskID string
 	})
 }
 
+func (s *CreativeVideoService) CompleteProviderSubmit(ctx context.Context, taskID string, accountID int64, status *CreativeVideoProviderStatus, fallback CreativeVideoProviderRequest) error {
+	if s == nil || s.Repo == nil || strings.TrimSpace(taskID) == "" || status == nil {
+		return nil
+	}
+	providerRequestID := strings.TrimSpace(status.ID)
+	if providerRequestID == "" {
+		return infraerrors.New(http.StatusBadGateway, "CREATIVE_VIDEO_MISSING_REQUEST_ID", "creative video upstream response did not include a request id")
+	}
+	nextStatus := CreativeVideoStatusRunning
+	if status.Status == CreativeVideoStatusCompleted {
+		nextStatus = CreativeVideoStatusCompleted
+	}
+	return s.Repo.CompleteCreativeVideoTaskSubmit(ctx, CompleteCreativeVideoTaskSubmitParams{
+		TaskID:            taskID,
+		ProviderRequestID: providerRequestID,
+		AccountID:         accountID,
+		Status:            nextStatus,
+		Model:             firstNonEmpty(strings.TrimSpace(status.Model), strings.TrimSpace(fallback.Model)),
+		Resolution:        firstNonEmpty(strings.TrimSpace(status.Resolution), strings.TrimSpace(fallback.Resolution)),
+		DurationSeconds:   firstPositive(status.DurationSeconds, fallback.Duration),
+	})
+}
+
 func (s *CreativeVideoService) FailTask(ctx context.Context, taskID, code, message string) {
 	if s == nil || s.Repo == nil || strings.TrimSpace(taskID) == "" {
 		return
 	}
 	_ = s.Repo.MarkCreativeVideoTaskFailed(ctx, taskID, code, message)
+}
+
+func (s *CreativeVideoService) ObserveProviderStatus(ctx context.Context, owner BatchImageOwner, requestID string, status *CreativeVideoProviderStatus) {
+	if s == nil || s.Repo == nil || status == nil || strings.TrimSpace(requestID) == "" {
+		return
+	}
+	nextStatus := strings.TrimSpace(status.Status)
+	if nextStatus == "" {
+		return
+	}
+	_ = s.Repo.ObserveCreativeVideoTask(ctx, ObserveCreativeVideoTaskParams{
+		ProviderRequestID: strings.TrimSpace(requestID),
+		UserID:            owner.UserID,
+		APIKeyID:          owner.APIKeyID,
+		Status:            nextStatus,
+		Model:             strings.TrimSpace(status.Model),
+		Resolution:        strings.TrimSpace(status.Resolution),
+		DurationSeconds:   status.DurationSeconds,
+	})
+}
+
+func (s *CreativeVideoService) GetTask(ctx context.Context, owner BatchImageOwner, requestID string) (*CreativeVideoTask, error) {
+	if s == nil || s.Repo == nil {
+		return nil, ErrCreativeVideoTaskNotFound
+	}
+	return s.Repo.GetCreativeVideoTaskForOwner(ctx, owner.UserID, owner.APIKeyID, requestID)
 }
 
 func (s *CreativeVideoService) ObserveGatewayResult(ctx context.Context, userID, apiKeyID int64, providerRequestID string, result *OpenAIForwardResult) {

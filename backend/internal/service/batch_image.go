@@ -13,6 +13,8 @@ import (
 const (
 	BatchImageProviderGeminiAPI = "gemini_api"
 	BatchImageProviderVertex    = "vertex"
+	BatchImageProviderOpenAI    = "openai"
+	BatchImageProviderMiniMax   = "minimax"
 )
 
 const (
@@ -357,7 +359,7 @@ func NewBatchImageID() (string, error) {
 
 func IsSupportedBatchImageProvider(provider string) bool {
 	switch provider {
-	case BatchImageProviderGeminiAPI, BatchImageProviderVertex:
+	case BatchImageProviderGeminiAPI, BatchImageProviderVertex, BatchImageProviderOpenAI, BatchImageProviderMiniMax:
 		return true
 	default:
 		return false

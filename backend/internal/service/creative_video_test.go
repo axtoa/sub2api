@@ -163,6 +163,18 @@ func (r *fakeCreativeVideoRepo) ObserveCreativeVideoTask(_ context.Context, para
 	return nil
 }
 
+func (r *fakeCreativeVideoRepo) GetCreativeVideoTaskForOwner(_ context.Context, _ int64, _ int64, requestID string) (*CreativeVideoTask, error) {
+	for _, task := range r.listTasks {
+		if task == nil {
+			continue
+		}
+		if task.TaskID == requestID || ptrString(task.ProviderRequestID) == requestID {
+			return task, nil
+		}
+	}
+	return nil, ErrCreativeVideoTaskNotFound
+}
+
 func (r *fakeCreativeVideoRepo) ListCreativeVideoTasksForOwner(_ context.Context, _ int64, _ int64, filter CreativeVideoTaskFilter) ([]*CreativeVideoTask, error) {
 	r.listFilter = filter
 	return r.listTasks, nil

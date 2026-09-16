@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -41,13 +42,18 @@ func NewDefaultBatchImageProviderRegistry() *BatchImageProviderRegistry {
 	return NewBatchImageProviderRegistry(
 		NewGeminiAPIBatchImageProvider(nil),
 		NewVertexBatchImageProvider(VertexBatchImageProviderOptions{}, nil, nil, nil),
+		NewOpenAIBatchImageProvider(OpenAIBatchImageProviderOptions{}, nil),
+		NewMiniMaxBatchImageProvider(MiniMaxBatchImageProviderOptions{}, nil),
 	)
 }
 
 func NewBatchImageProviderRegistryFromConfig(cfg *config.Config) *BatchImageProviderRegistry {
+	resultDir := batchImageProviderLocalResultDir(cfg)
 	return NewBatchImageProviderRegistry(
 		NewGeminiAPIBatchImageProvider(nil),
 		NewVertexBatchImageProviderFromConfig(cfg, nil, nil, nil),
+		NewOpenAIBatchImageProvider(OpenAIBatchImageProviderOptions{ResultDir: resultDir}, nil),
+		NewMiniMaxBatchImageProvider(MiniMaxBatchImageProviderOptions{ResultDir: resultDir}, nil),
 	)
 }
 
@@ -177,4 +183,9 @@ func batchImageProviderAPIKey(account *Account) string {
 
 func batchImageProviderInputError(format string, args ...any) error {
 	return ErrBatchImageProviderInvalidInput.WithCause(fmt.Errorf(format, args...))
+}
+
+func batchImageProviderLocalResultDir(cfg *config.Config) string {
+	_ = cfg
+	return filepath.Join("./data", "batch-image", "results")
 }

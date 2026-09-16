@@ -188,6 +188,27 @@ WHERE provider_request_id = $1
 	return translatePersistenceError(err, nil, nil)
 }
 
+func (r *creativeVideoRepository) GetCreativeVideoTaskForOwner(ctx context.Context, userID, apiKeyID int64, requestID string) (*service.CreativeVideoTask, error) {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return nil, service.ErrCreativeVideoTaskNotFound
+	}
+	task, err := scanCreativeVideoTask(r.sql.QueryRowContext(ctx, `
+SELECT `+creativeVideoTaskSelectColumns+`
+FROM creative_video_tasks
+WHERE (provider_request_id = $1 OR task_id = $1)
+  AND user_id = $2
+  AND api_key_id = $3
+  AND user_deleted_at IS NULL`, requestID, userID, apiKeyID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, service.ErrCreativeVideoTaskNotFound
+	}
+	if err != nil {
+		return nil, translatePersistenceError(err, nil, nil)
+	}
+	return task, nil
+}
+
 func (r *creativeVideoRepository) ListCreativeVideoTasksForOwner(ctx context.Context, userID, apiKeyID int64, filter service.CreativeVideoTaskFilter) ([]*service.CreativeVideoTask, error) {
 	limit := filter.Limit
 	if limit <= 0 || limit > 501 {

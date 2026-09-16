@@ -537,15 +537,17 @@
               <select v-model.number="videoForm.apiKeyId" class="input" :disabled="loadingKeys">
                 <option :value="0">{{ loadingKeys ? '加载中...' : '选择 API Key' }}</option>
                 <option v-for="key in grokApiKeys" :key="key.id" :value="key.id">
-                  {{ key.name }} · {{ key.group?.name || 'Grok' }}
+                  {{ key.name }} · {{ key.group?.name || platformLabel(key) }}
                 </option>
               </select>
-              <p v-if="!loadingKeys && grokApiKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">请先在 API Key 中配置可用的 Grok 分组。</p>
+              <p v-if="!loadingKeys && grokApiKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">请先在 API Key 中配置可用于视频创作的分组。</p>
             </div>
             <div>
               <label class="input-label">模型</label>
               <select v-model="videoForm.model" class="input">
                 <option value="grok-imagine-video">grok-imagine-video</option>
+                <option value="sora-2">sora-2</option>
+                <option value="video-01">video-01</option>
               </select>
             </div>
             <div>
@@ -1799,25 +1801,29 @@ function readTemplateDrawerState(): TemplateDrawerState {
 }
 
 function isImageCreativeKey(key: ApiKey) {
+  const platform = key.group?.platform || ''
   return key.status === 'active' &&
-    key.group?.platform === 'gemini' &&
+    ['gemini', 'openai', 'minimax'].includes(platform) &&
     key.group?.allow_batch_image_generation === true
 }
 
 function isVideoCreativeKey(key: ApiKey) {
+  const platform = key.group?.platform || ''
   return key.status === 'active' &&
-    key.group?.platform === 'grok'
+    ['grok', 'openai', 'minimax'].includes(platform) &&
+    key.group?.allow_image_generation === true
 }
 
 function creativeKeyUnavailableReason(key: ApiKey, mode: 'image' | 'video') {
   if (key.status !== 'active') return '当前 API Key 未启用'
   const platform = key.group?.platform || ''
   if (mode === 'image') {
-    if (platform !== 'gemini') return '该平台的图片创作能力暂未接入当前创作台'
+    if (!['gemini', 'openai', 'minimax'].includes(platform)) return '该平台的图片创作能力暂未接入当前创作台'
     if (key.group?.allow_batch_image_generation !== true) return '所属分组未开启图片生成能力'
     return '暂不可用于图片创作'
   }
-  if (platform !== 'grok') return '该平台的视频创作能力暂未接入当前创作台'
+  if (!['grok', 'openai', 'minimax'].includes(platform)) return '该平台的视频创作能力暂未接入当前创作台'
+  if (key.group?.allow_image_generation !== true) return '所属分组未开启创作能力'
   return '暂不可用于视频创作'
 }
 
@@ -1835,7 +1841,10 @@ function maskApiKey(value: string | null | undefined) {
   return `**** ${tail}`
 }
 
-function videoModelForKey(_key: ApiKey) {
+function videoModelForKey(key: ApiKey) {
+  const platform = key.group?.platform || ''
+  if (platform === 'openai') return 'sora-2'
+  if (platform === 'minimax') return 'video-01'
   return 'grok-imagine-video'
 }
 
@@ -1959,6 +1968,8 @@ function referenceImageLimitForModel(model: string) {
   const normalized = String(model || '').toLowerCase()
   if (normalized.includes('pro-image')) return 14
   if (normalized.includes('flash-image')) return 3
+  if (normalized.startsWith('gpt-image-')) return 4
+  if (normalized.includes('image-01') || normalized.includes('image-')) return 4
   return 0
 }
 

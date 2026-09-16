@@ -572,6 +572,13 @@ func NewOpenAIGatewayService(
 	return svc
 }
 
+func (s *OpenAIGatewayService) GetAccountByID(ctx context.Context, id int64) (*Account, error) {
+	if s == nil || s.accountRepo == nil || id <= 0 {
+		return nil, ErrNoAvailableAccounts
+	}
+	return s.accountRepo.GetByID(ctx, id)
+}
+
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
 func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
 	if s.channelService == nil {

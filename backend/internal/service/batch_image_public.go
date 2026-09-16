@@ -214,7 +214,7 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	if err != nil {
 		return nil, err
 	}
-	// 与 ListModels 使用同一鉴权谓词（AllowBatchImageGeneration + Platform==Gemini），
+	// 与 ListModels 使用同一鉴权谓词（AllowBatchImageGeneration + 支持图片创作的平台），
 	// 避免两个入口校验口径不一致留下防御纵深缺口。
 	if err := s.ensureGroupAllowsBatchImage(ctx, owner.GroupID); err != nil {
 		return nil, err
@@ -658,7 +658,7 @@ func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchIma
 				continue
 			}
 			for _, model := range batchImageModelsFromAccountMapping(&account) {
-				if _, err := s.Pricing.BatchImageUnitPrice(ctx, &BatchImageJob{Provider: providerName, Model: model}); err != nil {
+				if _, err := s.Pricing.BatchImageUnitPrice(ctx, &BatchImageJob{Provider: providerName, Model: model}); err != nil && !s.groupHasBatchImageUnitPrice(ctx, owner.GroupID) {
 					continue
 				}
 				if !account.IsModelSupported(model) {
@@ -947,6 +947,12 @@ func maxBatchImageReferenceImagesForModel(model string) int {
 	if strings.Contains(model, "flash-image") {
 		return 3
 	}
+	if strings.HasPrefix(model, "gpt-image-") {
+		return 4
+	}
+	if strings.Contains(model, "image-01") || strings.Contains(model, "image-") {
+		return 4
+	}
 	return 0
 }
 
@@ -1007,10 +1013,22 @@ func (s *BatchImagePublicService) ensureGroupAllowsBatchImage(ctx context.Contex
 	if !group.AllowBatchImageGeneration {
 		return ErrBatchImageGroupDisabled
 	}
-	if group.Platform != PlatformGemini {
+	if !batchImagePlatformSupportsProvider(group.Platform) {
 		return ErrBatchImageGroupDisabled
 	}
 	return nil
+}
+
+func (s *BatchImagePublicService) groupHasBatchImageUnitPrice(ctx context.Context, groupID *int64) bool {
+	if s == nil || s.GroupRepo == nil || groupID == nil || *groupID <= 0 {
+		return false
+	}
+	group, err := s.GroupRepo.GetByIDLite(ctx, *groupID)
+	if err != nil || group == nil {
+		return false
+	}
+	price := group.GetImagePrice(defaultBatchImageImageSize)
+	return price != nil && *price >= 0
 }
 
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
@@ -1316,6 +1334,10 @@ func batchImageProviderPlatform(provider string) string {
 	switch provider {
 	case BatchImageProviderGeminiAPI, BatchImageProviderVertex:
 		return PlatformGemini
+	case BatchImageProviderOpenAI:
+		return PlatformOpenAI
+	case BatchImageProviderMiniMax:
+		return PlatformMiniMax
 	default:
 		return PlatformGemini
 	}
@@ -1325,7 +1347,16 @@ func batchImageProviderSelectionOrder(requestedProvider string) []string {
 	if strings.TrimSpace(requestedProvider) != "" {
 		return []string{strings.TrimSpace(requestedProvider)}
 	}
-	return []string{BatchImageProviderGeminiAPI, BatchImageProviderVertex}
+	return []string{BatchImageProviderGeminiAPI, BatchImageProviderVertex, BatchImageProviderOpenAI, BatchImageProviderMiniMax}
+}
+
+func batchImagePlatformSupportsProvider(platform string) bool {
+	switch NormalizeGroupPlatform(platform) {
+	case PlatformGemini, PlatformOpenAI, PlatformMiniMax:
+		return true
+	default:
+		return false
+	}
 }
 
 func batchImageModelsFromAccountMapping(account *Account) []string {
@@ -1334,7 +1365,7 @@ func batchImageModelsFromAccountMapping(account *Account) []string {
 	}
 	mapping := account.GetModelMapping()
 	if len(mapping) == 0 {
-		return nil
+		return defaultBatchImageModelsForPlatform(account.Platform)
 	}
 	models := make(map[string]struct{})
 	for model := range mapping {
@@ -1358,6 +1389,19 @@ func batchImageModelsFromAccountMapping(account *Account) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func defaultBatchImageModelsForPlatform(platform string) []string {
+	switch NormalizeGroupPlatform(platform) {
+	case PlatformOpenAI:
+		return []string{"gpt-image-2", "gpt-image-1.5", "gpt-image-1"}
+	case PlatformMiniMax:
+		return []string{"image-01"}
+	case PlatformGemini:
+		return nil
+	default:
+		return nil
+	}
 }
 
 func defaultBatchImageModelCandidates() []string {
