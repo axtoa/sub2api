@@ -3,6 +3,7 @@ export const imagePricingPlatforms = new Set([
   "composite",
   "gemini",
   "grok",
+  "minimax",
   "openai",
 ]);
 
@@ -10,7 +11,7 @@ export const supportsImagePricingPlatform = (platform: string): boolean =>
   imagePricingPlatforms.has(platform);
 
 export const supportsVideoPricingPlatform = (platform: string): boolean =>
-  platform === "grok";
+  ["grok", "minimax", "openai"].includes(platform);
 
 export const imagePricingI18nKey = (_platform: string, key: string): string =>
   `admin.groups.imagePricing.${key}`;
@@ -38,6 +39,11 @@ const defaultImagePricePlaceholders: Record<
     image_price_2k: "0.02",
     image_price_4k: "0.02",
   },
+  minimax: {
+    image_price_1k: "0.01",
+    image_price_2k: "0.02",
+    image_price_4k: "0.04",
+  },
 };
 
 // 视频价为每秒单价（USD/s）。480p/720p 取 grok-imagine-video（文生视频实际走该模型）的
@@ -49,6 +55,16 @@ const defaultVideoPricePlaceholders: Record<
   grok: {
     video_price_480p: "0.05",
     video_price_720p: "0.07",
+    video_price_1080p: "0.25",
+  },
+  minimax: {
+    video_price_480p: "0.02",
+    video_price_720p: "0.04",
+    video_price_1080p: "0.08",
+  },
+  openai: {
+    video_price_480p: "0.10",
+    video_price_720p: "0.15",
     video_price_1080p: "0.25",
   },
 };

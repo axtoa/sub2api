@@ -1095,7 +1095,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn btn-secondary" :disabled="submitting" @click="closeCreateModal">{{ t('common.cancel') }}</button>
-	          <button type="button" class="btn btn-primary inline-flex min-w-[120px] justify-center" :disabled="submitting || loadingModels || (parsedItems.length === 0 && !promptDraft.trim()) || !selectedApiKey || !form.model" @click="submitJob">
+          <button type="button" class="btn btn-primary inline-flex min-w-[120px] justify-center" :disabled="submitting || (loadingModels && !form.model) || (parsedItems.length === 0 && !promptDraft.trim()) || !selectedApiKey || !form.model" @click="submitJob">
             <Icon v-if="submitting" name="refresh" size="sm" class="mr-2 animate-spin" />
             {{ submitting ? t('common.submitting') : t('batchImage.actions.submitJob') }}
           </button>
@@ -1640,7 +1640,7 @@ const creativeSubmittingDisabled = computed(() => {
   if (activeTab.value === 'video') {
     return videoSubmitting.value || !selectedVideoApiKey.value || !creativePrompt.value.trim()
   }
-  return submitting.value || loadingModels.value || !selectedApiKey.value || !form.model || !creativePrompt.value.trim() || (imageTool.value === 'edit' && referenceImageDrafts.value.length === 0)
+  return submitting.value || (loadingModels.value && !form.model) || !selectedApiKey.value || !form.model || !creativePrompt.value.trim() || (imageTool.value === 'edit' && referenceImageDrafts.value.length === 0)
 })
 
 const videoTasks = ref<CreativeVideoTask[]>([])
@@ -1819,11 +1819,11 @@ function creativeKeyUnavailableReason(key: ApiKey, mode: 'image' | 'video') {
   const platform = key.group?.platform || ''
   if (mode === 'image') {
     if (!['gemini', 'openai', 'minimax'].includes(platform)) return '该平台的图片创作能力暂未接入当前创作台'
-    if (key.group?.allow_batch_image_generation !== true) return '所属分组未开启图片生成能力'
+    if (key.group?.allow_batch_image_generation !== true) return '所属分组未开启创作台图片能力'
     return '暂不可用于图片创作'
   }
   if (!['grok', 'openai', 'minimax'].includes(platform)) return '该平台的视频创作能力暂未接入当前创作台'
-  if (key.group?.allow_image_generation !== true) return '所属分组未开启创作能力'
+  if (key.group?.allow_image_generation !== true) return '所属分组未开启创作台视频能力'
   return '暂不可用于视频创作'
 }
 
@@ -1848,6 +1848,13 @@ function videoModelForKey(key: ApiKey) {
   return 'grok-imagine-video'
 }
 
+function imageModelForKey(key: ApiKey) {
+  const platform = key.group?.platform || ''
+  if (platform === 'openai') return 'gpt-image-2'
+  if (platform === 'minimax') return 'image-01'
+  return 'gemini-2.5-flash-image'
+}
+
 function selectDefaultCreativeModels() {
   const savedImageId = readStoredNumber(STORAGE_IMAGE_MODEL_KEY)
   const savedVideoId = readStoredNumber(STORAGE_VIDEO_MODEL_KEY)
@@ -1856,8 +1863,10 @@ function selectDefaultCreativeModels() {
 
   if (savedImage) {
     form.apiKeyId = savedImage.id
+    if (!form.model) form.model = imageModelForKey(savedImage)
   } else if (!selectedApiKey.value && geminiApiKeys.value.length > 0) {
     form.apiKeyId = geminiApiKeys.value[0].id
+    form.model = imageModelForKey(geminiApiKeys.value[0])
     if (savedImageId) appStore.showError(`上次选择的 API Key 当前不可用，已为你切换到 ${geminiApiKeys.value[0].name || '可用模型'}。`)
   }
 
@@ -1902,6 +1911,8 @@ function selectModelChoice(choice: ModelChoice) {
   if (choice.disabled) return
   if (choice.mode === 'image') {
     form.apiKeyId = choice.apiKeyId
+    const key = geminiApiKeys.value.find(item => item.id === choice.apiKeyId)
+    if (key) form.model = imageModelForKey(key)
     writeStoredString(STORAGE_IMAGE_MODEL_KEY, String(choice.apiKeyId))
   } else {
     videoForm.apiKeyId = choice.apiKeyId
@@ -2171,8 +2182,13 @@ async function loadAvailableModels() {
   const requestID = ++modelRequestSeq
   modelLoadError.value = ''
   availableBatchImageModels.value = []
-  form.model = ''
-  if (!key) return
+  if (!key) {
+    form.model = ''
+    return
+  }
+  if (!form.model) {
+    form.model = imageModelForKey(key)
+  }
 
   loadingModels.value = true
   try {
@@ -2187,7 +2203,9 @@ async function loadAvailableModels() {
         return true
       })
       .map(model => ({ value: model, label: model }))
-    form.model = availableBatchImageModels.value[0]?.value || ''
+    if (availableBatchImageModels.value.length > 0 && !availableBatchImageModels.value.some(model => model.value === form.model)) {
+      form.model = availableBatchImageModels.value[0]?.value || imageModelForKey(key)
+    }
   } catch (error: any) {
     if (requestID !== modelRequestSeq) return
     modelLoadError.value = batchImageErrorMessage(error, batchImageText('loadModelsFailed'))
