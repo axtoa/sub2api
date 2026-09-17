@@ -64,7 +64,7 @@
               </div>
             </div>
 
-            <div v-else class="space-y-3">
+            <div v-else class="space-y-4">
               <div v-if="videoLoadingTasks && !videoTasks.length" class="flex min-h-[420px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">加载视频任务中...</div>
               <div v-else-if="!videoTasks.length" class="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-6 text-center dark:border-dark-700 dark:bg-dark-800">
                 <Icon name="sparkles" size="xl" class="mb-4 h-12 w-12 text-primary-400" />
@@ -72,49 +72,59 @@
                 <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">描述一个镜头、一个动作或一段氛围，第一条视频任务会在这里等你。</p>
               </div>
               <template v-else>
-                <div
-                  v-for="task in videoTasks"
-                  :key="task.id"
-                  class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800"
-                >
-                  <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ task.model }}</p>
-                      <p class="mt-1 line-clamp-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ task.prompt_preview || '无提示词' }}</p>
-                      <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                        {{ formatDate(task.created_at) }} · {{ task.resolution || '720p' }} · {{ task.duration_seconds || videoForm.duration }} 秒
-                        <span v-if="creativeVideoElapsedText(task)"> · {{ creativeVideoElapsedText(task) }}</span>
-                      </p>
-                      <p
-                        v-if="creativeVideoProgressHint(task)"
-                        class="mt-2 rounded-md px-3 py-2 text-xs leading-5"
-                        :class="creativeVideoProgressHintClass(task)"
-                      >
-                        {{ creativeVideoProgressHint(task) }}
-                      </p>
+                <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <p>视频任务最多保留 <span class="font-medium text-red-500">{{ videoLimits.retentionDays }}</span> 天；超过 <span class="font-medium text-red-500">{{ videoLimits.maxRecords }}</span> 条会提前清理，完成后请及时下载。</p>
+                  <p>任务记录 {{ videoTasks.length }}/{{ videoLimits.maxRecords }} · 进行中 {{ videoRunningCount }}/{{ videoLimits.maxRunning }}</p>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  <button
+                    v-for="task in videoTasks"
+                    :key="task.id"
+                    type="button"
+                    class="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700/60"
+                    @click="openVideoDetail(task)"
+                  >
+                    <div class="relative aspect-[4/3] overflow-hidden bg-black">
+                      <img
+                        v-if="videoThumbnailUrls[task.id]"
+                        :src="videoThumbnailUrls[task.id]"
+                        :alt="task.prompt_preview || task.model"
+                        class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                      />
+                      <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
+                        <Icon v-if="videoThumbnailLoadingIds.has(task.id)" name="refresh" size="lg" class="animate-spin text-white/80" />
+                        <Icon v-else name="sparkles" size="xl" class="text-white/80" />
+                      </div>
+                      <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3 pt-10">
+                        <p class="line-clamp-2 text-sm font-medium leading-5 text-white">{{ task.prompt_preview || '无提示词' }}</p>
+                      </div>
+                      <div class="absolute left-2 top-2 rounded bg-black/50 px-2 py-1 text-xs font-medium text-white" :title="videoExpiryHint(task)">
+                        {{ videoRetentionLabel(task) }}
+                      </div>
+                      <span class="absolute right-2 top-2 rounded-full px-2 py-1 text-xs font-medium shadow-sm" :class="creativeVideoPillClass(task.status)">
+                        {{ creativeVideoStatusLabel(task.status) }}
+                      </span>
+                      <div class="absolute right-2 top-10 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                        <button type="button" class="rounded-md bg-black/55 p-1.5 text-white hover:bg-black/75" title="再次生成" @click.stop="reuseVideoTask(task)">
+                          <Icon name="refresh" size="sm" />
+                        </button>
+                        <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="rounded-md bg-black/55 p-1.5 text-white hover:bg-black/75" :disabled="videoDownloadingId === task.id" title="下载视频" @click.stop="downloadVideoTask(task)">
+                          <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
+                        </button>
+                        <button v-if="isCreativeVideoTerminal(task.status)" type="button" class="rounded-md bg-black/55 p-1.5 text-white hover:bg-red-600" :disabled="videoDeletingId === task.id" title="删除记录" @click.stop="removeVideoTask(task)">
+                          <Icon :name="videoDeletingId === task.id ? 'refresh' : 'trash'" size="sm" :class="videoDeletingId === task.id ? 'animate-spin' : ''" />
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <span class="badge whitespace-nowrap" :class="creativeVideoStatusClass(task.status)">{{ creativeVideoStatusLabel(task.status) }}</span>
-                      <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="btn btn-secondary btn-sm" :disabled="videoPreviewingId === task.id" @click="previewVideoTask(task)">
-                        <Icon :name="videoPreviewingId === task.id ? 'refresh' : 'eye'" size="sm" class="mr-1" :class="videoPreviewingId === task.id ? 'animate-spin' : ''" />
-                        预览
-                      </button>
-                      <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
-                        <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" class="mr-1" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
-                        下载
-                      </button>
-                      <button
-                        v-if="isCreativeVideoTerminal(task.status)"
-                        type="button"
-                        class="btn-ghost btn-icon text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                        :disabled="videoDeletingId === task.id"
-                        title="删除记录"
-                        @click="removeVideoTask(task)"
-                      >
-                        <Icon :name="videoDeletingId === task.id ? 'refresh' : 'trash'" size="sm" :class="videoDeletingId === task.id ? 'animate-spin' : ''" />
-                      </button>
+                    <div class="space-y-2 p-3">
+                      <div class="flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span class="min-w-0 truncate text-gray-700 dark:text-gray-300">{{ task.model }}</span>
+                        <span class="flex-shrink-0">{{ shortDateTime(task.created_at) }}</span>
+                      </div>
+                      <p v-if="creativeVideoElapsedText(task)" class="text-xs text-amber-600 dark:text-amber-300">{{ creativeVideoElapsedText(task) }}</p>
+                      <p v-else class="text-xs text-gray-500 dark:text-gray-400">{{ task.resolution || '720p' }} · {{ task.duration_seconds || videoForm.duration }} 秒</p>
                     </div>
-                  </div>
+                  </button>
                 </div>
               </template>
             </div>
@@ -657,9 +667,67 @@
       </div>
     </section>
 
-    <BaseDialog :show="!!videoPreviewUrl" :title="videoPreviewTitle" width="extra-wide" :z-index="60" @close="closeVideoPreview">
-      <div class="flex min-h-[360px] items-center justify-center rounded-lg bg-black p-3">
-        <video v-if="videoPreviewUrl" :src="videoPreviewUrl" class="max-h-[70vh] max-w-full rounded-md" controls autoplay />
+    <BaseDialog :show="!!videoDetailTask" title="视频详情" width="extra-wide" :z-index="60" @close="closeVideoPreview">
+      <div v-if="videoDetailTask" class="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]">
+        <div class="flex min-h-[420px] items-center justify-center rounded-lg bg-black p-3">
+          <video
+            v-if="videoPreviewUrl"
+            :src="videoPreviewUrl"
+            class="h-full max-h-[72vh] w-full rounded-md object-contain"
+            controls
+            autoplay
+            playsinline
+          />
+          <div v-else class="flex flex-col items-center gap-3 text-sm text-white/70">
+            <Icon :name="isCreativeVideoProcessing(videoDetailTask.status) ? 'refresh' : 'sparkles'" size="lg" :class="isCreativeVideoProcessing(videoDetailTask.status) ? 'animate-spin' : ''" />
+            {{ isCreativeVideoProcessing(videoDetailTask.status) ? '视频还在生成中' : '视频暂不可预览' }}
+          </div>
+        </div>
+        <div class="space-y-5">
+          <div>
+            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium" :class="creativeVideoPillClass(videoDetailTask.status)">
+              {{ creativeVideoStatusLabel(videoDetailTask.status) }}
+            </span>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">提示词</h3>
+              <button type="button" class="btn-ghost btn-icon" title="复制提示词" @click="copyVideoPrompt(videoDetailTask)">
+                <Icon name="copy" size="sm" />
+              </button>
+            </div>
+            <p class="rounded-lg bg-gray-50 p-3 text-sm leading-6 text-gray-700 dark:bg-dark-800 dark:text-gray-300">{{ videoDetailTask.prompt_preview || '无提示词' }}</p>
+          </div>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <dt class="text-gray-500 dark:text-gray-400">生成模型</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ videoDetailTask.model || '-' }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">尺寸</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ videoDetailAspectRatio }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">分辨率</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ videoDetailTask.resolution || '-' }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">时长</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ videoDetailTask.duration_seconds || videoForm.duration }} 秒</dd>
+            <dt class="text-gray-500 dark:text-gray-400">创建时间</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ formatDate(videoDetailTask.created_at) }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">完成时间</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ videoDetailTask.completed_at ? formatDate(videoDetailTask.completed_at) : '-' }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">到期时间</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ videoExpiresAtText(videoDetailTask) }}</dd>
+          </dl>
+          <div class="flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-4 dark:border-dark-700">
+            <button type="button" class="btn btn-secondary" @click="reuseVideoTask(videoDetailTask)">
+              <Icon name="refresh" size="sm" class="mr-2" />
+              再次生成
+            </button>
+            <button type="button" class="btn btn-primary" :disabled="!isCreativeVideoCompleted(videoDetailTask.status) || videoDownloadingId === videoDetailTask.id" @click="downloadVideoTask(videoDetailTask)">
+              <Icon :name="videoDownloadingId === videoDetailTask.id ? 'refresh' : 'download'" size="sm" class="mr-2" :class="videoDownloadingId === videoDetailTask.id ? 'animate-spin' : ''" />
+              下载视频
+            </button>
+            <button v-if="isCreativeVideoTerminal(videoDetailTask.status)" type="button" class="btn-ghost btn-icon text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20" title="删除记录" @click="removeVideoTask(videoDetailTask)">
+              <Icon name="trash" size="sm" />
+            </button>
+          </div>
+        </div>
       </div>
     </BaseDialog>
 
@@ -1871,7 +1939,11 @@ const videoPreviewingId = ref('')
 const videoDeletingId = ref('')
 const videoPreviewUrl = ref('')
 const videoPreviewTitle = ref('视频预览')
+const videoDetailTask = ref<CreativeVideoTask | null>(null)
 const videoTaskKeyMap = reactive<Record<string, string>>({})
+const videoThumbnailUrls = reactive<Record<string, string>>({})
+const videoThumbnailLoadingIds = reactive(new Set<string>())
+const videoThumbnailFailedIds = reactive(new Set<string>())
 const videoNow = ref(Date.now())
 const videoLimits = reactive({
   retentionDays: 3,
@@ -1884,6 +1956,13 @@ let videoElapsedTimer: ReturnType<typeof setInterval> | null = null
 const videoRunningCount = computed(() =>
   videoTasks.value.filter(task => isCreativeVideoProcessing(task.status)).length,
 )
+
+const videoDetailAspectRatio = computed(() => {
+  const task = videoDetailTask.value
+  if (!task) return '-'
+  if (task.resolution && String(task.resolution).toLowerCase().includes('768')) return '16:9'
+  return composerAspectRatio.value || '16:9'
+})
 
 const filteredApiKeys = computed(() => {
   const selectedFilterID = Number(filters.apiKeyId || 0)
@@ -2573,6 +2652,7 @@ async function loadVideoTasks() {
       })
       .sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
       .slice(0, videoLimits.maxRecords)
+    scheduleVideoThumbnails()
     manageVideoPolling()
   } catch (error: any) {
     appStore.showError(error?.message || '加载视频任务失败')
@@ -2758,6 +2838,143 @@ function creativeVideoProgressHintClass(task: CreativeVideoTask) {
     : 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
 }
 
+function creativeVideoPillClass(status: string) {
+  const normalized = String(status || '').toLowerCase()
+  if (isCreativeVideoCompleted(normalized)) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
+  if (normalized === 'failed' || normalized === 'expired' || normalized === 'output_deleted') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200'
+  return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-200'
+}
+
+function shortDateTime(timestamp?: number) {
+  if (!timestamp) return '-'
+  const date = new Date(timestamp * 1000)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${month}/${day} ${hour}:${minute}`
+}
+
+function videoExpiresAt(task: CreativeVideoTask) {
+  const createdAt = Number(task.created_at || 0)
+  if (!createdAt) return 0
+  return createdAt + videoLimits.retentionDays * 24 * 60 * 60
+}
+
+function videoExpiresAtText(task: CreativeVideoTask) {
+  const expiresAt = videoExpiresAt(task)
+  return expiresAt ? formatDate(expiresAt) : '-'
+}
+
+function videoRemainingDays(task: CreativeVideoTask) {
+  const expiresAt = videoExpiresAt(task)
+  if (!expiresAt) return 0
+  return Math.max(0, Math.ceil((expiresAt - Math.floor(Date.now() / 1000)) / (24 * 60 * 60)))
+}
+
+function videoRetentionLabel(task: CreativeVideoTask) {
+  if (task.status === 'output_deleted') return '已清理'
+  if (task.status === 'expired') return '已过期'
+  const days = videoRemainingDays(task)
+  return days > 0 ? `${days}天` : '将过期'
+}
+
+function videoExpiryHint(task: CreativeVideoTask) {
+  return `到期后将自动删除，预计 ${videoExpiresAtText(task)} 到期；超过保留条数时可能提前清理。`
+}
+
+function reuseVideoTask(task: CreativeVideoTask) {
+  activeTab.value = 'video'
+  creativePrompt.value = task.prompt_preview || ''
+  videoForm.prompt = task.prompt_preview || ''
+  videoForm.model = task.model || videoForm.model
+  videoForm.resolution = task.resolution || videoForm.resolution
+  videoForm.duration = task.duration_seconds || videoForm.duration
+  closeVideoPreview()
+}
+
+function copyVideoPrompt(task: CreativeVideoTask) {
+  void copyToClipboard(task.prompt_preview || '', '提示词已复制')
+}
+
+function scheduleVideoThumbnails() {
+  const tasks = videoTasks.value
+    .filter(task => isCreativeVideoCompleted(task.status) && !videoThumbnailUrls[task.id] && !videoThumbnailLoadingIds.has(task.id) && !videoThumbnailFailedIds.has(task.id))
+    .slice(0, 12)
+  for (const task of tasks) {
+    void ensureVideoThumbnail(task)
+  }
+}
+
+async function ensureVideoThumbnail(task: CreativeVideoTask) {
+  const apiKey = videoTaskKeyMap[task.id]
+  if (!apiKey || videoThumbnailUrls[task.id] || videoThumbnailLoadingIds.has(task.id)) return
+  videoThumbnailLoadingIds.add(task.id)
+  try {
+    const blob = await downloadCreativeVideo(apiKey, task.id)
+    videoThumbnailUrls[task.id] = await createVideoThumbnail(blob)
+  } catch {
+    videoThumbnailFailedIds.add(task.id)
+  } finally {
+    videoThumbnailLoadingIds.delete(task.id)
+  }
+}
+
+function waitForVideoEvent(video: HTMLVideoElement, event: string, timeout = 8000) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup()
+      reject(new Error(`Timed out waiting for ${event}`))
+    }, timeout)
+    const cleanup = () => {
+      window.clearTimeout(timer)
+      video.removeEventListener(event, onEvent)
+      video.removeEventListener('error', onError)
+    }
+    const onEvent = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error('Video failed to load'))
+    }
+    video.addEventListener(event, onEvent, { once: true })
+    video.addEventListener('error', onError, { once: true })
+  })
+}
+
+async function createVideoThumbnail(blob: Blob) {
+  const url = URL.createObjectURL(blob)
+  const video = document.createElement('video')
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'metadata'
+  video.src = url
+  try {
+    video.load()
+    await waitForVideoEvent(video, 'loadedmetadata')
+    const targetTime = Math.min(0.2, Math.max(0, (video.duration || 1) / 10))
+    if (Number.isFinite(targetTime) && targetTime > 0) {
+      video.currentTime = targetTime
+      await waitForVideoEvent(video, 'seeked')
+    }
+    const width = video.videoWidth || 640
+    const height = video.videoHeight || 360
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas is unavailable')
+    ctx.drawImage(video, 0, 0, width, height)
+    return canvas.toDataURL('image/jpeg', 0.78)
+  } finally {
+    video.removeAttribute('src')
+    video.load()
+    URL.revokeObjectURL(url)
+  }
+}
+
 async function downloadVideoTask(task: CreativeVideoTask) {
   const apiKey = videoTaskKeyMap[task.id]
   if (!apiKey) {
@@ -2776,6 +2993,13 @@ async function downloadVideoTask(task: CreativeVideoTask) {
   }
 }
 
+async function openVideoDetail(task: CreativeVideoTask) {
+  videoDetailTask.value = task
+  if (isCreativeVideoCompleted(task.status)) {
+    await previewVideoTask(task)
+  }
+}
+
 async function previewVideoTask(task: CreativeVideoTask) {
   const apiKey = videoTaskKeyMap[task.id]
   if (!apiKey) {
@@ -2784,10 +3008,21 @@ async function previewVideoTask(task: CreativeVideoTask) {
   }
   videoPreviewingId.value = task.id
   try {
-    closeVideoPreview()
+    if (videoPreviewUrl.value) {
+      URL.revokeObjectURL(videoPreviewUrl.value)
+      videoPreviewUrl.value = ''
+    }
+    videoDetailTask.value = task
     const blob = await downloadCreativeVideo(apiKey, task.id)
     videoPreviewUrl.value = URL.createObjectURL(blob)
     videoPreviewTitle.value = task.prompt_preview || task.model
+    if (!videoThumbnailUrls[task.id]) {
+      try {
+        videoThumbnailUrls[task.id] = await createVideoThumbnail(blob)
+      } catch {
+        // Preview can still play even if thumbnail capture fails.
+      }
+    }
   } catch (error: any) {
     appStore.showError(error?.message || '加载视频预览失败')
   } finally {
@@ -2801,6 +3036,7 @@ function closeVideoPreview() {
   }
   videoPreviewUrl.value = ''
   videoPreviewTitle.value = '视频预览'
+  videoDetailTask.value = null
 }
 
 async function removeVideoTask(task: CreativeVideoTask) {
@@ -2810,6 +3046,8 @@ async function removeVideoTask(task: CreativeVideoTask) {
   const apiKey = videoTaskKeyMap[task.id]
   if (!apiKey) {
     videoTasks.value = videoTasks.value.filter(row => row.id !== task.id)
+    delete videoThumbnailUrls[task.id]
+    if (videoDetailTask.value?.id === task.id) closeVideoPreview()
     videoDeletingId.value = ''
     return
   }
@@ -2817,6 +3055,8 @@ async function removeVideoTask(task: CreativeVideoTask) {
     await deleteCreativeVideoTask(apiKey, task.id)
     videoTasks.value = videoTasks.value.filter(row => row.id !== task.id)
     delete videoTaskKeyMap[task.id]
+    delete videoThumbnailUrls[task.id]
+    if (videoDetailTask.value?.id === task.id) closeVideoPreview()
   } catch (error: any) {
     appStore.showError(error?.message || '删除视频任务失败')
   } finally {
