@@ -21,9 +21,18 @@ type creativeVideoProviderCreateRequest struct {
 	Model       string `json:"model"`
 	Prompt      string `json:"prompt"`
 	AspectRatio string `json:"aspect_ratio"`
+	Ratio       string `json:"ratio"`
 	Resolution  string `json:"resolution"`
 	Duration    int    `json:"duration"`
-	Image       struct {
+	Content     []struct {
+		Type     string `json:"type"`
+		Text     string `json:"text"`
+		Role     string `json:"role"`
+		ImageURL struct {
+			URL string `json:"url"`
+		} `json:"image_url"`
+	} `json:"content"`
+	Image struct {
 		URL string `json:"url"`
 	} `json:"image"`
 }
@@ -59,10 +68,24 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 	req := service.CreativeVideoProviderRequest{
 		Model:       strings.TrimSpace(raw.Model),
 		Prompt:      strings.TrimSpace(raw.Prompt),
-		AspectRatio: strings.TrimSpace(raw.AspectRatio),
+		AspectRatio: firstNonEmpty(strings.TrimSpace(raw.AspectRatio), strings.TrimSpace(raw.Ratio)),
 		Resolution:  strings.TrimSpace(raw.Resolution),
 		Duration:    raw.Duration,
 		ImageURL:    strings.TrimSpace(raw.Image.URL),
+	}
+	if req.Prompt == "" || req.ImageURL == "" {
+		for _, part := range raw.Content {
+			switch strings.ToLower(strings.TrimSpace(part.Type)) {
+			case "text":
+				if req.Prompt == "" {
+					req.Prompt = strings.TrimSpace(part.Text)
+				}
+			case "image_url":
+				if req.ImageURL == "" {
+					req.ImageURL = strings.TrimSpace(part.ImageURL.URL)
+				}
+			}
+		}
 	}
 	if req.Model == "" || req.Prompt == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model and prompt are required")

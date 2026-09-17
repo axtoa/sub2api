@@ -101,8 +101,7 @@ func RegisterGatewayRoutes(
 		if platform := getGroupPlatform(c); platform == service.PlatformGrok || platform == service.PlatformComposite {
 			h.OpenAIGateway.GrokVideoGeneration(c)
 			return
-		} else if service.IsCreativeWorkbenchVideoHeader(c.GetHeader(service.CreativeWorkbenchHeader)) &&
-			(platform == service.PlatformOpenAI || platform == service.PlatformMiniMax) {
+		} else if platform == service.PlatformOpenAI || platform == service.PlatformMiniMax {
 			h.OpenAIGateway.CreativeVideoGeneration(c)
 			return
 		}
@@ -122,8 +121,7 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.GrokVideoStatus(c)
 			return
 		}
-		if service.IsCreativeWorkbenchVideoHeader(c.GetHeader(service.CreativeWorkbenchHeader)) &&
-			(getGroupPlatform(c) == service.PlatformOpenAI || getGroupPlatform(c) == service.PlatformMiniMax) {
+		if getGroupPlatform(c) == service.PlatformOpenAI || getGroupPlatform(c) == service.PlatformMiniMax {
 			h.OpenAIGateway.CreativeVideoStatus(c)
 			return
 		}
@@ -143,8 +141,7 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.GrokVideoContent(c)
 			return
 		}
-		if service.IsCreativeWorkbenchVideoHeader(c.GetHeader(service.CreativeWorkbenchHeader)) &&
-			(getGroupPlatform(c) == service.PlatformOpenAI || getGroupPlatform(c) == service.PlatformMiniMax) {
+		if getGroupPlatform(c) == service.PlatformOpenAI || getGroupPlatform(c) == service.PlatformMiniMax {
 			h.OpenAIGateway.CreativeVideoContent(c)
 			return
 		}
@@ -286,6 +283,7 @@ func RegisterGatewayRoutes(
 		gateway.POST("/videos/generations", videoGenerationHandler)
 		gateway.POST("/videos/edits", videoEditHandler)
 		gateway.POST("/videos/extensions", videoExtensionHandler)
+		gateway.GET("/videos/tasks", h.OpenAIGateway.CreativeVideoTasks)
 		gateway.GET("/videos/studio-tasks", h.OpenAIGateway.CreativeVideoTasks)
 		gateway.DELETE("/videos/studio-tasks/:request_id", h.OpenAIGateway.DeleteCreativeVideoTask)
 		gateway.GET("/videos/generations/:request_id/content", videoContentHandler)
@@ -432,6 +430,7 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodPost, "/videos/generations", bodyLimit, videoGenerationHandler)
 	rootRoute(http.MethodPost, "/videos/edits", bodyLimit, videoEditHandler)
 	rootRoute(http.MethodPost, "/videos/extensions", bodyLimit, videoExtensionHandler)
+	rootRoute(http.MethodGet, "/videos/tasks", bodyLimit, h.OpenAIGateway.CreativeVideoTasks)
 	rootRoute(http.MethodGet, "/videos/generations/:request_id/content", bodyLimit, videoContentHandler)
 	rootRoute(http.MethodGet, "/videos/edits/:request_id/content", bodyLimit, videoContentHandler)
 	rootRoute(http.MethodGet, "/videos/extensions/:request_id/content", bodyLimit, videoContentHandler)

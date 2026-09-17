@@ -121,6 +121,16 @@
                   <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition" :class="imageTool === 'text' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'" @click="imageTool = 'text'">文生图</button>
                   <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition" :class="imageTool === 'edit' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'" @click="imageTool = 'edit'">改图</button>
                 </div>
+                <div v-else class="flex items-center gap-2">
+                  <button type="button" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-900 dark:hover:text-white" @click="showVideoApiDocsModal = true">
+                    <Icon name="document" size="xs" class="mr-1.5" />
+                    API 文档
+                  </button>
+                  <button type="button" class="inline-flex items-center rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-900 dark:hover:text-white" @click="showVideoPromptGuideModal = true">
+                    <Icon name="book" size="xs" class="mr-1.5" />
+                    提示词规范
+                  </button>
+                </div>
               </div>
 
               <div class="mb-3 grid gap-2 md:grid-cols-[minmax(180px,1.2fr)_120px_120px_112px]">
@@ -664,6 +674,187 @@
           </button>
         </template>
       </div>
+    </BaseDialog>
+
+    <BaseDialog :show="showVideoApiDocsModal" title="视频 API 文档" width="extra-wide" :z-index="80" @close="showVideoApiDocsModal = false">
+      <div class="max-h-[72vh] space-y-6 overflow-y-auto pr-2 text-sm leading-6 text-gray-700 dark:text-gray-200">
+        <section class="space-y-3">
+          <p>视频生成采用异步任务方式：提交任务后保存 <code class="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-dark-800">request_id</code>，随后查询状态并下载结果。创建、查询和下载必须使用同一个 API Key。</p>
+          <div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100">
+            当前真实开放能力：Grok 文生视频/首帧图生视频、OpenAI 视频模型、MiniMax-H3 文生视频/首帧图生视频。MiniMax-H3 的视频、音频混合参考能力暂未在本接口开放。
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/60">
+              <p class="font-medium text-gray-900 dark:text-white">服务地址</p>
+              <pre class="mt-2 overflow-x-auto rounded-md bg-white p-3 text-xs dark:bg-dark-950"><code>{{ apiBaseURL }}/v1</code></pre>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/60">
+              <p class="font-medium text-gray-900 dark:text-white">请求头</p>
+              <pre class="mt-2 overflow-x-auto rounded-md bg-white p-3 text-xs dark:bg-dark-950"><code>Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">接口概览</h3>
+          <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-700">
+            <table class="min-w-full divide-y divide-gray-200 text-left text-xs dark:divide-dark-700">
+              <thead class="bg-gray-50 text-gray-500 dark:bg-dark-900 dark:text-gray-400">
+                <tr><th class="px-3 py-2">方法</th><th class="px-3 py-2">路径</th><th class="px-3 py-2">说明</th></tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 bg-white dark:divide-dark-800 dark:bg-dark-900">
+                <tr><td class="px-3 py-2 font-mono">GET</td><td class="px-3 py-2 font-mono">/v1/models</td><td class="px-3 py-2">获取当前密钥可用模型，以返回结果为准。</td></tr>
+                <tr><td class="px-3 py-2 font-mono">POST</td><td class="px-3 py-2 font-mono">/v1/videos/generations</td><td class="px-3 py-2">创建视频生成任务。</td></tr>
+                <tr><td class="px-3 py-2 font-mono">GET</td><td class="px-3 py-2 font-mono">/v1/videos/tasks</td><td class="px-3 py-2">查询最近任务，支持 <code>limit</code>。</td></tr>
+                <tr><td class="px-3 py-2 font-mono">GET</td><td class="px-3 py-2 font-mono">/v1/videos/{request_id}</td><td class="px-3 py-2">查询任务状态。</td></tr>
+                <tr><td class="px-3 py-2 font-mono">GET</td><td class="px-3 py-2 font-mono">/v1/videos/{request_id}/content</td><td class="px-3 py-2">下载视频文件流。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">创建任务</h3>
+          <p>通用写法适合 Grok、OpenAI 视频模型，也适合 MiniMax-H3 的文生视频。</p>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>curl '{{ apiBaseURL }}/v1/videos/generations' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "MiniMax-H3",
+    "prompt": "清晨的海边，镜头缓缓向前推进，阳光洒在海面",
+    "duration": 8,
+    "resolution": "768P",
+    "aspect_ratio": "16:9"
+  }'</code></pre>
+          <p>MiniMax-H3 也支持 <code class="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-dark-800">content</code> 数组写法；当前只接收一个文本项和可选的一张首帧图片。</p>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>curl '{{ apiBaseURL }}/v1/videos/generations' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "MiniMax-H3",
+    "content": [
+      { "type": "text", "text": "让画面中的人物微笑并缓缓转身，镜头保持稳定" },
+      { "type": "image_url", "role": "first_frame", "image_url": { "url": "https://assets.example.com/reference.jpg" } }
+    ],
+    "duration": 8,
+    "resolution": "768P",
+    "ratio": "16:9"
+  }'</code></pre>
+          <p class="text-xs text-gray-500 dark:text-gray-400">图片地址必须可公开读取。创作台内上传首帧会转成 data URI；第三方接口建议传 HTTPS 图片地址。</p>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">查询与下载</h3>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>curl '{{ apiBaseURL }}/v1/videos/YOUR_REQUEST_ID' \
+  -H 'Authorization: Bearer YOUR_API_KEY'</code></pre>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>curl '{{ apiBaseURL }}/v1/videos/YOUR_REQUEST_ID/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --fail --output video.mp4</code></pre>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs dark:border-dark-700 dark:bg-dark-900/60">
+            <p><strong>状态：</strong><code>pending</code>、<code>running</code> 表示处理中；<code>done</code> 或 <code>completed</code> 表示完成；<code>failed</code> 表示失败；<code>expired</code> 表示过期。</p>
+            <p class="mt-1"><strong>保留：</strong>本站任务记录默认保留 {{ videoLimits.retentionDays }} 天，超过 {{ videoLimits.maxRecords }} 条会提前清理最早记录。视频文件有效期还受上游供应商限制，完成后请及时下载。</p>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">常见错误</h3>
+          <div class="grid gap-2 text-xs sm:grid-cols-2">
+            <p class="rounded-md bg-gray-50 p-2 dark:bg-dark-900"><code>401 / 403</code>：API Key、分组权限或额度不可用。</p>
+            <p class="rounded-md bg-gray-50 p-2 dark:bg-dark-900"><code>402</code>：余额或套餐额度不足。</p>
+            <p class="rounded-md bg-gray-50 p-2 dark:bg-dark-900"><code>404</code>：任务不存在、密钥不一致或记录已过期。</p>
+            <p class="rounded-md bg-gray-50 p-2 dark:bg-dark-900"><code>409</code>：任务未就绪或重复请求冲突。</p>
+            <p class="rounded-md bg-gray-50 p-2 dark:bg-dark-900"><code>429</code>：请求过快，请稍后重试。</p>
+            <p class="rounded-md bg-gray-50 p-2 dark:bg-dark-900"><code>502 / 503</code>：上游暂不可用或文件失效。</p>
+          </div>
+        </section>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn btn-secondary" @click="showVideoApiDocsModal = false">关闭</button>
+          <button type="button" class="btn btn-primary" @click="copyVideoApiDocs">
+            <Icon name="copy" size="sm" class="mr-2" />
+            复制文档
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
+
+    <BaseDialog :show="showVideoPromptGuideModal" title="MiniMax-H3 · 提示词规范" width="extra-wide" :z-index="80" @close="showVideoPromptGuideModal = false">
+      <div class="max-h-[72vh] space-y-6 overflow-y-auto pr-2 text-sm leading-6 text-gray-700 dark:text-gray-200">
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">先写清楚画面，再写台词</h3>
+          <p>把主体、动作、场景和镜头写在双引号外，把人物要说出的台词放进双引号内。描述简短、具体，一次突出一个主要动作。</p>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>一位设计师站在明亮的工作室里，拿起桌上的蓝色马克杯。
+镜头从杯子特写缓缓拉到人物中景。
+设计师微笑着说："为日常，留一点灵感。"</code></pre>
+          <p class="text-xs text-gray-500 dark:text-gray-400">双引号有助于区分对白与画面描述，但生成结果仍可能出现台词、发音或字幕偏差。重要内容请在生成后检查。</p>
+        </section>
+
+        <section class="grid gap-4 lg:grid-cols-2">
+          <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">文生视频</h3>
+            <p>用“主体 + 动作 + 环境 + 镜头”组织一句或几句描述。风格点到为止，不必堆叠相似形容词。</p>
+            <pre class="overflow-x-auto rounded-md bg-gray-50 p-3 text-xs leading-6 dark:bg-dark-950"><code>清晨的玻璃温室，阳光穿过叶片，水滴顺着叶尖滑落。
+镜头从水滴特写缓缓拉远，露出整排绿植，自然写实风格。</code></pre>
+          </div>
+          <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">产品口播</h3>
+            <p>引号中只放台词。画面、动作和声音要求写在引号外。台词长度要适合所选输出时长。</p>
+            <pre class="overflow-x-auto rounded-md bg-gray-50 p-3 text-xs leading-6 dark:bg-dark-950"><code>一位店员站在书店窗边，手里展开一本素色笔记本。
+镜头对准纸张细节，再移向人物。
+店员说："把今天的灵感，留在这一页。"</code></pre>
+          </div>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">多人对白</h3>
+          <p>每句台词前注明说话的人，先交代人物位置和交流顺序，减少过多分镜。当前创作台暂未开放音频参考上传，声音参考写法仅作为后续扩展规范。</p>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>咖啡店窗边，穿白衬衫的设计师坐在左侧，穿绿色外套的同事坐在右侧。
+设计师把草图推到桌子中间，说："这个配色怎么样？"
+同事看了一眼草图，说："很清爽，就用这个吧。"
+镜头保持两人中景，背景是轻微的店内环境声。</code></pre>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">首帧图生视频</h3>
+          <p>首帧决定画面的起点，提示词补充接下来的动作与过渡。当前创作台已开放一张首帧图片；尾帧、参考视频和参考音频暂未开放。</p>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>镜头从起始画面缓慢向前推进，人物自然转身并抬手整理衣领，
+光线平滑变化，最终停留在明亮自然的中景构图。</code></pre>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">只保留环境音</h3>
+          <pre class="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs leading-6 dark:border-dark-700 dark:bg-dark-950"><code>雨滴落在窗玻璃上，室内桌面放着一杯冒着热气的茶。
+镜头固定，远处灯光轻轻闪动。
+无对白、无旁白，只保留轻微雨声和室内环境音。</code></pre>
+        </section>
+
+        <section class="space-y-3">
+          <h3 class="text-base font-semibold text-gray-900 dark:text-white">精简提示词</h3>
+          <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-700">
+            <table class="min-w-full divide-y divide-gray-200 text-left text-xs dark:divide-dark-700">
+              <thead class="bg-gray-50 text-gray-500 dark:bg-dark-900 dark:text-gray-400">
+                <tr><th class="px-3 py-2">容易干扰生成的写法</th><th class="px-3 py-2">更合适的写法</th></tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 bg-white dark:divide-dark-800 dark:bg-dark-900">
+                <tr><td class="px-3 py-2">引号里混入全局指令、高清、运镜要求</td><td class="px-3 py-2">引号里只留人物台词</td></tr>
+                <tr><td class="px-3 py-2">反复堆叠“4K、2K、最高画质”</td><td class="px-3 py-2">在参数区选择分辨率，提示词描述场景质感</td></tr>
+                <tr><td class="px-3 py-2">大段“禁止、必须、严格遵守”的指令块</td><td class="px-3 py-2">直接描述希望出现的动作、画面与声音</td></tr>
+                <tr><td class="px-3 py-2">长段口播塞进几秒的视频</td><td class="px-3 py-2">缩短台词，或适当增加输出时长</td></tr>
+                <tr><td class="px-3 py-2">要求台词百分之百准确</td><td class="px-3 py-2">生成后检查，有严格要求时后期配音</td></tr>
+                <tr><td class="px-3 py-2">自定义 VoiceID 或未绑定的素材标记</td><td class="px-3 py-2">当前版本不要写未上传的素材标记</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">需要准确字幕时，建议在成片后添加字幕。先用简洁提示词确认构图和动作，再逐步调整细节。</p>
+        </section>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn btn-secondary" @click="showVideoPromptGuideModal = false">关闭</button>
+        </div>
+      </template>
     </BaseDialog>
 
     <Teleport to="body">
@@ -1498,6 +1689,8 @@ const loadingItems = ref(false)
 const loadingModels = ref(false)
 const showCreateModal = ref(false)
 const showGuideModal = ref(false)
+const showVideoApiDocsModal = ref(false)
+const showVideoPromptGuideModal = ref(false)
 const currentJob = ref<BatchImageJob | null>(null)
 const selectedBatchId = ref('')
 const selectedBatchApiKeyId = ref(0)
@@ -1754,6 +1947,83 @@ const endpointBase = computed(() => {
   if (typeof window !== 'undefined') return window.location.origin.replace(/\/+$/, '')
   return '<你的 Sub2API API 端点>'
 })
+
+const apiBaseURL = computed(() => endpointBase.value)
+
+const videoApiDocsText = computed(() => `# 视频 API 文档
+
+## 接入说明
+
+服务地址：${joinEndpointPath(apiBaseURL.value, '/v1')}
+
+所有请求均需携带 API 密钥：
+
+Authorization: Bearer YOUR_API_KEY
+Content-Type: application/json
+
+当前真实开放能力：
+- Grok 文生视频 / 首帧图生视频
+- OpenAI 视频模型
+- MiniMax-H3 文生视频 / 首帧图生视频
+
+MiniMax-H3 的视频、音频混合参考能力暂未在本接口开放。
+
+## 接口
+
+- GET /v1/models：获取当前密钥可用模型
+- POST /v1/videos/generations：创建视频生成任务
+- GET /v1/videos/tasks：查询最近任务，支持 limit
+- GET /v1/videos/{request_id}：查询任务状态
+- GET /v1/videos/{request_id}/content：下载视频文件流
+
+## 创建任务
+
+通用写法：
+
+curl '${joinEndpointPath(apiBaseURL.value, '/v1/videos/generations')}' \\
+  -H 'Authorization: Bearer YOUR_API_KEY' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "model": "MiniMax-H3",
+    "prompt": "清晨的海边，镜头缓缓向前推进，阳光洒在海面",
+    "duration": 8,
+    "resolution": "768P",
+    "aspect_ratio": "16:9"
+  }'
+
+MiniMax-H3 content 写法：
+
+curl '${joinEndpointPath(apiBaseURL.value, '/v1/videos/generations')}' \\
+  -H 'Authorization: Bearer YOUR_API_KEY' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "model": "MiniMax-H3",
+    "content": [
+      { "type": "text", "text": "让画面中的人物微笑并缓缓转身，镜头保持稳定" },
+      { "type": "image_url", "role": "first_frame", "image_url": { "url": "https://assets.example.com/reference.jpg" } }
+    ],
+    "duration": 8,
+    "resolution": "768P",
+    "ratio": "16:9"
+  }'
+
+## 查询与下载
+
+curl '${joinEndpointPath(apiBaseURL.value, '/v1/videos/YOUR_REQUEST_ID')}' \\
+  -H 'Authorization: Bearer YOUR_API_KEY'
+
+curl '${joinEndpointPath(apiBaseURL.value, '/v1/videos/YOUR_REQUEST_ID/content')}' \\
+  -H 'Authorization: Bearer YOUR_API_KEY' \\
+  --fail --output video.mp4
+
+## 状态与保留
+
+- pending/running：处理中
+- done/completed：完成
+- failed：失败
+- expired：过期
+
+本站任务记录默认保留 ${videoLimits.retentionDays} 天，超过 ${videoLimits.maxRecords} 条会提前清理最早记录。视频文件有效期还受上游供应商限制，完成后请及时下载。`)
 
 const selectedModelReferenceLimit = computed(() => referenceImageLimitForModel(form.model))
 
@@ -3542,6 +3812,10 @@ function clearItemPreviews() {
 
 function copyInstruction() {
   void copyToClipboard(agentInstruction.value, batchImageText('copiedInstruction'))
+}
+
+function copyVideoApiDocs() {
+  void copyToClipboard(videoApiDocsText.value, '视频 API 文档已复制')
 }
 
 function statusLabel(jobOrStatus: BatchImageStatus | Pick<BatchImageJob, 'status' | 'success_count' | 'fail_count'>) {
