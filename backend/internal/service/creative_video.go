@@ -85,6 +85,7 @@ type CompleteCreativeVideoTaskSubmitParams struct {
 }
 
 type ObserveCreativeVideoTaskParams struct {
+	TaskID            string
 	ProviderRequestID string
 	UserID            int64
 	APIKeyID          int64
@@ -283,6 +284,14 @@ func (s *CreativeVideoService) FailTask(ctx context.Context, taskID, code, messa
 }
 
 func (s *CreativeVideoService) ObserveProviderStatus(ctx context.Context, owner BatchImageOwner, requestID string, status *CreativeVideoProviderStatus) {
+	s.observeProviderStatus(ctx, owner, "", requestID, status)
+}
+
+func (s *CreativeVideoService) ObserveProviderTaskStatus(ctx context.Context, owner BatchImageOwner, taskID, requestID string, status *CreativeVideoProviderStatus) {
+	s.observeProviderStatus(ctx, owner, taskID, requestID, status)
+}
+
+func (s *CreativeVideoService) observeProviderStatus(ctx context.Context, owner BatchImageOwner, taskID, requestID string, status *CreativeVideoProviderStatus) {
 	if s == nil || s.Repo == nil || status == nil || strings.TrimSpace(requestID) == "" {
 		return
 	}
@@ -291,6 +300,7 @@ func (s *CreativeVideoService) ObserveProviderStatus(ctx context.Context, owner 
 		return
 	}
 	_ = s.Repo.ObserveCreativeVideoTask(ctx, ObserveCreativeVideoTaskParams{
+		TaskID:            strings.TrimSpace(taskID),
 		ProviderRequestID: strings.TrimSpace(requestID),
 		UserID:            owner.UserID,
 		APIKeyID:          owner.APIKeyID,

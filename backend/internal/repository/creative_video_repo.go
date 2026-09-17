@@ -179,12 +179,12 @@ SET status = $4,
     model = COALESCE(NULLIF($5, ''), model),
     resolution = COALESCE(NULLIF($6, ''), resolution),
     duration_seconds = COALESCE(NULLIF($7, 0), duration_seconds),
-    completed_at = CASE WHEN $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $8) ELSE completed_at END,
-    updated_at = $8
-WHERE provider_request_id = $1
+    completed_at = CASE WHEN $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $9) ELSE completed_at END,
+    updated_at = $9
+WHERE (provider_request_id = $1 OR (NULLIF($8, '') IS NOT NULL AND task_id = $8))
   AND user_id = $2
   AND api_key_id = $3
-  AND user_deleted_at IS NULL`, requestID, params.UserID, params.APIKeyID, status, params.Model, params.Resolution, params.DurationSeconds, now)
+  AND user_deleted_at IS NULL`, requestID, params.UserID, params.APIKeyID, status, params.Model, params.Resolution, params.DurationSeconds, strings.TrimSpace(params.TaskID), now)
 	return translatePersistenceError(err, nil, nil)
 }
 

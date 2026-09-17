@@ -2551,6 +2551,12 @@ async function loadVideoTasks() {
           limitsLoaded = true
         }
         for (const task of result.data || []) {
+          const existing = videoTasks.value.find(row => row.id === task.id)
+          const existingStatus = existing?.status || ''
+          if (existing && isCreativeVideoCompleted(existingStatus) && isCreativeVideoProcessing(task.status)) {
+            task.status = existingStatus
+            task.duration_seconds = task.duration_seconds || existing.duration_seconds
+          }
           rows.push(task)
           videoTaskKeyMap[task.id] = key.key
         }
@@ -2630,6 +2636,7 @@ async function refreshRunningVideos() {
   }
   if (running.length > 0) {
     await loadVideoTasks()
+    manageVideoPolling()
   }
 }
 

@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"regexp"
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
 )
@@ -39,6 +41,31 @@ func TestCreativeVideoAutoDeleteRequiresTerminalStatus(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err = repo.MarkCreativeVideoTaskAutoDeleted(context.Background(), "vidtask_1", time.Now())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestObserveCreativeVideoTaskCanMatchTaskIDFallback(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	repo := &creativeVideoRepository{sql: db}
+	mock.ExpectExec(regexp.QuoteMeta(`WHERE (provider_request_id = $1 OR (NULLIF($8, '') IS NOT NULL AND task_id = $8))`)).
+		WithArgs("vid_provider", int64(1), int64(2), "completed", "MiniMax-H3", "720p", 8, "vidtask_local", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.ObserveCreativeVideoTask(context.Background(), service.ObserveCreativeVideoTaskParams{
+		TaskID:            "vidtask_local",
+		ProviderRequestID: "vid_provider",
+		UserID:            1,
+		APIKeyID:          2,
+		Status:            "completed",
+		Model:             "MiniMax-H3",
+		Resolution:        "720p",
+		DurationSeconds:   8,
+	})
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -208,7 +208,7 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 		return
 	}
 	fillCreativeVideoStatusFromTask(status, task)
-	h.creativeVideoService.ObserveProviderStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, requestID, status)
+	h.creativeVideoService.ObserveProviderTaskStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, task.TaskID, requestID, status)
 	h.recordCreativeVideoUsageIfCompleted(c, apiKey, subject, account, status, requestID)
 	if !content {
 		c.JSON(http.StatusOK, service.CreativeVideoProviderResponseJSON(status))
