@@ -141,6 +141,12 @@ type CreativeVideoTasksResponse struct {
 	MaxRunningPerUser int                       `json:"max_running_per_user"`
 }
 
+type CreativeVideoTaskListRecords struct {
+	Settings *CreativeWorkbenchSettings
+	Tasks    []*CreativeVideoTask
+	HasMore  bool
+}
+
 type CreativeVideoTasksQuery struct {
 	Status string
 	Limit  int
@@ -338,9 +344,21 @@ func (s *CreativeVideoService) ObserveGatewayResult(ctx context.Context, userID,
 }
 
 func (s *CreativeVideoService) List(ctx context.Context, owner BatchImageOwner, query CreativeVideoTasksQuery) (*CreativeVideoTasksResponse, error) {
+	got, err := s.ListRecords(ctx, owner, query)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]CreativeVideoTaskPublic, 0, len(got.Tasks))
+	for _, task := range got.Tasks {
+		data = append(data, CreativeVideoTaskToPublic(task))
+	}
+	return creativeVideoTasksResponseWithSettings(got.Settings, data, got.HasMore), nil
+}
+
+func (s *CreativeVideoService) ListRecords(ctx context.Context, owner BatchImageOwner, query CreativeVideoTasksQuery) (*CreativeVideoTaskListRecords, error) {
 	settings := s.creativeWorkbenchSettings(ctx)
 	if s == nil || s.Repo == nil {
-		return creativeVideoTasksResponseWithSettings(settings, nil, false), nil
+		return &CreativeVideoTaskListRecords{Settings: settings, Tasks: []*CreativeVideoTask{}, HasMore: false}, nil
 	}
 	limit := query.Limit
 	if limit <= 0 || limit > 500 {
@@ -365,11 +383,7 @@ func (s *CreativeVideoService) List(ctx context.Context, owner BatchImageOwner, 
 	if hasMore {
 		tasks = tasks[:limit]
 	}
-	data := make([]CreativeVideoTaskPublic, 0, len(tasks))
-	for _, task := range tasks {
-		data = append(data, CreativeVideoTaskToPublic(task))
-	}
-	return creativeVideoTasksResponseWithSettings(settings, data, hasMore), nil
+	return &CreativeVideoTaskListRecords{Settings: settings, Tasks: tasks, HasMore: hasMore}, nil
 }
 
 func creativeVideoTasksResponseWithSettings(settings *CreativeWorkbenchSettings, data []CreativeVideoTaskPublic, hasMore bool) *CreativeVideoTasksResponse {
