@@ -618,8 +618,15 @@ func CreativeVideoProviderResponseJSON(status *CreativeVideoProviderStatus) map[
 		"status": upstreamStatus,
 		"model":  status.Model,
 	}
+	video := map[string]any{}
 	if status.DurationSeconds > 0 {
-		resp["video"] = map[string]any{"duration": status.DurationSeconds}
+		video["duration"] = status.DurationSeconds
+	}
+	if status.Status == CreativeVideoStatusCompleted && strings.TrimSpace(status.ID) != "" {
+		video["url"] = firstNonEmptyString(strings.TrimSpace(status.DownloadURL), "/v1/videos/"+url.PathEscape(strings.TrimSpace(status.ID))+"/content")
+	}
+	if len(video) > 0 {
+		resp["video"] = video
 	}
 	if strings.TrimSpace(status.Resolution) != "" {
 		resp["resolution"] = status.Resolution

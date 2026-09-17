@@ -162,6 +162,24 @@ func TestCreativeVideoHTTPProvider_MiniMaxHappyCodeRelay(t *testing.T) {
 	require.Equal(t, "happycode-mp4", string(data))
 }
 
+func TestCreativeVideoProviderResponseJSONIncludesContentURL(t *testing.T) {
+	resp := CreativeVideoProviderResponseJSON(&CreativeVideoProviderStatus{
+		ID:              "vid_happycode",
+		Status:          CreativeVideoStatusCompleted,
+		Model:           "MiniMax-H3",
+		Resolution:      VideoBillingResolution720P,
+		DurationSeconds: 8,
+		DownloadURL:     "/v1/videos/vid_happycode/content",
+	})
+
+	require.Equal(t, "done", resp["status"])
+	require.Equal(t, VideoBillingResolution720P, resp["resolution"])
+	video, ok := resp["video"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, 8, video["duration"])
+	require.Equal(t, "/v1/videos/vid_happycode/content", video["url"])
+}
+
 func TestCreativeVideoHTTPProvider_MiniMaxStatusAndDownload(t *testing.T) {
 	client := &http.Client{Transport: batchImageProviderRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {

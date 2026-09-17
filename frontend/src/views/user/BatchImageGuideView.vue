@@ -95,11 +95,11 @@
                     </div>
                     <div class="flex items-center gap-2">
                       <span class="badge whitespace-nowrap" :class="creativeVideoStatusClass(task.status)">{{ creativeVideoStatusLabel(task.status) }}</span>
-                      <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoPreviewingId === task.id" @click="previewVideoTask(task)">
+                      <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="btn btn-secondary btn-sm" :disabled="videoPreviewingId === task.id" @click="previewVideoTask(task)">
                         <Icon :name="videoPreviewingId === task.id ? 'refresh' : 'eye'" size="sm" class="mr-1" :class="videoPreviewingId === task.id ? 'animate-spin' : ''" />
                         预览
                       </button>
-                      <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
+                      <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
                         <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" class="mr-1" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
                         下载
                       </button>
@@ -631,11 +631,11 @@
                   <span v-if="creativeVideoElapsedText(task)"> · {{ creativeVideoElapsedText(task) }}</span>
                 </span>
                 <div class="flex items-center gap-1">
-                  <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
+                  <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
                     <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" class="mr-1" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
                     下载
                   </button>
-                  <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoPreviewingId === task.id" @click="previewVideoTask(task)">
+                  <button v-if="isCreativeVideoCompleted(task.status)" type="button" class="btn btn-secondary btn-sm" :disabled="videoPreviewingId === task.id" @click="previewVideoTask(task)">
                     <Icon :name="videoPreviewingId === task.id ? 'refresh' : 'eye'" size="sm" class="mr-1" :class="videoPreviewingId === task.id ? 'animate-spin' : ''" />
                     预览
                   </button>
@@ -2684,6 +2684,9 @@ function creativeVideoStatusLabel(status: string) {
     processing: '生成中',
     running: '生成中',
     completed: '已完成',
+    done: '已完成',
+    succeeded: '已完成',
+    success: '已完成',
     failed: '失败',
     expired: '已过期',
     output_deleted: '已清理',
@@ -2694,9 +2697,13 @@ function creativeVideoStatusLabel(status: string) {
 
 function creativeVideoStatusClass(status: string) {
   const normalized = String(status || '').toLowerCase()
-  if (normalized === 'completed') return 'badge-success'
+  if (isCreativeVideoCompleted(normalized)) return 'badge-success'
   if (normalized === 'failed' || normalized === 'expired' || normalized === 'output_deleted') return 'badge-danger'
   return 'badge-primary'
+}
+
+function isCreativeVideoCompleted(status: string) {
+  return ['completed', 'done', 'succeeded', 'success'].includes(String(status || '').toLowerCase())
 }
 
 function isCreativeVideoProcessing(status: string) {
@@ -2704,7 +2711,8 @@ function isCreativeVideoProcessing(status: string) {
 }
 
 function isCreativeVideoTerminal(status: string) {
-  return ['completed', 'failed', 'expired', 'output_deleted'].includes(String(status || '').toLowerCase())
+  const normalized = String(status || '').toLowerCase()
+  return isCreativeVideoCompleted(normalized) || ['failed', 'expired', 'output_deleted'].includes(normalized)
 }
 
 function creativeVideoStartedAt(task: CreativeVideoTask) {
