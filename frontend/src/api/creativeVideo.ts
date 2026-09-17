@@ -107,7 +107,10 @@ export async function downloadCreativeVideo(apiKey: string, requestId: string): 
     headers: headers(apiKey, creativeHeaders()),
   })
   if (!response.ok) throw await parseError(response)
-  return response.blob()
+  const blob = await response.blob()
+  const contentType = response.headers.get('Content-Type') || blob.type || 'video/mp4'
+  if (blob.type === contentType) return blob
+  return new Blob([blob], { type: contentType.includes('video/') ? contentType : 'video/mp4' })
 }
 
 export async function deleteCreativeVideoTask(apiKey: string, requestId: string): Promise<void> {

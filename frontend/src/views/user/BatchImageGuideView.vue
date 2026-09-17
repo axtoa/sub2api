@@ -553,16 +553,34 @@
 
     <BaseDialog :show="!!videoDetailTask" title="视频详情" width="extra-wide" :z-index="60" @close="closeVideoPreview">
       <div v-if="videoDetailTask" class="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]">
-        <div class="flex min-h-[420px] items-center justify-center rounded-lg bg-black p-3">
+        <div class="relative flex min-h-[420px] items-center justify-center rounded-lg bg-black p-3">
           <video
             v-if="videoPreviewUrl"
             :src="videoPreviewUrl"
+            :poster="videoDetailTask ? videoThumbnailUrls[videoDetailTask.id] : undefined"
             class="h-full max-h-[72vh] w-full rounded-md object-contain"
             controls
             autoplay
             playsinline
+            preload="auto"
+            @error="handleVideoPreviewError"
+            @loadeddata="videoPreviewError = ''"
           />
-          <div v-else class="flex flex-col items-center gap-3 text-sm text-white/70">
+          <div v-if="videoPreviewError" class="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md bg-black/80 px-6 text-center text-sm text-white/80">
+            <Icon name="exclamationTriangle" size="lg" class="text-amber-300" />
+            <p>{{ videoPreviewError }}</p>
+            <div class="flex flex-wrap justify-center gap-2">
+              <button v-if="videoDetailTask" type="button" class="btn btn-secondary btn-sm" @click="previewVideoTask(videoDetailTask)">
+                <Icon name="refresh" size="sm" class="mr-1.5" />
+                重新加载
+              </button>
+              <button v-if="videoDetailTask" type="button" class="btn btn-primary btn-sm" @click="downloadVideoTask(videoDetailTask)">
+                <Icon name="download" size="sm" class="mr-1.5" />
+                下载播放
+              </button>
+            </div>
+          </div>
+          <div v-else-if="!videoPreviewUrl" class="flex flex-col items-center gap-3 text-sm text-white/70">
             <Icon :name="isCreativeVideoProcessing(videoDetailTask.status) ? 'refresh' : 'sparkles'" size="lg" :class="isCreativeVideoProcessing(videoDetailTask.status) ? 'animate-spin' : ''" />
             {{ isCreativeVideoProcessing(videoDetailTask.status) ? '视频还在生成中' : '视频暂不可预览' }}
           </div>
@@ -1830,6 +1848,7 @@ const videoPreviewingId = ref('')
 const videoDeletingId = ref('')
 const videoPreviewUrl = ref('')
 const videoPreviewTitle = ref('视频预览')
+const videoPreviewError = ref('')
 const videoDetailTask = ref<CreativeVideoTask | null>(null)
 const videoTaskKeyMap = reactive<Record<string, string>>({})
 const videoThumbnailUrls = reactive<Record<string, string>>({})
@@ -2891,6 +2910,7 @@ async function previewVideoTask(task: CreativeVideoTask) {
     return
   }
   videoPreviewingId.value = task.id
+  videoPreviewError.value = ''
   try {
     if (videoPreviewUrl.value) {
       URL.revokeObjectURL(videoPreviewUrl.value)
@@ -2908,10 +2928,15 @@ async function previewVideoTask(task: CreativeVideoTask) {
       }
     }
   } catch (error: any) {
+    videoPreviewError.value = '视频加载失败，可以先下载到本地播放。'
     appStore.showError(error?.message || '加载视频预览失败')
   } finally {
     videoPreviewingId.value = ''
   }
+}
+
+function handleVideoPreviewError() {
+  videoPreviewError.value = '当前浏览器无法预览这个视频，可能是视频编码不被支持。你可以先下载播放。'
 }
 
 function closeVideoPreview() {
@@ -2920,6 +2945,7 @@ function closeVideoPreview() {
   }
   videoPreviewUrl.value = ''
   videoPreviewTitle.value = '视频预览'
+  videoPreviewError.value = ''
   videoDetailTask.value = null
 }
 
