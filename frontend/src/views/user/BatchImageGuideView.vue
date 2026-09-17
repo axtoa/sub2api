@@ -81,7 +81,17 @@
                     <div class="min-w-0">
                       <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ task.model }}</p>
                       <p class="mt-1 line-clamp-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ task.prompt_preview || '无提示词' }}</p>
-                      <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">{{ formatDate(task.created_at) }} · {{ task.resolution || '720p' }} · {{ task.duration_seconds || videoForm.duration }} 秒</p>
+                      <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                        {{ formatDate(task.created_at) }} · {{ task.resolution || '720p' }} · {{ task.duration_seconds || videoForm.duration }} 秒
+                        <span v-if="creativeVideoElapsedText(task)"> · {{ creativeVideoElapsedText(task) }}</span>
+                      </p>
+                      <p
+                        v-if="creativeVideoProgressHint(task)"
+                        class="mt-2 rounded-md px-3 py-2 text-xs leading-5"
+                        :class="creativeVideoProgressHintClass(task)"
+                      >
+                        {{ creativeVideoProgressHint(task) }}
+                      </p>
                     </div>
                     <div class="flex items-center gap-2">
                       <span class="badge whitespace-nowrap" :class="creativeVideoStatusClass(task.status)">{{ creativeVideoStatusLabel(task.status) }}</span>
@@ -616,7 +626,10 @@
                 <span class="badge whitespace-nowrap" :class="creativeVideoStatusClass(task.status)">{{ creativeVideoStatusLabel(task.status) }}</span>
               </div>
               <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span>{{ formatDate(task.created_at) }} · {{ task.resolution || '480p' }} · {{ task.duration_seconds || 8 }} 秒</span>
+                <span>
+                  {{ formatDate(task.created_at) }} · {{ task.resolution || '480p' }} · {{ task.duration_seconds || 8 }} 秒
+                  <span v-if="creativeVideoElapsedText(task)"> · {{ creativeVideoElapsedText(task) }}</span>
+                </span>
                 <div class="flex items-center gap-1">
                   <button v-if="task.status === 'completed'" type="button" class="btn btn-secondary btn-sm" :disabled="videoDownloadingId === task.id" @click="downloadVideoTask(task)">
                     <Icon :name="videoDownloadingId === task.id ? 'refresh' : 'download'" size="sm" class="mr-1" :class="videoDownloadingId === task.id ? 'animate-spin' : ''" />
@@ -631,6 +644,13 @@
                   </button>
                 </div>
               </div>
+              <p
+                v-if="creativeVideoProgressHint(task)"
+                class="rounded-md px-3 py-2 text-xs leading-5"
+                :class="creativeVideoProgressHintClass(task)"
+              >
+                {{ creativeVideoProgressHint(task) }}
+              </p>
             </div>
           </div>
         </div>
@@ -1852,15 +1872,17 @@ const videoDeletingId = ref('')
 const videoPreviewUrl = ref('')
 const videoPreviewTitle = ref('视频预览')
 const videoTaskKeyMap = reactive<Record<string, string>>({})
+const videoNow = ref(Date.now())
 const videoLimits = reactive({
   retentionDays: 3,
   maxRecords: 50,
   maxRunning: 5,
 })
 let videoPollTimer: ReturnType<typeof setInterval> | null = null
+let videoElapsedTimer: ReturnType<typeof setInterval> | null = null
 
 const videoRunningCount = computed(() =>
-  videoTasks.value.filter(task => ['queued', 'submitted', 'running'].includes(task.status)).length,
+  videoTasks.value.filter(task => isCreativeVideoProcessing(task.status)).length,
 )
 
 const filteredApiKeys = computed(() => {
@@ -2592,7 +2614,7 @@ async function submitVideo(): Promise<boolean> {
 }
 
 async function refreshRunningVideos() {
-  const running = videoTasks.value.filter(task => ['queued', 'submitted', 'running'].includes(task.status))
+  const running = videoTasks.value.filter(task => isCreativeVideoProcessing(task.status))
   for (const task of running) {
     const apiKey = videoTaskKeyMap[task.id]
     if (!apiKey) continue
@@ -2612,7 +2634,8 @@ async function refreshRunningVideos() {
 }
 
 function manageVideoPolling() {
-  const shouldPoll = activeTab.value === 'video' && videoTasks.value.some(task => ['queued', 'submitted', 'running'].includes(task.status))
+  const hasProcessingTask = videoTasks.value.some(task => isCreativeVideoProcessing(task.status))
+  const shouldPoll = activeTab.value === 'video' && hasProcessingTask
   if (shouldPoll && !videoPollTimer) {
     videoPollTimer = setInterval(() => {
       void refreshRunningVideos()
@@ -2621,12 +2644,26 @@ function manageVideoPolling() {
     clearInterval(videoPollTimer)
     videoPollTimer = null
   }
+
+  if (hasProcessingTask && !videoElapsedTimer) {
+    videoNow.value = Date.now()
+    videoElapsedTimer = setInterval(() => {
+      videoNow.value = Date.now()
+    }, 30 * 1000)
+  } else if (!hasProcessingTask && videoElapsedTimer) {
+    clearInterval(videoElapsedTimer)
+    videoElapsedTimer = null
+  }
 }
 
 function stopVideoPolling() {
   if (videoPollTimer) {
     clearInterval(videoPollTimer)
     videoPollTimer = null
+  }
+  if (videoElapsedTimer) {
+    clearInterval(videoElapsedTimer)
+    videoElapsedTimer = null
   }
 }
 
@@ -2643,23 +2680,67 @@ function creativeVideoStatusLabel(status: string) {
   const labels: Record<string, string> = {
     queued: '排队中',
     submitted: '已提交',
+    pending: '排队中',
+    processing: '生成中',
     running: '生成中',
     completed: '已完成',
     failed: '失败',
     expired: '已过期',
     output_deleted: '已清理',
   }
-  return labels[status] || status || '-'
+  const normalized = String(status || '').toLowerCase()
+  return labels[normalized] || status || '-'
 }
 
 function creativeVideoStatusClass(status: string) {
-  if (status === 'completed') return 'badge-success'
-  if (status === 'failed' || status === 'expired' || status === 'output_deleted') return 'badge-danger'
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'completed') return 'badge-success'
+  if (normalized === 'failed' || normalized === 'expired' || normalized === 'output_deleted') return 'badge-danger'
   return 'badge-primary'
 }
 
+function isCreativeVideoProcessing(status: string) {
+  return ['queued', 'submitted', 'pending', 'running', 'processing'].includes(String(status || '').toLowerCase())
+}
+
 function isCreativeVideoTerminal(status: string) {
-  return ['completed', 'failed', 'expired', 'output_deleted'].includes(status)
+  return ['completed', 'failed', 'expired', 'output_deleted'].includes(String(status || '').toLowerCase())
+}
+
+function creativeVideoStartedAt(task: CreativeVideoTask) {
+  return Number(task.submitted_at || task.created_at || 0)
+}
+
+function creativeVideoElapsedSeconds(task: CreativeVideoTask) {
+  const startedAt = creativeVideoStartedAt(task)
+  if (!startedAt || !isCreativeVideoProcessing(task.status)) return 0
+  return Math.max(0, Math.floor(videoNow.value / 1000) - startedAt)
+}
+
+function creativeVideoElapsedText(task: CreativeVideoTask) {
+  const seconds = creativeVideoElapsedSeconds(task)
+  if (!seconds) return ''
+  if (seconds < 60) return '已等待不到 1 分钟'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `已等待 ${minutes} 分钟`
+  const hours = Math.floor(minutes / 60)
+  const restMinutes = minutes % 60
+  return restMinutes ? `已等待 ${hours} 小时 ${restMinutes} 分钟` : `已等待 ${hours} 小时`
+}
+
+function creativeVideoProgressHint(task: CreativeVideoTask) {
+  const seconds = creativeVideoElapsedSeconds(task)
+  if (!seconds) return ''
+  const minutes = Math.floor(seconds / 60)
+  if (minutes >= 15) return '这个视频已经等待较久，可能是上游排队或任务处理偏慢。页面会继续自动刷新，也可以稍后回来查看。'
+  if (minutes >= 5) return '视频生成通常需要几分钟，复杂画面或高峰期会更久一些。任务还在自动刷新，完成后会显示预览和下载。'
+  return '任务已提交，正在排队或生成中。你可以先处理别的内容，完成后会出现在这里。'
+}
+
+function creativeVideoProgressHintClass(task: CreativeVideoTask) {
+  return creativeVideoElapsedSeconds(task) >= 15 * 60
+    ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
+    : 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
 }
 
 async function downloadVideoTask(task: CreativeVideoTask) {
