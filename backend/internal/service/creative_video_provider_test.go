@@ -132,7 +132,7 @@ func TestCreativeVideoHTTPProvider_MiniMaxHappyCodeRelay(t *testing.T) {
 		ID:          1,
 		Platform:    PlatformMiniMax,
 		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://happycodeai.com/v1"},
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://us.happycodeai.com/v1"},
 	}
 
 	submitted, err := provider.Submit(context.Background(), account, CreativeVideoProviderRequest{

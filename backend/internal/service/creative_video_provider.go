@@ -384,7 +384,7 @@ func (c *creativeVideoHTTPClient) isHappyCodeRelay() bool {
 		return false
 	}
 	host := strings.ToLower(strings.TrimPrefix(u.Hostname(), "www."))
-	return host == "happycodeai.com"
+	return host == "happycodeai.com" || strings.HasSuffix(host, ".happycodeai.com")
 }
 
 func (c *creativeVideoHTTPClient) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
