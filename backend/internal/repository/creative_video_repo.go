@@ -129,7 +129,7 @@ func (r *creativeVideoRepository) CompleteCreativeVideoTaskSubmit(ctx context.Co
 		return nil
 	}
 	now := time.Now()
-	_, err := r.sql.ExecContext(ctx, `
+	res, err := r.sql.ExecContext(ctx, `
 UPDATE creative_video_tasks
 SET provider_request_id = $2,
     account_id = NULLIF($3, 0),
@@ -144,7 +144,10 @@ SET provider_request_id = $2,
     updated_at = $10
 WHERE task_id = $1
   AND user_deleted_at IS NULL`, params.TaskID, params.ProviderRequestID, params.AccountID, params.Status, params.Model, params.Resolution, params.DurationSeconds, params.DownloadURL, params.FileID, now)
-	return translatePersistenceError(err, nil, nil)
+	if err != nil {
+		return translatePersistenceError(err, nil, nil)
+	}
+	return requireRowsAffected(res, service.ErrCreativeVideoTaskNotFound)
 }
 
 func (r *creativeVideoRepository) MarkCreativeVideoTaskFailed(ctx context.Context, taskID, code, message string) error {

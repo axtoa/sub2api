@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ var (
 	ErrCreativeVideoDisabled             = infraerrors.New(http.StatusNotFound, "CREATIVE_VIDEO_DISABLED", "creative video is disabled")
 	ErrCreativeVideoRunningLimitExceeded = infraerrors.New(http.StatusTooManyRequests, "CREATIVE_VIDEO_RUNNING_LIMIT_EXCEEDED", "too many running creative video tasks")
 	ErrCreativeVideoTaskNotFound         = infraerrors.New(http.StatusNotFound, "CREATIVE_VIDEO_TASK_NOT_FOUND", "creative video task not found")
+	ErrCreativeVideoTaskPersistence      = infraerrors.New(http.StatusInternalServerError, "CREATIVE_VIDEO_TASK_PERSISTENCE_FAILED", "video task record could not be saved")
 )
 
 type CreativeVideoTask struct {
@@ -186,7 +188,7 @@ func (s *CreativeVideoService) CheckCreateAllowed(ctx context.Context, userID in
 	if settings.VideoMaxRunningPerUser > 0 && s.Repo != nil {
 		count, err := s.Repo.CountActiveCreativeVideoTasksForUser(ctx, userID)
 		if err != nil {
-			return err
+			return ErrCreativeVideoTaskPersistence.WithCause(err)
 		}
 		if count >= settings.VideoMaxRunningPerUser {
 			return ErrCreativeVideoRunningLimitExceeded
@@ -211,7 +213,7 @@ func (s *CreativeVideoService) CreatePending(ctx context.Context, owner BatchIma
 	prompt := creativeVideoPromptPreview(info.Prompt)
 	resolution := strings.TrimSpace(info.Resolution)
 	duration := info.DurationSeconds
-	return s.Repo.CreateCreativeVideoTask(ctx, CreateCreativeVideoTaskParams{
+	task, err := s.Repo.CreateCreativeVideoTask(ctx, CreateCreativeVideoTaskParams{
 		TaskID:                taskID,
 		UserID:                owner.UserID,
 		APIKeyID:              owner.APIKeyID,
@@ -225,6 +227,13 @@ func (s *CreativeVideoService) CreatePending(ctx context.Context, owner BatchIma
 		OutputExpiresAt:       &expiresAt,
 		MaxActiveTasksPerUser: settings.VideoMaxRunningPerUser,
 	})
+	if err != nil {
+		if errors.Is(err, ErrCreativeVideoRunningLimitExceeded) {
+			return nil, err
+		}
+		return nil, ErrCreativeVideoTaskPersistence.WithCause(err)
+	}
+	return task, nil
 }
 
 func (s *CreativeVideoService) CreateProviderPending(ctx context.Context, owner BatchImageOwner, provider string, req CreativeVideoProviderRequest) (*CreativeVideoTask, error) {
@@ -240,7 +249,7 @@ func (s *CreativeVideoService) CreateProviderPending(ctx context.Context, owner 
 		return nil, err
 	}
 	expiresAt := time.Now().AddDate(0, 0, settings.RetentionDays)
-	return s.Repo.CreateCreativeVideoTask(ctx, CreateCreativeVideoTaskParams{
+	task, err := s.Repo.CreateCreativeVideoTask(ctx, CreateCreativeVideoTaskParams{
 		TaskID:                taskID,
 		UserID:                owner.UserID,
 		APIKeyID:              owner.APIKeyID,
@@ -254,6 +263,13 @@ func (s *CreativeVideoService) CreateProviderPending(ctx context.Context, owner 
 		OutputExpiresAt:       &expiresAt,
 		MaxActiveTasksPerUser: settings.VideoMaxRunningPerUser,
 	})
+	if err != nil {
+		if errors.Is(err, ErrCreativeVideoRunningLimitExceeded) {
+			return nil, err
+		}
+		return nil, ErrCreativeVideoTaskPersistence.WithCause(err)
+	}
+	return task, nil
 }
 
 func (s *CreativeVideoService) CompleteSubmit(ctx context.Context, taskID string, accountID int64, result *OpenAIForwardResult, fallback GrokMediaRequestInfo) error {

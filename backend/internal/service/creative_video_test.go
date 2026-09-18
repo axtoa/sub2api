@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -62,6 +63,30 @@ func TestCreativeVideoCompleteSubmitRejectsMissingRequestID(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Equal(t, "CREATIVE_VIDEO_MISSING_REQUEST_ID", infraerrors.Reason(err))
+}
+
+func TestCreativeVideoCreateProviderPendingWrapsPersistenceFailure(t *testing.T) {
+	t.Parallel()
+	repoErr := errors.New("column file_id does not exist")
+	repo := &fakeCreativeVideoRepo{createErr: repoErr}
+	svc := NewCreativeVideoService(repo, fakeCreativeWorkbenchReader{settings: &CreativeWorkbenchSettings{
+		Enabled:                true,
+		VideoEnabled:           true,
+		RetentionDays:          3,
+		MaxRecordsPerUser:      50,
+		VideoMaxRunningPerUser: 5,
+	}})
+
+	_, err := svc.CreateProviderPending(context.Background(), BatchImageOwner{
+		UserID:   1,
+		APIKeyID: 2,
+	}, CreativeVideoProviderMiniMax, CreativeVideoProviderRequest{
+		Model:  "MiniMax-H3",
+		Prompt: "a rainy street",
+	})
+
+	require.ErrorIs(t, err, ErrCreativeVideoTaskPersistence)
+	require.ErrorContains(t, err, repoErr.Error())
 }
 
 func TestCreativeVideoCleanupSoftDeletesRecords(t *testing.T) {
@@ -135,6 +160,7 @@ func (r fakeCreativeWorkbenchReader) GetCreativeWorkbenchSettings(context.Contex
 
 type fakeCreativeVideoRepo struct {
 	activeCount        int
+	createErr          error
 	observedStatus     string
 	listTasks          []*CreativeVideoTask
 	listFilter         CreativeVideoTaskFilter
@@ -144,6 +170,9 @@ type fakeCreativeVideoRepo struct {
 }
 
 func (r *fakeCreativeVideoRepo) CreateCreativeVideoTask(_ context.Context, params CreateCreativeVideoTaskParams) (*CreativeVideoTask, error) {
+	if r.createErr != nil {
+		return nil, r.createErr
+	}
 	if r.activeCount >= params.MaxActiveTasksPerUser && params.MaxActiveTasksPerUser > 0 {
 		return nil, ErrCreativeVideoRunningLimitExceeded
 	}

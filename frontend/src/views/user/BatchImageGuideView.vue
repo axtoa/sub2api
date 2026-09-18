@@ -24,12 +24,15 @@
 
           <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50/70 px-4 py-4 dark:bg-dark-950/30 sm:px-5">
             <div v-if="activeTab === 'image'" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              <button
+              <div
                 v-for="job in recentImageJobs"
                 :key="job.id"
-                type="button"
+                role="button"
+                tabindex="0"
                 class="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-dark-700 dark:bg-dark-800 dark:hover:border-primary-700/60"
-                @click="selectJob(job.id)"
+                @click="openJobPreview(job)"
+                @keydown.enter.prevent="openJobPreview(job)"
+                @keydown.space.prevent="openJobPreview(job)"
               >
                 <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-rose-50 to-emerald-50 dark:from-sky-950/30 dark:via-rose-950/20 dark:to-emerald-950/20">
                   <img
@@ -41,6 +44,36 @@
                   />
                   <Icon v-else-if="imageJobPreviewLoadingIds.has(job.id)" name="refresh" size="lg" class="animate-spin text-primary-500/80" />
                   <Icon v-else name="sparkles" size="xl" class="text-primary-500/80" />
+                  <div class="absolute inset-x-2 top-2 flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      type="button"
+                      class="rounded-md bg-black/60 p-1.5 text-white shadow-sm transition hover:bg-black/80"
+                      :title="t('batchImage.actions.viewDetail')"
+                      @click.stop="selectJob(job.id)"
+                    >
+                      <Icon name="document" size="sm" />
+                    </button>
+                    <button
+                      v-if="canDownload(displayJob(job))"
+                      type="button"
+                      class="rounded-md bg-black/60 p-1.5 text-white shadow-sm transition hover:bg-emerald-600"
+                      :disabled="downloading"
+                      :title="t('batchImage.actions.download')"
+                      @click.stop="downloadJob(job)"
+                    >
+                      <Icon :name="isDownloadingJob(job.id) ? 'refresh' : 'download'" size="sm" :class="isDownloadingJob(job.id) ? 'animate-spin' : ''" />
+                    </button>
+                    <button
+                      v-if="canDeleteRecord(displayJob(job))"
+                      type="button"
+                      class="rounded-md bg-black/60 p-1.5 text-white shadow-sm transition hover:bg-red-600"
+                      :disabled="deletingBatchId === job.id"
+                      :title="t('common.delete')"
+                      @click.stop="deleteJob(job)"
+                    >
+                      <Icon :name="deletingBatchId === job.id ? 'refresh' : 'trash'" size="sm" :class="deletingBatchId === job.id ? 'animate-spin' : ''" />
+                    </button>
+                  </div>
                 </div>
                 <div class="space-y-2 p-3">
                   <div class="flex items-center justify-between gap-2">
@@ -53,7 +86,7 @@
                     <span>{{ costLabel(displayJob(job)) }}</span>
                   </div>
                 </div>
-              </button>
+              </div>
 
               <div v-if="!loadingJobs && recentImageJobs.length === 0" class="col-span-full flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-6 text-center dark:border-dark-700 dark:bg-dark-800">
                 <Icon name="sparkles" size="xl" class="mb-4 h-12 w-12 text-primary-400" />
@@ -1112,8 +1145,32 @@ Content-Type: application/json</code></pre>
       :z-index="60"
       @close="closeImagePreview"
     >
-      <div v-if="previewImageItem" class="grid min-h-[76vh] gap-3 lg:min-h-[82vh] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div class="relative flex min-h-[62vh] items-center justify-center overflow-hidden rounded-lg bg-gray-950 p-2 sm:min-h-[68vh] lg:min-h-[82vh]">
+      <div v-if="previewImageItem" class="grid min-h-[76vh] gap-3 lg:min-h-[82vh] lg:grid-cols-[auto_minmax(0,1fr)_300px] xl:grid-cols-[auto_minmax(0,1fr)_320px]">
+        <div
+          v-if="previewImageCandidates.length > 1"
+          class="order-2 flex max-h-[18vh] min-h-0 gap-2 overflow-x-auto rounded-lg border border-gray-200 bg-white p-2 dark:border-dark-700 dark:bg-dark-900 lg:order-1 lg:max-h-[82vh] lg:w-[76px] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden"
+        >
+          <button
+            v-for="item in previewImageCandidates"
+            :key="itemPreviewKey(item)"
+            type="button"
+            class="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border-2 bg-gray-100 transition dark:bg-dark-800"
+            :class="previewImageItem === item ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-transparent hover:border-gray-300 dark:hover:border-dark-500'"
+            :title="item.custom_id"
+            @click="selectPreviewImage(item)"
+          >
+            <img
+              v-if="itemPreviewUrls[itemPreviewKey(item)] && !previewErrorIds.has(itemPreviewKey(item))"
+              :src="itemPreviewUrls[itemPreviewKey(item)]"
+              class="h-full w-full object-cover"
+              alt=""
+            />
+            <span v-else class="flex h-full w-full items-center justify-center text-gray-400">
+              <Icon :name="previewLoadingIds.has(itemPreviewKey(item)) ? 'refresh' : 'eye'" size="sm" :class="previewLoadingIds.has(itemPreviewKey(item)) ? 'animate-spin' : ''" />
+            </span>
+          </button>
+        </div>
+        <div class="relative order-1 flex min-h-[62vh] items-center justify-center overflow-hidden rounded-lg bg-gray-950 p-2 sm:min-h-[68vh] lg:order-2 lg:min-h-[82vh]">
           <img
             v-if="previewImageDisplayUrl"
             :src="previewImageDisplayUrl"
@@ -1133,7 +1190,7 @@ Content-Type: application/json</code></pre>
             {{ previewImageFullError }}
           </div>
         </div>
-        <div class="flex min-h-0 flex-col gap-3 overflow-y-auto lg:max-h-[82vh]">
+        <div class="order-3 flex min-h-0 flex-col gap-3 overflow-y-auto lg:max-h-[82vh]">
           <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900">
             <div class="mb-3 flex items-center justify-between gap-2">
               <span :class="itemDisplayStatusBadgeClass(previewImageItem)" class="badge whitespace-nowrap">
@@ -2024,6 +2081,10 @@ const previewImageUrl = computed(() => {
 
 const previewImageDisplayUrl = computed(() => previewImageFullUrl.value || previewImageUrl.value)
 
+const previewImageCandidates = computed(() =>
+  items.value.filter(item => canLoadItemPreview(item)),
+)
+
 const previewImageJob = computed(() => {
   const item = previewImageItem.value
   if (!item) return null
@@ -2045,8 +2106,14 @@ const previewImageCreatedAt = computed(() => {
 })
 
 const previewImageIndexText = computed(() => {
-  const count = previewImageItem.value?.image_count || 0
-  return count > 1 ? t('batchImage.imagePreview.imageIndex', { index: 1, count }) : t('batchImage.imagePreview.singleImage')
+  const item = previewImageItem.value
+  const candidates = previewImageCandidates.value
+  if (!item || candidates.length <= 1) return t('batchImage.imagePreview.singleImage')
+  const index = candidates.findIndex(candidate => itemPreviewKey(candidate) === itemPreviewKey(item))
+  return t('batchImage.imagePreview.imageIndex', {
+    index: index >= 0 ? index + 1 : 1,
+    count: candidates.length,
+  })
 })
 
 const previewImageFormatText = computed(() => {
@@ -2741,6 +2808,7 @@ function creativeVideoSubmitErrorMessage(error: any) {
     return `已有 ${videoLimits.maxRunning} 个视频任务在生成中。系统已尝试刷新旧任务状态，请稍后重试；如果旧任务已经完成，可以刷新任务记录后再提交。`
   }
   if (code === 'CREATIVE_VIDEO_DISABLED') return '视频创作能力暂未开启，请检查创作台配置。'
+  if (code === 'CREATIVE_VIDEO_TASK_PERSISTENCE_FAILED') return '视频任务记录保存失败，请先让管理员完成数据库迁移后再重试。'
   if (code === 'video_no_eligible_account') return '当前视频分组没有可用上游账号，请检查账号状态或额度。'
   if (code === 'upstream_error') return '上游视频服务提交失败，请稍后重试或检查上游 Key / Base URL。'
   return message || '提交视频任务失败'
@@ -4198,10 +4266,60 @@ async function loadItemPreview(item: BatchImageItem) {
   }
 }
 
-function openImagePreview(item: BatchImageDetailItem) {
-  const previewKey = itemPreviewKey(item)
-  if (!itemPreviewUrls[previewKey] || previewErrorIds.value.has(previewKey)) return
+async function openJobPreview(job: BatchImageJobRow) {
+  const key = apiKeyForJob(job)
+  if (!key) return
+  closePromptPopover()
+  selectedBatchId.value = job.id
+  selectedBatchApiKeyId.value = key.id
+  form.apiKeyId = key.id
+  currentJob.value = null
+  items.value = []
+  clearItemPreviews()
+
+  try {
+    const [loadedJob] = await Promise.all([
+      getBatchImageJob(key.key, job.id),
+      (async () => {
+        const detailJobs = detailJobsForBatch(job.id)
+        const results = await Promise.all(detailJobs.map(async (detailJob) => {
+          const result = await listBatchImageItems(key.key, detailJob.id)
+          return (result.data || []).map(item => ({
+            ...item,
+            batch_id: detailJob.id,
+            source_task_name: detailSourceName(detailJob, job.id),
+          }))
+        }))
+        items.value = results.flat()
+        void hydrateCachedItemPreviews(items.value)
+      })(),
+    ])
+    currentJob.value = loadedJob
+    upsertJob(loadedJob)
+    const firstPreview = previewImageCandidates.value[0]
+    if (firstPreview) {
+      await loadItemPreview(firstPreview)
+      openImagePreview(firstPreview)
+    } else {
+      selectJob(job.id)
+    }
+  } catch (error: any) {
+    appStore.showError(batchImageErrorMessage(error, batchImageText('loadItemsFailed')))
+    selectJob(job.id)
+  }
+}
+
+async function selectPreviewImage(item: BatchImageDetailItem) {
   previewImageItem.value = item
+  await loadItemPreview(item)
+  if (previewImageItem.value === item) {
+    await loadPreviewImageOriginal(item)
+  }
+}
+
+function openImagePreview(item: BatchImageDetailItem) {
+  previewImageItem.value = item
+  void loadItemPreview(item)
   void loadPreviewImageOriginal(item)
 }
 

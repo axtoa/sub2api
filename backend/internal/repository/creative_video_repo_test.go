@@ -88,3 +88,38 @@ func TestObserveCreativeVideoTaskCanMatchTaskIDFallback(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestCompleteCreativeVideoTaskSubmitRequiresExistingTask(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	repo := &creativeVideoRepository{sql: db}
+	mock.ExpectExec(`(?s)UPDATE creative_video_tasks.*WHERE task_id = \$1.*user_deleted_at IS NULL`).
+		WithArgs(
+			"vidtask_local",
+			"vid_provider",
+			int64(5),
+			"running",
+			"MiniMax-H3",
+			"720p",
+			8,
+			"",
+			"",
+			sqlmock.AnyArg(),
+		).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	err = repo.CompleteCreativeVideoTaskSubmit(context.Background(), service.CompleteCreativeVideoTaskSubmitParams{
+		TaskID:            "vidtask_local",
+		ProviderRequestID: "vid_provider",
+		AccountID:         5,
+		Status:            "running",
+		Model:             "MiniMax-H3",
+		Resolution:        "720p",
+		DurationSeconds:   8,
+	})
+	require.ErrorIs(t, err, service.ErrCreativeVideoTaskNotFound)
+	require.NoError(t, mock.ExpectationsWereMet())
+}

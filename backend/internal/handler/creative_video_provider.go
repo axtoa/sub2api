@@ -100,6 +100,13 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 	}
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+		requestLogger(c, "handler.openai_gateway.creative_video").Warn(
+			"creative_video.billing_check_failed",
+			zap.Int64("user_id", subject.UserID),
+			zap.Int64("api_key_id", apiKey.ID),
+			zap.String("model", req.Model),
+			zap.Error(err),
+		)
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -113,6 +120,13 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		GroupID:  apiKey.GroupID,
 	})
 	if err := h.creativeVideoService.CheckCreateAllowed(c.Request.Context(), subject.UserID); err != nil {
+		requestLogger(c, "handler.openai_gateway.creative_video").Error(
+			"creative_video.create_allowed_check_failed",
+			zap.Int64("user_id", subject.UserID),
+			zap.Int64("api_key_id", apiKey.ID),
+			zap.String("model", req.Model),
+			zap.Error(err),
+		)
 		batchImageError(c, err)
 		return
 	}
@@ -131,11 +145,25 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		platform,
 	)
 	if err != nil || selection == nil || selection.Account == nil {
+		requestLogger(c, "handler.openai_gateway.creative_video").Warn(
+			"creative_video.account_selection_failed",
+			zap.Any("group_id", apiKey.GroupID),
+			zap.String("platform", platform),
+			zap.String("model", req.Model),
+			zap.Error(err),
+		)
 		h.errorResponse(c, http.StatusServiceUnavailable, "video_no_eligible_account", "No eligible video account")
 		return
 	}
 	provider := service.NewCreativeVideoHTTPProvider(platform, nil)
 	if !provider.SupportsAccount(selection.Account) {
+		requestLogger(c, "handler.openai_gateway.creative_video").Error(
+			"creative_video.account_unsupported",
+			zap.Int64("account_id", selection.Account.ID),
+			zap.String("platform", platform),
+			zap.String("base_url", selection.Account.GetOpenAIBaseURL()),
+			zap.String("model", req.Model),
+		)
 		batchImageError(c, service.ErrCreativeVideoProviderUnsupportedAccount)
 		return
 	}
@@ -145,6 +173,15 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		GroupID:  apiKey.GroupID,
 	}, provider.Name(), req)
 	if err != nil {
+		requestLogger(c, "handler.openai_gateway.creative_video").Error(
+			"creative_video.task_record_create_failed",
+			zap.Int64("user_id", subject.UserID),
+			zap.Int64("api_key_id", apiKey.ID),
+			zap.Any("group_id", apiKey.GroupID),
+			zap.String("provider", provider.Name()),
+			zap.String("model", req.Model),
+			zap.Error(err),
+		)
 		batchImageError(c, err)
 		return
 	}
@@ -165,6 +202,14 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 	}
 	if task != nil {
 		if err := h.creativeVideoService.CompleteProviderSubmit(c.Request.Context(), task.TaskID, selection.Account.ID, status, req); err != nil {
+			requestLogger(c, "handler.openai_gateway.creative_video").Error(
+				"creative_video.task_record_submit_update_failed",
+				zap.String("task_id", task.TaskID),
+				zap.Int64("account_id", selection.Account.ID),
+				zap.String("provider", provider.Name()),
+				zap.String("model", req.Model),
+				zap.Error(err),
+			)
 			h.creativeVideoService.FailTask(c.Request.Context(), task.TaskID, "TASK_SUBMIT_FAILED", err.Error())
 			batchImageError(c, err)
 			return
