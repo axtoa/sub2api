@@ -37,6 +37,10 @@ type OpenAIRecordUsageInput struct {
 	// 按该时刻计算，保证同一请求从准入到扣费不中途变价。零值回退记录时刻
 	//（既有行为），供未装配的路径（图片/异步/cyber 等）沿用。
 	PricingAt time.Time
+	// OnVideoUsageRecorded is called after a successful video usage record has
+	// been accepted. It lets the creative workbench persist the already-known
+	// final charge without making the next page load query upstream again.
+	OnVideoUsageRecorded func(actualCost float64)
 	// CyberBlocked 为 true 时把该用量行标记为 cyber（request_type=cyber），计费逻辑不变。
 	CyberBlocked bool
 	// NativeCompactionV2 is an orthogonal semantic flag captured by the
@@ -478,6 +482,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+		if input.OnVideoUsageRecorded != nil && isVideoUsage {
+			input.OnVideoUsageRecorded(usageLog.ActualCost)
+		}
 		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
 		return nil
@@ -512,6 +519,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		return billingErr
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
+	if input.OnVideoUsageRecorded != nil && isVideoUsage {
+		input.OnVideoUsageRecorded(usageLog.ActualCost)
+	}
 
 	return nil
 }

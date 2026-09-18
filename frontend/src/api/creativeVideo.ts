@@ -19,11 +19,16 @@ export interface CreativeVideoTask {
   prompt_preview?: string | null
   resolution?: string | null
   duration_seconds?: number | null
+  actual_cost?: number | null
+  file_size_bytes?: number | null
+  content_type?: string | null
   created_at: number
   submitted_at?: number | null
   completed_at?: number | null
+  output_expires_at?: number | null
   downloaded_at?: number | null
   output_deleted_at?: number | null
+  elapsed_seconds?: number | null
 }
 
 export interface CreativeVideoTasksResponse {

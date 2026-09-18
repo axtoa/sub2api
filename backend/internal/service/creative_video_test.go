@@ -188,6 +188,14 @@ func (r *fakeCreativeVideoRepo) MarkCreativeVideoTaskDownloaded(context.Context,
 	return nil
 }
 
+func (r *fakeCreativeVideoRepo) MarkCreativeVideoTaskUsage(context.Context, int64, int64, string, float64) error {
+	return nil
+}
+
+func (r *fakeCreativeVideoRepo) MarkCreativeVideoTaskOutputMetadata(context.Context, int64, int64, string, int64, string) error {
+	return nil
+}
+
 func (r *fakeCreativeVideoRepo) MarkCreativeVideoTaskUserDeleted(context.Context, int64, int64, string, time.Time) error {
 	return nil
 }

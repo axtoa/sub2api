@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/service"
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,7 +53,7 @@ func TestObserveCreativeVideoTaskCanMatchTaskIDFallback(t *testing.T) {
 
 	repo := &creativeVideoRepository{sql: db}
 	mock.ExpectExec(regexp.QuoteMeta(`WHERE (provider_request_id = $1 OR (NULLIF($8, '') IS NOT NULL AND task_id = $8))`)).
-		WithArgs("vid_provider", int64(1), int64(2), "completed", "MiniMax-H3", "720p", 8, "vidtask_local", sqlmock.AnyArg()).
+		WithArgs("vid_provider", int64(1), int64(2), "completed", "MiniMax-H3", "720p", 8, "vidtask_local", "", "", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err = repo.ObserveCreativeVideoTask(context.Background(), service.ObserveCreativeVideoTaskParams{

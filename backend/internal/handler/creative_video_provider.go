@@ -196,20 +196,26 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
 		return
 	}
-	account, err := h.gatewayService.GetAccountByID(c.Request.Context(), *task.AccountID)
-	if err != nil || account == nil {
-		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
-		return
+	status := creativeVideoProviderStatusFromTask(task)
+	var account *service.Account
+	var provider *service.CreativeVideoHTTPProvider
+	if creativeVideoTaskStatusNeedsSync(task.Status) || (content && status.Status == service.CreativeVideoStatusCompleted && platform == service.PlatformMiniMax && status.DownloadURL == "" && status.FileID == "") {
+		account, err = h.gatewayService.GetAccountByID(c.Request.Context(), *task.AccountID)
+		if err != nil || account == nil {
+			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+			return
+		}
+		provider = service.NewCreativeVideoHTTPProvider(platform, nil)
+		upstreamStatus, err := provider.Get(c.Request.Context(), account, requestID)
+		if err != nil {
+			h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream video status request failed")
+			return
+		}
+		status = upstreamStatus
+		fillCreativeVideoStatusFromTask(status, task)
+		h.creativeVideoService.ObserveProviderTaskStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, task.TaskID, requestID, status)
+		h.recordCreativeVideoUsageIfCompleted(c, apiKey, subject, account, status, requestID, task.TaskID)
 	}
-	provider := service.NewCreativeVideoHTTPProvider(platform, nil)
-	status, err := provider.Get(c.Request.Context(), account, requestID)
-	if err != nil {
-		h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream video status request failed")
-		return
-	}
-	fillCreativeVideoStatusFromTask(status, task)
-	h.creativeVideoService.ObserveProviderTaskStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, task.TaskID, requestID, status)
-	h.recordCreativeVideoUsageIfCompleted(c, apiKey, subject, account, status, requestID)
 	if !content {
 		c.JSON(http.StatusOK, service.CreativeVideoProviderResponseJSON(status))
 		return
@@ -217,6 +223,16 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 	if status.Status != service.CreativeVideoStatusCompleted {
 		batchImageError(c, service.ErrCreativeVideoProviderOutputUnavailable)
 		return
+	}
+	if account == nil {
+		account, err = h.gatewayService.GetAccountByID(c.Request.Context(), *task.AccountID)
+		if err != nil || account == nil {
+			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")
+			return
+		}
+	}
+	if provider == nil {
+		provider = service.NewCreativeVideoHTTPProvider(platform, nil)
 	}
 	body, contentType, err := provider.OpenContent(c.Request.Context(), account, status)
 	if err != nil {
@@ -227,7 +243,36 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 	_ = h.creativeVideoService.MarkDownloaded(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, requestID)
 	c.Header("Content-Type", contentType)
 	c.Status(http.StatusOK)
-	_, _ = io.Copy(c.Writer, body)
+	written, copyErr := io.Copy(c.Writer, body)
+	_ = h.creativeVideoService.MarkOutputMetadata(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, requestID, written, contentType)
+	if copyErr != nil {
+		logger.L().Debug("creative_video.content_copy_failed", zap.String("request_id", requestID), zap.Error(copyErr))
+	}
+}
+
+func creativeVideoProviderStatusFromTask(task *service.CreativeVideoTask) *service.CreativeVideoProviderStatus {
+	if task == nil {
+		return &service.CreativeVideoProviderStatus{}
+	}
+	status := &service.CreativeVideoProviderStatus{
+		ID:              firstNonEmpty(creativeVideoTaskProviderRequestID(task), task.TaskID),
+		Status:          task.Status,
+		Model:           task.Model,
+		DurationSeconds: 0,
+	}
+	if task.Resolution != nil {
+		status.Resolution = *task.Resolution
+	}
+	if task.DurationSeconds != nil {
+		status.DurationSeconds = *task.DurationSeconds
+	}
+	if task.DownloadURL != nil {
+		status.DownloadURL = *task.DownloadURL
+	}
+	if task.FileID != nil {
+		status.FileID = *task.FileID
+	}
+	return status
 }
 
 func fillCreativeVideoStatusFromTask(status *service.CreativeVideoProviderStatus, task *service.CreativeVideoTask) {
@@ -259,7 +304,7 @@ func (h *OpenAIGatewayHandler) creativeVideoSubject(c *gin.Context) (*service.AP
 	return apiKey, subject, true
 }
 
-func (h *OpenAIGatewayHandler) recordCreativeVideoUsageIfCompleted(c *gin.Context, apiKey *service.APIKey, subject middleware2.AuthSubject, account *service.Account, status *service.CreativeVideoProviderStatus, requestID string) {
+func (h *OpenAIGatewayHandler) recordCreativeVideoUsageIfCompleted(c *gin.Context, apiKey *service.APIKey, subject middleware2.AuthSubject, account *service.Account, status *service.CreativeVideoProviderStatus, requestID, taskID string) {
 	result := service.CreativeVideoForwardResultFromStatus(status, requestID)
 	if result == nil {
 		return
@@ -291,6 +336,13 @@ func (h *OpenAIGatewayHandler) recordCreativeVideoUsageIfCompleted(c *gin.Contex
 			ChannelUsageFields: service.ChannelUsageFields{
 				OriginalModel:      status.Model,
 				ChannelMappedModel: status.Model,
+			},
+			OnVideoUsageRecorded: func(actualCost float64) {
+				_ = h.creativeVideoService.MarkUsageRecorded(ctx, service.BatchImageOwner{
+					UserID:   subject.UserID,
+					APIKeyID: apiKey.ID,
+					GroupID:  apiKey.GroupID,
+				}, firstNonEmpty(requestID, taskID), actualCost)
 			},
 		}); err != nil {
 			_ = h.gatewayService.ReleaseGrokVideoBilling(ctx, requestID, subject.UserID, apiKey.ID)

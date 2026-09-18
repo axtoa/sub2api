@@ -47,6 +47,11 @@ type CreativeVideoTask struct {
 	Status            string
 	Resolution        *string
 	DurationSeconds   *int
+	ActualCost        *float64
+	FileSizeBytes     *int64
+	ContentType       *string
+	DownloadURL       *string
+	FileID            *string
 	OutputExpiresAt   *time.Time
 	DownloadedAt      *time.Time
 	OutputDeletedAt   *time.Time
@@ -82,6 +87,8 @@ type CompleteCreativeVideoTaskSubmitParams struct {
 	Model             string
 	Resolution        string
 	DurationSeconds   int
+	DownloadURL       string
+	FileID            string
 }
 
 type ObserveCreativeVideoTaskParams struct {
@@ -93,6 +100,8 @@ type ObserveCreativeVideoTaskParams struct {
 	Model             string
 	Resolution        string
 	DurationSeconds   int
+	DownloadURL       string
+	FileID            string
 }
 
 type CreativeVideoTaskFilter struct {
@@ -111,25 +120,32 @@ type CreativeVideoRepository interface {
 	ListCreativeVideoTasksForOwner(ctx context.Context, userID, apiKeyID int64, filter CreativeVideoTaskFilter) ([]*CreativeVideoTask, error)
 	CountActiveCreativeVideoTasksForUser(ctx context.Context, userID int64) (int, error)
 	MarkCreativeVideoTaskDownloaded(ctx context.Context, userID, apiKeyID int64, providerRequestID string, downloadedAt time.Time) error
+	MarkCreativeVideoTaskUsage(ctx context.Context, userID, apiKeyID int64, providerRequestID string, actualCost float64) error
+	MarkCreativeVideoTaskOutputMetadata(ctx context.Context, userID, apiKeyID int64, providerRequestID string, fileSizeBytes int64, contentType string) error
 	MarkCreativeVideoTaskUserDeleted(ctx context.Context, userID, apiKeyID int64, providerRequestID string, deletedAt time.Time) error
 	ListCreativeVideoTasksDueForRecordCleanup(ctx context.Context, cutoff time.Time, maxRecordsPerUser, limit int) ([]*CreativeVideoTask, error)
 	MarkCreativeVideoTaskAutoDeleted(ctx context.Context, taskID string, deletedAt time.Time) error
 }
 
 type CreativeVideoTaskPublic struct {
-	ID              string  `json:"id"`
-	Object          string  `json:"object"`
-	Status          string  `json:"status"`
-	Provider        string  `json:"provider"`
-	Model           string  `json:"model"`
-	PromptPreview   *string `json:"prompt_preview,omitempty"`
-	Resolution      *string `json:"resolution,omitempty"`
-	DurationSeconds *int    `json:"duration_seconds,omitempty"`
-	CreatedAt       int64   `json:"created_at"`
-	SubmittedAt     *int64  `json:"submitted_at,omitempty"`
-	CompletedAt     *int64  `json:"completed_at,omitempty"`
-	DownloadedAt    *int64  `json:"downloaded_at,omitempty"`
-	OutputDeletedAt *int64  `json:"output_deleted_at,omitempty"`
+	ID              string   `json:"id"`
+	Object          string   `json:"object"`
+	Status          string   `json:"status"`
+	Provider        string   `json:"provider"`
+	Model           string   `json:"model"`
+	PromptPreview   *string  `json:"prompt_preview,omitempty"`
+	Resolution      *string  `json:"resolution,omitempty"`
+	DurationSeconds *int     `json:"duration_seconds,omitempty"`
+	ActualCost      *float64 `json:"actual_cost,omitempty"`
+	FileSizeBytes   *int64   `json:"file_size_bytes,omitempty"`
+	ContentType     *string  `json:"content_type,omitempty"`
+	CreatedAt       int64    `json:"created_at"`
+	SubmittedAt     *int64   `json:"submitted_at,omitempty"`
+	CompletedAt     *int64   `json:"completed_at,omitempty"`
+	OutputExpiresAt *int64   `json:"output_expires_at,omitempty"`
+	DownloadedAt    *int64   `json:"downloaded_at,omitempty"`
+	OutputDeletedAt *int64   `json:"output_deleted_at,omitempty"`
+	ElapsedSeconds  *int64   `json:"elapsed_seconds,omitempty"`
 }
 
 type CreativeVideoTasksResponse struct {
@@ -279,6 +295,8 @@ func (s *CreativeVideoService) CompleteProviderSubmit(ctx context.Context, taskI
 		Model:             firstNonEmpty(strings.TrimSpace(status.Model), strings.TrimSpace(fallback.Model)),
 		Resolution:        firstNonEmpty(strings.TrimSpace(status.Resolution), strings.TrimSpace(fallback.Resolution)),
 		DurationSeconds:   firstPositive(status.DurationSeconds, fallback.Duration),
+		DownloadURL:       strings.TrimSpace(status.DownloadURL),
+		FileID:            strings.TrimSpace(status.FileID),
 	})
 }
 
@@ -314,6 +332,8 @@ func (s *CreativeVideoService) observeProviderStatus(ctx context.Context, owner 
 		Model:             strings.TrimSpace(status.Model),
 		Resolution:        strings.TrimSpace(status.Resolution),
 		DurationSeconds:   status.DurationSeconds,
+		DownloadURL:       strings.TrimSpace(status.DownloadURL),
+		FileID:            strings.TrimSpace(status.FileID),
 	})
 }
 
@@ -410,6 +430,20 @@ func (s *CreativeVideoService) MarkDownloaded(ctx context.Context, owner BatchIm
 	return s.Repo.MarkCreativeVideoTaskDownloaded(ctx, owner.UserID, owner.APIKeyID, requestID, time.Now())
 }
 
+func (s *CreativeVideoService) MarkUsageRecorded(ctx context.Context, owner BatchImageOwner, requestID string, actualCost float64) error {
+	if s == nil || s.Repo == nil {
+		return nil
+	}
+	return s.Repo.MarkCreativeVideoTaskUsage(ctx, owner.UserID, owner.APIKeyID, requestID, actualCost)
+}
+
+func (s *CreativeVideoService) MarkOutputMetadata(ctx context.Context, owner BatchImageOwner, requestID string, fileSizeBytes int64, contentType string) error {
+	if s == nil || s.Repo == nil {
+		return nil
+	}
+	return s.Repo.MarkCreativeVideoTaskOutputMetadata(ctx, owner.UserID, owner.APIKeyID, requestID, fileSizeBytes, contentType)
+}
+
 func (s *CreativeVideoService) DeleteRecord(ctx context.Context, owner BatchImageOwner, requestID string) error {
 	if s == nil || s.Repo == nil {
 		return nil
@@ -448,7 +482,7 @@ func CreativeVideoTaskToPublic(task *CreativeVideoTask) CreativeVideoTaskPublic 
 	if task == nil {
 		return CreativeVideoTaskPublic{}
 	}
-	return CreativeVideoTaskPublic{
+	public := CreativeVideoTaskPublic{
 		ID:              firstNonEmpty(ptrString(task.ProviderRequestID), task.TaskID),
 		Object:          "creative.video.task",
 		Status:          task.Status,
@@ -457,12 +491,27 @@ func CreativeVideoTaskToPublic(task *CreativeVideoTask) CreativeVideoTaskPublic 
 		PromptPreview:   task.PromptPreview,
 		Resolution:      task.Resolution,
 		DurationSeconds: task.DurationSeconds,
+		ActualCost:      task.ActualCost,
+		FileSizeBytes:   task.FileSizeBytes,
+		ContentType:     task.ContentType,
 		CreatedAt:       task.CreatedAt.Unix(),
 		SubmittedAt:     unixPtr(task.SubmittedAt),
 		CompletedAt:     unixPtr(task.CompletedAt),
+		OutputExpiresAt: unixPtr(task.OutputExpiresAt),
 		DownloadedAt:    unixPtr(task.DownloadedAt),
 		OutputDeletedAt: unixPtr(task.OutputDeletedAt),
 	}
+	if task.CompletedAt != nil {
+		start := task.SubmittedAt
+		if start == nil {
+			start = &task.CreatedAt
+		}
+		if !task.CompletedAt.Before(*start) {
+			elapsed := int64(task.CompletedAt.Sub(*start).Seconds())
+			public.ElapsedSeconds = &elapsed
+		}
+	}
+	return public
 }
 
 func NewCreativeVideoTaskID() (string, error) {

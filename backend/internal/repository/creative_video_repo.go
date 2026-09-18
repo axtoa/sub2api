@@ -137,10 +137,13 @@ SET provider_request_id = $2,
     model = COALESCE(NULLIF($5, ''), model),
     resolution = COALESCE(NULLIF($6, ''), resolution),
     duration_seconds = COALESCE(NULLIF($7, 0), duration_seconds),
-    submitted_at = COALESCE(submitted_at, $8),
-    updated_at = $8
+    download_url = COALESCE(NULLIF($8, ''), download_url),
+    file_id = COALESCE(NULLIF($9, ''), file_id),
+    completed_at = CASE WHEN $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $10) ELSE completed_at END,
+    submitted_at = COALESCE(submitted_at, $10),
+    updated_at = $10
 WHERE task_id = $1
-  AND user_deleted_at IS NULL`, params.TaskID, params.ProviderRequestID, params.AccountID, params.Status, params.Model, params.Resolution, params.DurationSeconds, now)
+  AND user_deleted_at IS NULL`, params.TaskID, params.ProviderRequestID, params.AccountID, params.Status, params.Model, params.Resolution, params.DurationSeconds, params.DownloadURL, params.FileID, now)
 	return translatePersistenceError(err, nil, nil)
 }
 
@@ -179,12 +182,14 @@ SET status = $4,
     model = COALESCE(NULLIF($5, ''), model),
     resolution = COALESCE(NULLIF($6, ''), resolution),
     duration_seconds = COALESCE(NULLIF($7, 0), duration_seconds),
-    completed_at = CASE WHEN $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $9) ELSE completed_at END,
-    updated_at = $9
+    download_url = COALESCE(NULLIF($9, ''), download_url),
+    file_id = COALESCE(NULLIF($10, ''), file_id),
+    completed_at = CASE WHEN $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $11) ELSE completed_at END,
+    updated_at = $11
 WHERE (provider_request_id = $1 OR (NULLIF($8, '') IS NOT NULL AND task_id = $8))
   AND user_id = $2
   AND api_key_id = $3
-  AND user_deleted_at IS NULL`, requestID, params.UserID, params.APIKeyID, status, params.Model, params.Resolution, params.DurationSeconds, strings.TrimSpace(params.TaskID), now)
+  AND user_deleted_at IS NULL`, requestID, params.UserID, params.APIKeyID, status, params.Model, params.Resolution, params.DurationSeconds, strings.TrimSpace(params.TaskID), params.DownloadURL, params.FileID, now)
 	return translatePersistenceError(err, nil, nil)
 }
 
@@ -268,6 +273,40 @@ WHERE (provider_request_id = $1 OR task_id = $1)
 	return requireRowsAffected(res, service.ErrCreativeVideoTaskNotFound)
 }
 
+func (r *creativeVideoRepository) MarkCreativeVideoTaskUsage(ctx context.Context, userID, apiKeyID int64, providerRequestID string, actualCost float64) error {
+	res, err := r.sql.ExecContext(ctx, `
+UPDATE creative_video_tasks
+SET actual_cost = $4,
+    updated_at = NOW()
+WHERE (provider_request_id = $1 OR task_id = $1)
+  AND user_id = $2
+  AND api_key_id = $3
+  AND user_deleted_at IS NULL`, strings.TrimSpace(providerRequestID), userID, apiKeyID, actualCost)
+	if err != nil {
+		return translatePersistenceError(err, nil, nil)
+	}
+	return requireRowsAffected(res, service.ErrCreativeVideoTaskNotFound)
+}
+
+func (r *creativeVideoRepository) MarkCreativeVideoTaskOutputMetadata(ctx context.Context, userID, apiKeyID int64, providerRequestID string, fileSizeBytes int64, contentType string) error {
+	if fileSizeBytes < 0 {
+		fileSizeBytes = 0
+	}
+	res, err := r.sql.ExecContext(ctx, `
+UPDATE creative_video_tasks
+SET file_size_bytes = NULLIF($4, 0),
+    content_type = NULLIF($5, ''),
+    updated_at = NOW()
+WHERE (provider_request_id = $1 OR task_id = $1)
+  AND user_id = $2
+  AND api_key_id = $3
+  AND user_deleted_at IS NULL`, strings.TrimSpace(providerRequestID), userID, apiKeyID, fileSizeBytes, strings.TrimSpace(contentType))
+	if err != nil {
+		return translatePersistenceError(err, nil, nil)
+	}
+	return requireRowsAffected(res, service.ErrCreativeVideoTaskNotFound)
+}
+
 func (r *creativeVideoRepository) MarkCreativeVideoTaskUserDeleted(ctx context.Context, userID, apiKeyID int64, providerRequestID string, deletedAt time.Time) error {
 	res, err := r.sql.ExecContext(ctx, `
 UPDATE creative_video_tasks
@@ -341,7 +380,7 @@ const creativeVideoTaskSelectColumns = `
 id, task_id, provider_request_id, user_id, api_key_id, group_id, account_id, provider, model,
 prompt_preview, status, resolution, duration_seconds, output_expires_at, downloaded_at,
 output_deleted_at, user_deleted_at, last_error_code, last_error_message, created_at, updated_at,
-submitted_at, completed_at`
+submitted_at, completed_at, actual_cost, file_size_bytes, content_type, download_url, file_id`
 
 func scanCreativeVideoTasks(rows *sql.Rows) ([]*service.CreativeVideoTask, error) {
 	tasks := []*service.CreativeVideoTask{}
@@ -360,9 +399,10 @@ func scanCreativeVideoTasks(rows *sql.Rows) ([]*service.CreativeVideoTask, error
 
 func scanCreativeVideoTask(row rowScanner) (*service.CreativeVideoTask, error) {
 	var task service.CreativeVideoTask
-	var providerRequestID, promptPreview, resolution, lastErrorCode, lastErrorMessage sql.NullString
+	var providerRequestID, promptPreview, resolution, lastErrorCode, lastErrorMessage, contentType, downloadURL, fileID sql.NullString
 	var groupID, accountID sql.NullInt64
-	var durationSeconds sql.NullInt64
+	var durationSeconds, fileSizeBytes sql.NullInt64
+	var actualCost sql.NullFloat64
 	var outputExpiresAt, downloadedAt, outputDeletedAt, userDeletedAt, submittedAt, completedAt sql.NullTime
 	if err := row.Scan(
 		&task.ID,
@@ -388,6 +428,11 @@ func scanCreativeVideoTask(row rowScanner) (*service.CreativeVideoTask, error) {
 		&task.UpdatedAt,
 		&submittedAt,
 		&completedAt,
+		&actualCost,
+		&fileSizeBytes,
+		&contentType,
+		&downloadURL,
+		&fileID,
 	); err != nil {
 		return nil, err
 	}
@@ -400,6 +445,17 @@ func scanCreativeVideoTask(row rowScanner) (*service.CreativeVideoTask, error) {
 		v := int(durationSeconds.Int64)
 		task.DurationSeconds = &v
 	}
+	if actualCost.Valid {
+		v := actualCost.Float64
+		task.ActualCost = &v
+	}
+	if fileSizeBytes.Valid {
+		v := fileSizeBytes.Int64
+		task.FileSizeBytes = &v
+	}
+	task.ContentType = nullStringPtr(contentType)
+	task.DownloadURL = nullStringPtr(downloadURL)
+	task.FileID = nullStringPtr(fileID)
 	task.OutputExpiresAt = nullTimePtr(outputExpiresAt)
 	task.DownloadedAt = nullTimePtr(downloadedAt)
 	task.OutputDeletedAt = nullTimePtr(outputDeletedAt)

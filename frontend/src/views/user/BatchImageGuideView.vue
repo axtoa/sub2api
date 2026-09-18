@@ -553,14 +553,15 @@
 
     <BaseDialog :show="!!videoDetailTask" title="视频详情" width="extra-wide" :z-index="60" @close="closeVideoPreview">
       <div v-if="videoDetailTask" class="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]">
-        <div class="relative flex min-h-[420px] items-center justify-center rounded-lg bg-black p-3">
+        <div class="relative flex min-h-[520px] items-center justify-center rounded-lg bg-black p-3 lg:min-h-[620px]">
           <video
             v-if="videoPreviewUrl"
             :src="videoPreviewUrl"
             :poster="videoDetailTask ? videoThumbnailUrls[videoDetailTask.id] : undefined"
-            class="h-full max-h-[72vh] w-full rounded-md object-contain"
+            class="h-full max-h-[78vh] w-full rounded-md object-contain"
             controls
             autoplay
+            :muted="true"
             playsinline
             preload="auto"
             @error="handleVideoPreviewError"
@@ -620,6 +621,12 @@
             <dd class="text-right text-gray-900 dark:text-white">{{ formatDate(videoDetailTask.created_at) }}</dd>
             <dt class="text-gray-500 dark:text-gray-400">完成时间</dt>
             <dd class="text-right text-gray-900 dark:text-white">{{ videoDetailTask.completed_at ? formatDate(videoDetailTask.completed_at) : '-' }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">文件大小</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ formatVideoFileSize(videoDetailTask.file_size_bytes) }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">已记录费用</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ formatVideoCost(videoDetailTask.actual_cost) }}</dd>
+            <dt class="text-gray-500 dark:text-gray-400">生成耗时</dt>
+            <dd class="text-right text-gray-900 dark:text-white">{{ formatVideoElapsed(videoDetailTask) }}</dd>
             <dt class="text-gray-500 dark:text-gray-400">到期时间</dt>
             <dd class="text-right text-gray-900 dark:text-white">{{ videoExpiresAtText(videoDetailTask) }}</dd>
           </dl>
@@ -2759,9 +2766,31 @@ function shortDateTime(timestamp?: number) {
 }
 
 function videoExpiresAt(task: CreativeVideoTask) {
+  if (task.output_expires_at) return Number(task.output_expires_at)
   const createdAt = Number(task.created_at || 0)
   if (!createdAt) return 0
   return createdAt + videoLimits.retentionDays * 24 * 60 * 60
+}
+
+function formatVideoFileSize(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return '-'
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+function formatVideoCost(cost?: number | null) {
+  return cost == null ? '-' : `$${Number(cost).toFixed(2)}`
+}
+
+function formatVideoElapsed(task: CreativeVideoTask) {
+  if (task.elapsed_seconds != null) {
+    const seconds = Number(task.elapsed_seconds)
+    if (seconds < 60) return `${seconds} 秒`
+    const minutes = Math.floor(seconds / 60)
+    const rest = seconds % 60
+    return rest ? `${minutes} 分 ${rest} 秒` : `${minutes} 分钟`
+  }
+  return isCreativeVideoProcessing(task.status) ? creativeVideoElapsedText(task) || '-' : '-'
 }
 
 function videoExpiresAtText(task: CreativeVideoTask) {
@@ -2815,6 +2844,8 @@ async function ensureVideoThumbnail(task: CreativeVideoTask) {
   videoThumbnailLoadingIds.add(task.id)
   try {
     const blob = await downloadCreativeVideo(apiKey, task.id)
+    task.file_size_bytes = blob.size
+    task.content_type = blob.type || task.content_type
     videoThumbnailUrls[task.id] = await createVideoThumbnail(blob)
   } catch {
     videoThumbnailFailedIds.add(task.id)
@@ -2887,6 +2918,8 @@ async function downloadVideoTask(task: CreativeVideoTask) {
   videoDownloadingId.value = task.id
   try {
     const blob = await downloadCreativeVideo(apiKey, task.id)
+    task.file_size_bytes = blob.size
+    task.content_type = blob.type || task.content_type
     saveBlob(blob, `${task.id}.mp4`)
     await loadVideoTasks()
   } catch (error: any) {
@@ -2918,6 +2951,8 @@ async function previewVideoTask(task: CreativeVideoTask) {
     }
     videoDetailTask.value = task
     const blob = await downloadCreativeVideo(apiKey, task.id)
+    task.file_size_bytes = blob.size
+    task.content_type = blob.type || task.content_type
     videoPreviewUrl.value = URL.createObjectURL(blob)
     videoPreviewTitle.value = task.prompt_preview || task.model
     if (!videoThumbnailUrls[task.id]) {

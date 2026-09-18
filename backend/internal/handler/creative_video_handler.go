@@ -106,6 +106,9 @@ func (h *OpenAIGatewayHandler) syncCreativeVideoListStatuses(c *gin.Context, own
 		if task == nil || !creativeVideoTaskStatusNeedsSync(task.Status) || task.AccountID == nil || *task.AccountID <= 0 {
 			continue
 		}
+		if !task.UpdatedAt.IsZero() && time.Since(task.UpdatedAt) < 30*time.Second {
+			continue
+		}
 		requestID := creativeVideoTaskProviderRequestID(task)
 		if requestID == "" {
 			continue
@@ -144,7 +147,7 @@ func (h *OpenAIGatewayHandler) syncCreativeVideoListStatuses(c *gin.Context, own
 			updated = true
 		}
 		if apiKeyOK && subjectOK && status != nil && status.Status == service.CreativeVideoStatusCompleted {
-			h.recordCreativeVideoUsageIfCompleted(c, apiKey, subject, account, status, requestID)
+			h.recordCreativeVideoUsageIfCompleted(c, apiKey, subject, account, status, requestID, task.TaskID)
 		}
 	}
 	return updated
