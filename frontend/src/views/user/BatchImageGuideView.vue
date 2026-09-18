@@ -1104,18 +1104,92 @@ Content-Type: application/json</code></pre>
       </template>
     </BaseDialog>
 
-    <BaseDialog :show="!!previewImageItem" :title="previewImageItem?.custom_id || t('batchImage.imagePreview.title')" width="extra-wide" :z-index="60" @close="closeImagePreview">
-      <div class="space-y-3">
-        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-          {{ t('batchImage.imagePreview.notice') }}
-        </div>
-        <div class="flex min-h-[420px] items-center justify-center rounded-lg bg-gray-50 p-4 dark:bg-dark-900">
+    <BaseDialog
+      :show="!!previewImageItem"
+      :title="previewImageItem?.custom_id || t('batchImage.imagePreview.title')"
+      width="full"
+      panel-class="image-preview-dialog"
+      :z-index="60"
+      @close="closeImagePreview"
+    >
+      <div v-if="previewImageItem" class="grid min-h-[76vh] gap-3 lg:min-h-[82vh] lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div class="relative flex min-h-[62vh] items-center justify-center overflow-hidden rounded-lg bg-gray-950 p-2 sm:min-h-[68vh] lg:min-h-[82vh]">
           <img
-            v-if="previewImageUrl"
-            :src="previewImageUrl"
-            class="max-h-[70vh] max-w-full rounded-md object-contain"
-            :alt="previewImageItem?.custom_id || ''"
+            v-if="previewImageDisplayUrl"
+            :src="previewImageDisplayUrl"
+            class="h-full max-h-[82vh] w-full rounded-md object-contain"
+            :alt="previewImageItem.custom_id || ''"
+            @error="handleImagePreviewDisplayError"
           />
+          <div v-else class="flex flex-col items-center gap-3 text-sm text-white/70">
+            <Icon name="refresh" size="lg" class="animate-spin" />
+            {{ t('batchImage.imagePreview.loading') }}
+          </div>
+          <div v-if="previewImageFullLoading" class="absolute left-3 top-3 inline-flex items-center rounded-md bg-black/60 px-2.5 py-1.5 text-xs font-medium text-white">
+            <Icon name="refresh" size="xs" class="mr-1.5 animate-spin" />
+            {{ t('batchImage.imagePreview.loadingOriginal') }}
+          </div>
+          <div v-if="previewImageFullError" class="absolute inset-x-3 bottom-3 rounded-md bg-black/70 px-3 py-2 text-sm text-white">
+            {{ previewImageFullError }}
+          </div>
+        </div>
+        <div class="flex min-h-0 flex-col gap-3 overflow-y-auto lg:max-h-[82vh]">
+          <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <span :class="itemDisplayStatusBadgeClass(previewImageItem)" class="badge whitespace-nowrap">
+                {{ itemDisplayStatusLabel(previewImageItem) }}
+              </span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">{{ previewImageIndexText }}</span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('batchImage.imagePreview.prompt') }}</h3>
+                <button type="button" class="btn-ghost btn-icon" :title="t('batchImage.imagePreview.copyPrompt')" @click="copyPreviewImagePrompt">
+                  <Icon name="copy" size="sm" />
+                </button>
+              </div>
+              <p class="max-h-36 overflow-y-auto rounded-lg bg-gray-50 p-3 text-sm leading-6 text-gray-700 dark:bg-dark-800 dark:text-gray-300">
+                {{ previewImageItem.prompt_preview || '-' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900">
+            <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">{{ t('batchImage.imagePreview.details') }}</h3>
+            <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <dt class="text-gray-500 dark:text-gray-400">Custom ID</dt>
+              <dd class="min-w-0 truncate text-right font-mono text-gray-900 dark:text-white" :title="previewImageItem.custom_id">{{ previewImageItem.custom_id }}</dd>
+              <dt class="text-gray-500 dark:text-gray-400">{{ t('batchImage.imagePreview.sourceTask') }}</dt>
+              <dd class="min-w-0 truncate text-right text-gray-900 dark:text-white" :title="previewImageItem.source_task_name">{{ previewImageItem.source_task_name || '-' }}</dd>
+              <dt class="text-gray-500 dark:text-gray-400">{{ t('batchImage.imagePreview.model') }}</dt>
+              <dd class="min-w-0 truncate text-right text-gray-900 dark:text-white" :title="previewImageJobModel">{{ previewImageJobModel }}</dd>
+              <dt class="text-gray-500 dark:text-gray-400">{{ t('batchImage.imagePreview.format') }}</dt>
+              <dd class="text-right text-gray-900 dark:text-white">{{ previewImageFormatText }}</dd>
+              <dt class="text-gray-500 dark:text-gray-400">{{ t('batchImage.imagePreview.fileSize') }}</dt>
+              <dd class="text-right text-gray-900 dark:text-white">{{ previewImageFileSizeText }}</dd>
+              <dt class="text-gray-500 dark:text-gray-400">{{ t('batchImage.imagePreview.cost') }}</dt>
+              <dd class="text-right text-gray-900 dark:text-white">{{ previewImageJobCost }}</dd>
+              <dt class="text-gray-500 dark:text-gray-400">{{ t('batchImage.imagePreview.createdAt') }}</dt>
+              <dd class="text-right text-gray-900 dark:text-white">{{ previewImageCreatedAt }}</dd>
+            </dl>
+          </div>
+
+          <div class="mt-auto grid gap-2 border-t border-gray-200 pt-3 dark:border-dark-700">
+            <button type="button" class="btn btn-primary w-full justify-center" :disabled="previewImageDownloading" @click="downloadPreviewImageOriginal">
+              <Icon :name="previewImageDownloading ? 'refresh' : 'download'" size="sm" class="mr-2" :class="previewImageDownloading ? 'animate-spin' : ''" />
+              {{ t('batchImage.imagePreview.downloadOriginal') }}
+            </button>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" class="btn btn-secondary justify-center" :disabled="previewImageFullLoading" @click="reloadPreviewImageOriginal">
+                <Icon name="refresh" size="sm" class="mr-2" :class="previewImageFullLoading ? 'animate-spin' : ''" />
+                {{ t('common.refresh') }}
+              </button>
+              <button type="button" class="btn btn-secondary justify-center" @click="downloadPreviewImageJob">
+                <Icon name="download" size="sm" class="mr-2" />
+                {{ t('batchImage.actions.downloadZip') }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </BaseDialog>
@@ -1713,7 +1787,12 @@ const imageJobPreviewLoadingIds = ref(new Set<string>())
 const itemPreviewUrls = reactive<Record<string, string>>({})
 const previewLoadingIds = ref(new Set<string>())
 const previewErrorIds = ref(new Set<string>())
-const previewImageItem = ref<BatchImageItem | null>(null)
+const previewImageItem = ref<BatchImageDetailItem | null>(null)
+const previewImageFullUrl = ref('')
+const previewImageFullBlob = ref<Blob | null>(null)
+const previewImageFullLoading = ref(false)
+const previewImageFullError = ref('')
+const previewImageDownloading = ref(false)
 const availableBatchImageModels = ref<Array<{ value: string; label: string }>>([])
 const modelLoadError = ref('')
 const openMoreJobId = ref('')
@@ -1725,6 +1804,7 @@ const promptPopover = reactive({
 })
 let modelRequestSeq = 0
 let imagePreviewRequestSeq = 0
+let previewImageFullRequestSeq = 0
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let previewCacheDBPromise: Promise<IDBDatabase | null> | null = null
 let previewCacheCleanupTimer: ReturnType<typeof setInterval> | null = null
@@ -1941,6 +2021,44 @@ const previewImageUrl = computed(() => {
   if (!item) return ''
   return itemPreviewUrls[itemPreviewKey(item)] || ''
 })
+
+const previewImageDisplayUrl = computed(() => previewImageFullUrl.value || previewImageUrl.value)
+
+const previewImageJob = computed(() => {
+  const item = previewImageItem.value
+  if (!item) return null
+  const batchId = item.batch_id || selectedBatchId.value || currentJob.value?.id || ''
+  return batchJobs.value.find(job => job.id === batchId) ||
+    (currentJob.value && currentJob.value.id === batchId ? toJobRow(currentJob.value, keyForSelectedBatch() || selectedApiKey.value) : null)
+})
+
+const previewImageJobModel = computed(() => previewImageJob.value?.model || currentJob.value?.model || '-')
+
+const previewImageJobCost = computed(() => {
+  const job = previewImageJob.value || currentJob.value
+  return job ? costLabel(job) : '-'
+})
+
+const previewImageCreatedAt = computed(() => {
+  const job = previewImageJob.value || currentJob.value
+  return job?.created_at ? formatDate(job.created_at) : '-'
+})
+
+const previewImageIndexText = computed(() => {
+  const count = previewImageItem.value?.image_count || 0
+  return count > 1 ? t('batchImage.imagePreview.imageIndex', { index: 1, count }) : t('batchImage.imagePreview.singleImage')
+})
+
+const previewImageFormatText = computed(() => {
+  const item = previewImageItem.value
+  const fromBlob = previewImageFullBlob.value?.type || ''
+  const mime = String(fromBlob || item?.mime_type || '').trim()
+  const ext = String(item?.file_extension || imageExtensionFromMime(mime) || '').replace(/^\./, '').toUpperCase()
+  if (mime && ext) return `${ext} · ${mime}`
+  return ext || mime || '-'
+})
+
+const previewImageFileSizeText = computed(() => formatImageFileSize(previewImageFullBlob.value?.size || 0))
 
 const recoveredOriginalCustomIds = computed(() => {
   const rootBatchId = detailRootBatchId()
@@ -2609,11 +2727,23 @@ async function submitVideo(): Promise<boolean> {
     await loadVideoTasks()
     return true
   } catch (error: any) {
-    appStore.showError(error?.message || '提交视频任务失败')
+    appStore.showError(creativeVideoSubmitErrorMessage(error))
     return false
   } finally {
     videoSubmitting.value = false
   }
+}
+
+function creativeVideoSubmitErrorMessage(error: any) {
+  const code = String(error?.code || '').trim()
+  const message = String(error?.message || '').trim()
+  if (code === 'CREATIVE_VIDEO_RUNNING_LIMIT_EXCEEDED' || message.includes('too many running creative video tasks')) {
+    return `已有 ${videoLimits.maxRunning} 个视频任务在生成中。系统已尝试刷新旧任务状态，请稍后重试；如果旧任务已经完成，可以刷新任务记录后再提交。`
+  }
+  if (code === 'CREATIVE_VIDEO_DISABLED') return '视频创作能力暂未开启，请检查创作台配置。'
+  if (code === 'video_no_eligible_account') return '当前视频分组没有可用上游账号，请检查账号状态或额度。'
+  if (code === 'upstream_error') return '上游视频服务提交失败，请稍后重试或检查上游 Key / Base URL。'
+  return message || '提交视频任务失败'
 }
 
 async function refreshRunningVideos() {
@@ -2776,6 +2906,32 @@ function formatVideoFileSize(bytes?: number | null) {
   if (!bytes || bytes <= 0) return '-'
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+function formatImageFileSize(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return '-'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+function imageExtensionFromMime(mime?: string | null) {
+  const normalized = String(mime || '').toLowerCase()
+  if (normalized.includes('png')) return 'png'
+  if (normalized.includes('webp')) return 'webp'
+  if (normalized.includes('svg')) return 'svg'
+  if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'jpg'
+  return ''
+}
+
+function previewImageFilename(item: BatchImageDetailItem, blob?: Blob | null) {
+  const extension = String(item.file_extension || imageExtensionFromMime(blob?.type || item.mime_type) || 'png')
+    .replace(/^\./, '')
+    .toLowerCase()
+  const base = String(item.custom_id || 'image')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'image'
+  return `${base}.${extension}`
 }
 
 function formatVideoCost(cost?: number | null) {
@@ -4042,14 +4198,100 @@ async function loadItemPreview(item: BatchImageItem) {
   }
 }
 
-function openImagePreview(item: BatchImageItem) {
+function openImagePreview(item: BatchImageDetailItem) {
   const previewKey = itemPreviewKey(item)
   if (!itemPreviewUrls[previewKey] || previewErrorIds.value.has(previewKey)) return
   previewImageItem.value = item
+  void loadPreviewImageOriginal(item)
 }
 
 function closeImagePreview() {
+  previewImageFullRequestSeq += 1
   previewImageItem.value = null
+  previewImageFullLoading.value = false
+  previewImageFullError.value = ''
+  previewImageDownloading.value = false
+  previewImageFullBlob.value = null
+  if (previewImageFullUrl.value) {
+    URL.revokeObjectURL(previewImageFullUrl.value)
+    previewImageFullUrl.value = ''
+  }
+}
+
+function previewImageApiKey(item: BatchImageDetailItem | null = previewImageItem.value): ApiKey | null {
+  if (!item) return null
+  const batchId = item.batch_id || selectedBatchId.value || currentJob.value?.id || ''
+  const row = batchJobs.value.find(job => job.id === batchId)
+  if (row) return apiKeyForJob(row)
+  return keyForSelectedBatch() || selectedApiKey.value
+}
+
+async function loadPreviewImageOriginal(item: BatchImageDetailItem | null = previewImageItem.value) {
+  if (!item) return
+  const batchId = item.batch_id || selectedBatchId.value || currentJob.value?.id || ''
+  const key = previewImageApiKey(item)
+  if (!batchId || !key) return
+  const requestSeq = ++previewImageFullRequestSeq
+  previewImageFullLoading.value = true
+  previewImageFullError.value = ''
+  if (previewImageFullUrl.value) {
+    URL.revokeObjectURL(previewImageFullUrl.value)
+    previewImageFullUrl.value = ''
+  }
+  previewImageFullBlob.value = null
+  try {
+    const blob = await getBatchImageItemContent(key.key, batchId, item.custom_id, 0)
+    if (requestSeq !== previewImageFullRequestSeq || previewImageItem.value !== item) return
+    previewImageFullBlob.value = blob
+    previewImageFullUrl.value = URL.createObjectURL(blob)
+  } catch (error: any) {
+    if (requestSeq !== previewImageFullRequestSeq) return
+    previewImageFullError.value = batchImageErrorMessage(error, batchImageText('loadPreviewFailed'))
+  } finally {
+    if (requestSeq === previewImageFullRequestSeq) {
+      previewImageFullLoading.value = false
+    }
+  }
+}
+
+function reloadPreviewImageOriginal() {
+  void loadPreviewImageOriginal()
+}
+
+function handleImagePreviewDisplayError() {
+  previewImageFullError.value = t('batchImage.imagePreview.previewFailed')
+}
+
+function copyPreviewImagePrompt() {
+  const prompt = String(previewImageItem.value?.prompt_preview || '').trim()
+  if (!prompt) return
+  void copyToClipboard(prompt, t('batchImage.promptPopover.copied'))
+}
+
+async function downloadPreviewImageOriginal() {
+  const item = previewImageItem.value
+  if (!item || previewImageDownloading.value) return
+  const batchId = item.batch_id || selectedBatchId.value || currentJob.value?.id || ''
+  const key = previewImageApiKey(item)
+  if (!batchId || !key) return
+  previewImageDownloading.value = true
+  try {
+    const blob = previewImageFullBlob.value || await getBatchImageItemContent(key.key, batchId, item.custom_id, 0)
+    previewImageFullBlob.value = blob
+    saveBlob(blob, previewImageFilename(item, blob))
+  } catch (error: any) {
+    appStore.showError(batchImageErrorMessage(error, batchImageText('downloadFailed')))
+  } finally {
+    previewImageDownloading.value = false
+  }
+}
+
+async function downloadPreviewImageJob() {
+  const item = previewImageItem.value
+  if (!item) return
+  const batchId = item.batch_id || selectedBatchId.value || currentJob.value?.id || ''
+  if (!batchId) return
+  await downloadJob(batchJobs.value.find(job => job.id === batchId) || { id: batchId })
 }
 
 function handlePreviewError(customID: string) {

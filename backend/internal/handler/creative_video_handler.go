@@ -153,6 +153,20 @@ func (h *OpenAIGatewayHandler) syncCreativeVideoListStatuses(c *gin.Context, own
 	return updated
 }
 
+func (h *OpenAIGatewayHandler) syncCreativeVideoOwnerStatusesBeforeCreate(c *gin.Context, owner service.BatchImageOwner) {
+	if h == nil || h.creativeVideoService == nil {
+		return
+	}
+	records, err := h.creativeVideoService.ListRecords(c.Request.Context(), owner, service.CreativeVideoTasksQuery{
+		Status: service.CreativeVideoStatusRunning,
+		Limit:  5,
+	})
+	if err != nil || records == nil || len(records.Tasks) == 0 {
+		return
+	}
+	h.syncCreativeVideoListStatuses(c, owner, records.Tasks)
+}
+
 func creativeVideoTaskStatusNeedsSync(status string) bool {
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case service.CreativeVideoStatusQueued, service.CreativeVideoStatusSubmitted, service.CreativeVideoStatusRunning:

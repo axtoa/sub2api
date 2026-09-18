@@ -107,6 +107,11 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		h.errorResponse(c, status, code, message)
 		return
 	}
+	h.syncCreativeVideoOwnerStatusesBeforeCreate(c, service.BatchImageOwner{
+		UserID:   subject.UserID,
+		APIKeyID: apiKey.ID,
+		GroupID:  apiKey.GroupID,
+	})
 	if err := h.creativeVideoService.CheckCreateAllowed(c.Request.Context(), subject.UserID); err != nil {
 		batchImageError(c, err)
 		return

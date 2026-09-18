@@ -420,6 +420,29 @@
     @apply flex-1 overflow-y-auto;
   }
 
+  .image-preview-dialog {
+    width: min(1800px, calc(100vw - 1rem));
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .image-preview-dialog .modal-body {
+    min-height: min(86vh, calc(100vh - 6rem));
+    padding: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .image-preview-dialog .modal-body {
+      padding: 1rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .image-preview-dialog .modal-body {
+      overflow: hidden;
+    }
+  }
+
   .modal-footer {
     @apply border-t border-gray-200 px-4 py-3 dark:border-dark-700;
     @apply sm:px-6 sm:py-4;
