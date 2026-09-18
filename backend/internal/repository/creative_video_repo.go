@@ -317,8 +317,7 @@ SET user_deleted_at = $4,
 WHERE (provider_request_id = $1 OR task_id = $1)
   AND user_id = $2
   AND api_key_id = $3
-  AND user_deleted_at IS NULL
-  AND status IN ('completed', 'failed', 'expired', 'output_deleted')`, strings.TrimSpace(providerRequestID), userID, apiKeyID, deletedAt)
+  AND user_deleted_at IS NULL`, strings.TrimSpace(providerRequestID), userID, apiKeyID, deletedAt)
 	if err != nil {
 		return translatePersistenceError(err, nil, nil)
 	}

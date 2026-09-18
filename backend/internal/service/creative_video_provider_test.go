@@ -180,6 +180,37 @@ func TestCreativeVideoProviderResponseJSONIncludesContentURL(t *testing.T) {
 	require.Equal(t, "/v1/videos/vid_happycode/content", video["url"])
 }
 
+func TestCreativeVideoHTTPProvider_OpenAbsoluteSameOriginCarriesRelayKey(t *testing.T) {
+	client := &http.Client{Transport: batchImageProviderRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		require.Equal(t, "Bearer sk-test", r.Header.Get("Authorization"))
+		require.Equal(t, "video/*, application/octet-stream;q=0.9, */*;q=0.1", r.Header.Get("Accept"))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"video/mp4"}},
+			Body:       io.NopCloser(strings.NewReader("absolute-mp4")),
+		}, nil
+	})}
+	provider := NewCreativeVideoHTTPProvider(PlatformMiniMax, client)
+	account := &Account{
+		ID:          1,
+		Platform:    PlatformMiniMax,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://us.happycodeai.com"},
+	}
+
+	body, contentType, err := provider.OpenContent(context.Background(), account, &CreativeVideoProviderStatus{
+		ID:          "vid_absolute",
+		Status:      CreativeVideoStatusCompleted,
+		DownloadURL: "https://us.happycodeai.com/v1/videos/vid_absolute/content",
+	})
+	require.NoError(t, err)
+	defer func() { _ = body.Close() }()
+	require.Equal(t, "video/mp4", contentType)
+	data, err := io.ReadAll(body)
+	require.NoError(t, err)
+	require.Equal(t, "absolute-mp4", string(data))
+}
+
 func TestCreativeVideoHTTPProvider_MiniMaxStatusAndDownload(t *testing.T) {
 	client := &http.Client{Transport: batchImageProviderRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {

@@ -45,6 +45,25 @@ func TestCreativeVideoAutoDeleteRequiresTerminalStatus(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestCreativeVideoUserDeleteAllowsStaleRunningTask(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	repo := &creativeVideoRepository{sql: db}
+	mock.ExpectExec(regexp.QuoteMeta(`WHERE (provider_request_id = $1 OR task_id = $1)
+  AND user_id = $2
+  AND api_key_id = $3
+  AND user_deleted_at IS NULL`)).
+		WithArgs("vid_running", int64(1), int64(2), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.MarkCreativeVideoTaskUserDeleted(context.Background(), 1, 2, "vid_running", time.Now())
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestObserveCreativeVideoTaskCanMatchTaskIDFallback(t *testing.T) {
 	t.Parallel()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))

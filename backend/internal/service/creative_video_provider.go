@@ -367,6 +367,7 @@ func (c *creativeVideoHTTPClient) open(ctx context.Context, path string) (io.Rea
 	if err != nil {
 		return nil, "", err
 	}
+	req.Header.Set("Accept", "video/*, application/octet-stream;q=0.9, */*;q=0.1")
 	return c.doOpen(req)
 }
 
@@ -375,7 +376,44 @@ func (c *creativeVideoHTTPClient) openAbsolute(ctx context.Context, rawURL strin
 	if err != nil {
 		return nil, "", err
 	}
+	// Some relays return an absolute content URL that still requires the
+	// relay's bearer token. Only forward the token to the configured upstream
+	// origin; signed URLs on a different host must remain credential-free.
+	if c.sameOrigin(req.URL) && strings.TrimSpace(c.apiKey) != "" {
+		req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	}
+	req.Header.Set("Accept", "video/*, application/octet-stream;q=0.9, */*;q=0.1")
 	return c.doOpen(req)
+}
+
+func (c *creativeVideoHTTPClient) sameOrigin(target *url.URL) bool {
+	if c == nil || target == nil {
+		return false
+	}
+	base, err := url.Parse(strings.TrimSpace(c.baseURL))
+	if err != nil || base.Hostname() == "" || target.Hostname() == "" {
+		return false
+	}
+	return strings.EqualFold(base.Scheme, target.Scheme) &&
+		strings.EqualFold(base.Hostname(), target.Hostname()) &&
+		effectivePort(base) == effectivePort(target)
+}
+
+func effectivePort(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	default:
+		return ""
+	}
 }
 
 func (c *creativeVideoHTTPClient) isHappyCodeRelay() bool {

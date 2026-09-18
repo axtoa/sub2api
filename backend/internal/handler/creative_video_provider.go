@@ -208,6 +208,15 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 		provider = service.NewCreativeVideoHTTPProvider(platform, nil)
 		upstreamStatus, err := provider.Get(c.Request.Context(), account, requestID)
 		if err != nil {
+			logger.L().Warn("creative_video.status_sync_failed",
+				zap.String("request_id", requestID),
+				zap.String("task_id", task.TaskID),
+				zap.String("provider", provider.Name()),
+				zap.Int64("account_id", account.ID),
+				zap.String("base_url", account.GetOpenAIBaseURL()),
+				zap.String("model", task.Model),
+				zap.Error(err),
+			)
 			h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream video status request failed")
 			return
 		}
@@ -224,6 +233,18 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 		batchImageError(c, service.ErrCreativeVideoProviderOutputUnavailable)
 		return
 	}
+	if cachedBody, cachedContentType, found, cacheErr := openCreativeVideoCache(task); cacheErr != nil {
+		logger.L().Warn("creative_video.local_cache_open_failed",
+			zap.String("request_id", requestID),
+			zap.String("task_id", task.TaskID),
+			zap.Error(cacheErr),
+		)
+	} else if found {
+		defer func() { _ = cachedBody.Close() }()
+		_ = h.creativeVideoService.MarkDownloaded(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, requestID)
+		serveCreativeVideoCache(c, task, cachedBody, cachedContentType)
+		return
+	}
 	if account == nil {
 		account, err = h.gatewayService.GetAccountByID(c.Request.Context(), *task.AccountID)
 		if err != nil || account == nil {
@@ -236,6 +257,52 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 	}
 	body, contentType, err := provider.OpenContent(c.Request.Context(), account, status)
 	if err != nil {
+		logger.L().Warn("creative_video.content_open_failed",
+			zap.String("request_id", requestID),
+			zap.String("task_id", task.TaskID),
+			zap.String("provider", provider.Name()),
+			zap.Int64("account_id", account.ID),
+			zap.String("base_url", account.GetOpenAIBaseURL()),
+			zap.String("model", status.Model),
+			zap.String("status", status.Status),
+			zap.Bool("download_url_present", strings.TrimSpace(status.DownloadURL) != ""),
+			zap.Bool("file_id_present", strings.TrimSpace(status.FileID) != ""),
+			zap.Error(err),
+		)
+		// A previously persisted signed URL may have expired or a relay may
+		// have changed the content URL after task completion. Refresh once
+		// before returning 502, then persist the refreshed metadata.
+		if platform == service.PlatformMiniMax {
+			refreshedStatus, refreshErr := provider.Get(c.Request.Context(), account, requestID)
+			if refreshErr != nil {
+				logger.L().Warn("creative_video.content_status_refresh_failed",
+					zap.String("request_id", requestID),
+					zap.String("task_id", task.TaskID),
+					zap.Int64("account_id", account.ID),
+					zap.Error(refreshErr),
+				)
+			} else if refreshedStatus != nil {
+				fillCreativeVideoStatusFromTask(refreshedStatus, task)
+				status = refreshedStatus
+				h.creativeVideoService.ObserveProviderTaskStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, task.TaskID, requestID, status)
+				h.recordCreativeVideoUsageIfCompleted(c, apiKey, subject, account, status, requestID, task.TaskID)
+				if status.Status == service.CreativeVideoStatusCompleted {
+					body, contentType, err = provider.OpenContent(c.Request.Context(), account, status)
+					if err != nil {
+						logger.L().Warn("creative_video.content_open_retry_failed",
+							zap.String("request_id", requestID),
+							zap.String("task_id", task.TaskID),
+							zap.String("provider", provider.Name()),
+							zap.Int64("account_id", account.ID),
+							zap.String("base_url", account.GetOpenAIBaseURL()),
+							zap.Error(err),
+						)
+					}
+				}
+			}
+		}
+	}
+	if err != nil {
 		h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream video content request failed")
 		return
 	}
@@ -243,7 +310,33 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 	_ = h.creativeVideoService.MarkDownloaded(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, requestID)
 	c.Header("Content-Type", contentType)
 	c.Status(http.StatusOK)
-	written, copyErr := io.Copy(c.Writer, body)
+	cacheFile, cachePath, cacheErr := prepareCreativeVideoCache(task.TaskID)
+	if cacheErr != nil {
+		logger.L().Warn("creative_video.local_cache_prepare_failed",
+			zap.String("request_id", requestID),
+			zap.String("task_id", task.TaskID),
+			zap.Error(cacheErr),
+		)
+	}
+	var writer io.Writer = c.Writer
+	if cacheErr == nil {
+		writer = io.MultiWriter(c.Writer, cacheFile)
+	}
+	written, copyErr := io.Copy(writer, body)
+	if cacheErr == nil {
+		if copyErr == nil {
+			if err := commitCreativeVideoCache(cacheFile, cachePath); err != nil {
+				logger.L().Warn("creative_video.local_cache_commit_failed",
+					zap.String("request_id", requestID),
+					zap.String("task_id", task.TaskID),
+					zap.Error(err),
+				)
+				discardCreativeVideoCache(cacheFile)
+			}
+		} else {
+			discardCreativeVideoCache(cacheFile)
+		}
+	}
 	_ = h.creativeVideoService.MarkOutputMetadata(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, requestID, written, contentType)
 	if copyErr != nil {
 		logger.L().Debug("creative_video.content_copy_failed", zap.String("request_id", requestID), zap.Error(copyErr))
