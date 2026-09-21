@@ -12077,6 +12077,7 @@ async function saveCreativeWorkbenchSettings() {
       video_max_running_per_user: Math.floor(Number(creativeWorkbenchForm.video_max_running_per_user)),
     });
     Object.assign(creativeWorkbenchForm, updated);
+    await appStore.fetchPublicSettings(true);
     appStore.showSuccess(t("admin.settings.creativeWorkbench.saved"));
   } catch (error: unknown) {
     appStore.showError(
