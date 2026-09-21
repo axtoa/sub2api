@@ -304,6 +304,7 @@ import { useAppStore } from '@/stores/app'
 import { keysAPI } from '@/api'
 import { useClipboard } from '@/composables/useClipboard'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { getPublicOrigin, normalizePublicEndpoint } from '@/utils/publicEndpoint'
 import type { ApiKey } from '@/types'
 
 type IconName =
@@ -563,10 +564,12 @@ const selectedClient = computed(() => {
 })
 
 const endpointBase = computed(() => {
-  const value = endpointDraft.value.trim()
-  if (value) return value.replace(/\/+$/, '')
-  if (appStore.apiBaseUrl) return appStore.apiBaseUrl.trim().replace(/\/+$/, '')
-  if (typeof window !== 'undefined') return window.location.origin.replace(/\/+$/, '')
+  const value = normalizePublicEndpoint(endpointDraft.value)
+  if (value) return value
+  const configured = normalizePublicEndpoint(appStore.apiBaseUrl || '')
+  if (configured) return configured
+  const origin = getPublicOrigin()
+  if (origin) return origin
   return ''
 })
 
@@ -659,7 +662,7 @@ async function loadApiKeys() {
 }
 
 onMounted(() => {
-  endpointDraft.value = appStore.apiBaseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+  endpointDraft.value = normalizePublicEndpoint(appStore.apiBaseUrl || '', getPublicOrigin())
   loadApiKeys()
 })
 </script>

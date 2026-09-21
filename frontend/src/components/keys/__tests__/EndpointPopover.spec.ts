@@ -66,4 +66,25 @@ describe('EndpointPopover', () => {
     expect(wrapper.text()).toContain('已复制到剪贴板')
     expect(wrapper.find('button[aria-label="已复制到剪贴板"]').exists()).toBe(true)
   })
+
+  it('展示和复制端点时统一使用 HTTPS', async () => {
+    const wrapper = mount(EndpointPopover, {
+      props: {
+        apiBaseUrl: 'http://default.example.com/v1/',
+        customEndpoints: [
+          {
+            name: '备用线路',
+            endpoint: 'http://backup.example.com/v1/',
+            description: '',
+          },
+        ],
+      },
+    })
+
+    expect(wrapper.text()).toContain('https://default.example.com/v1')
+    expect(wrapper.text()).toContain('https://backup.example.com/v1')
+    await wrapper.find('[role="button"]').trigger('click')
+    await flushPromises()
+    expect(copyToClipboard).toHaveBeenCalledWith('https://default.example.com/v1', '已复制')
+  })
 })

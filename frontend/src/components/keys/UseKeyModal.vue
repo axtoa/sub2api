@@ -269,6 +269,7 @@ import {
   parseCodexCatalogModels,
   selectCodexConfigReasoningEffort
 } from '@/utils/codexCatalogConfig'
+import { getPublicOrigin, normalizePublicEndpoint } from '@/utils/publicEndpoint'
 
 interface Props {
   show: boolean
@@ -301,6 +302,10 @@ const emit = defineEmits<Emits>()
 const { t } = useI18n()
 const { copyToClipboard: clipboardCopy } = useClipboard()
 
+const publicBaseUrl = computed(() =>
+  normalizePublicEndpoint(props.baseUrl, getPublicOrigin())
+)
+
 const copiedIndex = ref<number | null>(null)
 const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
@@ -327,7 +332,7 @@ const codexModelCatalogPath = computed(() => {
 
 const codexManifestContext = computed(() => {
   if (!showCodexModelCatalog.value) return ''
-  return `${props.platform}|${props.baseUrl}|${props.apiKey}`
+  return `${props.platform}|${publicBaseUrl.value}|${props.apiKey}`
 })
 
 // Reset tabs when platform changes
@@ -624,7 +629,7 @@ async function loadCodexModelManifest() {
   codexModelManifestState.value = 'loading'
 
   try {
-    const result = await fetchCodexModelsManifest(props.baseUrl, props.apiKey, controller.signal)
+    const result = await fetchCodexModelsManifest(publicBaseUrl.value, props.apiKey, controller.signal)
     if (requestID !== codexModelManifestRequestID) return
     codexModelManifestContent.value = result.content
     codexModelManifestModelCount.value = result.modelCount
@@ -684,7 +689,7 @@ const comment = (value: string) => wrapToken('text-slate-500', value)
 // Syntax highlighting helpers
 // Generate file configs based on platform and active tab
 const currentFiles = computed((): FileConfig[] => {
-  const baseUrl = props.baseUrl || window.location.origin
+  const baseUrl = publicBaseUrl.value
   const apiKey = props.apiKey
   const baseRoot = baseUrl.replace(/\/v1\/?$/, '').replace(/\/+$/, '')
   const ensureV1 = (value: string) => {

@@ -1,4 +1,5 @@
 import type { GroupPlatform } from '@/types'
+import { normalizePublicEndpoint } from '@/utils/publicEndpoint'
 
 export const OPENAI_CC_SWITCH_CODEX_MODEL = 'gpt-5.5'
 export const GROK_CC_SWITCH_MODEL = 'grok-4.5'
@@ -62,12 +63,13 @@ export function resolveCcSwitchImportConfig(
 }
 
 export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput): string {
-  const config = resolveCcSwitchImportConfig(input.platform, input.clientType, input.baseUrl)
+  const baseUrl = normalizePublicEndpoint(input.baseUrl)
+  const config = resolveCcSwitchImportConfig(input.platform, input.clientType, baseUrl)
   const entries: [string, string][] = [
     ['resource', 'provider'],
     ['app', config.app],
     ['name', input.providerName],
-    ['homepage', input.baseUrl],
+    ['homepage', baseUrl],
     ['endpoint', config.endpoint],
     ['apiKey', input.apiKey],
     ['configFormat', 'json'],
