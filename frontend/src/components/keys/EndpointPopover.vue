@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useClipboard } from '@/composables/useClipboard'
 import type { CustomEndpoint } from '@/types'
-import { normalizePublicEndpoint } from '@/utils/publicEndpoint'
 
 const props = defineProps<{
   apiBaseUrl: string
@@ -21,17 +20,13 @@ const allEndpoints = computed(() => {
   if (props.apiBaseUrl) {
     items.push({
       name: t('keys.endpoints.title'),
-      endpoint: normalizePublicEndpoint(props.apiBaseUrl),
+      endpoint: props.apiBaseUrl,
       description: '',
       isDefault: true,
     })
   }
   for (const ep of props.customEndpoints) {
-    items.push({
-      ...ep,
-      endpoint: normalizePublicEndpoint(ep.endpoint),
-      isDefault: false,
-    })
+    items.push({ ...ep, isDefault: false })
   }
   return items
 })

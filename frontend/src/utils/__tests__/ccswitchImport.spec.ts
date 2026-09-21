@@ -93,18 +93,4 @@ describe('ccswitchImport utils', () => {
     expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
     expect(params.has('model')).toBe(false)
   })
-
-  it('normalizes HTTP endpoints before creating the import link', () => {
-    const params = paramsFromDeeplink(
-      buildCcSwitchImportDeeplink({
-        ...baseInput,
-        baseUrl: 'http://api.example.com/v1/',
-        platform: 'openai',
-        clientType: 'claude'
-      })
-    )
-
-    expect(params.get('homepage')).toBe('https://api.example.com/v1')
-    expect(params.get('endpoint')).toBe('https://api.example.com/v1')
-  })
 })

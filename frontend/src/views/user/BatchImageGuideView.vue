@@ -1479,7 +1479,6 @@ import { useClipboard } from '@/composables/useClipboard'
 import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useAppStore } from '@/stores/app'
 import { keysAPI } from '@/api'
-import { getPublicOrigin, normalizePublicEndpoint } from '@/utils/publicEndpoint'
 import {
   cancelBatchImageJob,
   deleteBatchImageJobRecord,
@@ -2146,8 +2145,9 @@ const currentDisplayJob = computed(() => {
 })
 
 const endpointBase = computed(() => {
-  const configured = normalizePublicEndpoint(appStore.apiBaseUrl || '', getPublicOrigin())
-  if (configured) return configured
+  const configured = appStore.apiBaseUrl?.trim()
+  if (configured) return configured.replace(/\/+$/, '')
+  if (typeof window !== 'undefined') return window.location.origin.replace(/\/+$/, '')
   return '<你的 Sub2API API 端点>'
 })
 
