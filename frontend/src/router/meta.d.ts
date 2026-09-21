@@ -56,6 +56,12 @@ declare module 'vue-router' {
     requiresRiskControl?: boolean
 
     /**
+     * Whether this route requires the AI creative workbench switch to be enabled
+     * @default false
+     */
+    requiresCreativeWorkbench?: boolean
+
+    /**
      * i18n key for the page title
      */
     titleKey?: string
