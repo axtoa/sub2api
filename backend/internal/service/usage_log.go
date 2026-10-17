@@ -2,8 +2,11 @@ package service
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 const (
@@ -155,6 +158,16 @@ type UsageLog struct {
 	CacheCreation5mTokens int `gorm:"column:cache_creation_5m_tokens"`
 	CacheCreation1hTokens int `gorm:"column:cache_creation_1h_tokens"`
 
+	TokenUsageMultiplier        float64
+	ActualInputTokens           int
+	ActualOutputTokens          int
+	ActualCacheCreationTokens   int
+	ActualCacheReadTokens       int
+	ActualCacheCreation5mTokens int
+	ActualCacheCreation1hTokens int
+	ActualImageInputTokens      int
+	ActualImageOutputTokens     int
+
 	ImageInputTokens  int
 	ImageInputCost    float64
 	ImageOutputTokens int
@@ -219,6 +232,75 @@ type UsageLog struct {
 
 func (u *UsageLog) TotalTokens() int {
 	return u.InputTokens + u.OutputTokens + u.CacheCreationTokens + u.CacheReadTokens
+}
+
+func scaledTokenCount(value int, multiplier float64) int {
+	if value <= 0 {
+		return 0
+	}
+	// Decimal arithmetic avoids billing 111 tokens for 100 * 1.1 because of
+	// floating-point noise immediately above an integer boundary.
+	scaled := decimal.NewFromInt(int64(value)).Mul(decimal.NewFromFloat(multiplier)).Ceil()
+	// usage_logs token columns are PostgreSQL INTEGER values. Cap at the
+	// database boundary even on 64-bit Go builds so a valid request cannot make
+	// the best-effort usage insert fail after applying a large multiplier.
+	if scaled.GreaterThanOrEqual(decimal.NewFromInt(math.MaxInt32)) {
+		return math.MaxInt32
+	}
+	return int(scaled.IntPart())
+}
+
+// ApplyTokenUsageMultiplier snapshots upstream usage and replaces the public
+// counters with customer-billed counters. Calculate upstream cost first.
+func (u *UsageLog) ApplyTokenUsageMultiplier(multiplier float64) {
+	if u == nil {
+		return
+	}
+	if ValidateTokenUsageMultiplier(multiplier) != nil {
+		multiplier = MinTokenUsageMultiplier
+	}
+	u.TokenUsageMultiplier = multiplier
+	u.ActualInputTokens = u.InputTokens
+	u.ActualOutputTokens = u.OutputTokens
+	u.ActualCacheCreationTokens = u.CacheCreationTokens
+	u.ActualCacheReadTokens = u.CacheReadTokens
+	u.ActualCacheCreation5mTokens = u.CacheCreation5mTokens
+	u.ActualCacheCreation1hTokens = u.CacheCreation1hTokens
+	u.ActualImageInputTokens = u.ImageInputTokens
+	u.ActualImageOutputTokens = u.ImageOutputTokens
+	u.InputTokens = scaledTokenCount(u.InputTokens, multiplier)
+	u.OutputTokens = scaledTokenCount(u.OutputTokens, multiplier)
+	u.CacheCreationTokens = scaledTokenCount(u.CacheCreationTokens, multiplier)
+	u.CacheReadTokens = scaledTokenCount(u.CacheReadTokens, multiplier)
+	u.CacheCreation5mTokens = scaledTokenCount(u.CacheCreation5mTokens, multiplier)
+	u.CacheCreation1hTokens = scaledTokenCount(u.CacheCreation1hTokens, multiplier)
+	u.ImageInputTokens = scaledTokenCount(u.ImageInputTokens, multiplier)
+	u.ImageOutputTokens = scaledTokenCount(u.ImageOutputTokens, multiplier)
+}
+
+// EnsureTokenUsageSnapshot preserves compatibility for usage logs created
+// outside the gateway billing path.
+func (u *UsageLog) EnsureTokenUsageSnapshot() {
+	if u == nil {
+		return
+	}
+	if ValidateTokenUsageMultiplier(u.TokenUsageMultiplier) != nil {
+		u.TokenUsageMultiplier = MinTokenUsageMultiplier
+	}
+	actualTokensMissing := u.ActualInputTokens == 0 && u.ActualOutputTokens == 0 &&
+		u.ActualCacheCreationTokens == 0 && u.ActualCacheReadTokens == 0 &&
+		u.ActualCacheCreation5mTokens == 0 && u.ActualCacheCreation1hTokens == 0 &&
+		u.ActualImageInputTokens == 0 && u.ActualImageOutputTokens == 0
+	if actualTokensMissing && u.TokenUsageMultiplier == MinTokenUsageMultiplier {
+		u.ActualInputTokens = u.InputTokens
+		u.ActualOutputTokens = u.OutputTokens
+		u.ActualCacheCreationTokens = u.CacheCreationTokens
+		u.ActualCacheReadTokens = u.CacheReadTokens
+		u.ActualCacheCreation5mTokens = u.CacheCreation5mTokens
+		u.ActualCacheCreation1hTokens = u.CacheCreation1hTokens
+		u.ActualImageInputTokens = u.ImageInputTokens
+		u.ActualImageOutputTokens = u.ImageOutputTokens
+	}
 }
 
 func (u *UsageLog) EffectiveRequestType() RequestType {

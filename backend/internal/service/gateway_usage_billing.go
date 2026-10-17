@@ -70,6 +70,17 @@ type usageLogBestEffortWriter interface {
 	CreateBestEffort(ctx context.Context, log *UsageLog) error
 }
 
+func applyTokenUsageBillingMultiplier(cost *CostBreakdown, apiKey *APIKey) float64 {
+	multiplier := MinTokenUsageMultiplier
+	if apiKey != nil && apiKey.Group != nil {
+		multiplier = apiKey.Group.EffectiveTokenUsageMultiplier()
+	}
+	if cost != nil {
+		cost.ActualCost *= multiplier
+	}
+	return multiplier
+}
+
 // postUsageBillingParams 统一扣费所需的参数
 type postUsageBillingParams struct {
 	Cost                  *CostBreakdown
@@ -805,6 +816,10 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 			}
 		}
 	}
+	tokenUsageMultiplier := MinTokenUsageMultiplier
+	if s.cfg == nil || s.cfg.RunMode != config.RunModeSimple {
+		tokenUsageMultiplier = applyTokenUsageBillingMultiplier(cost, apiKey)
+	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -817,6 +832,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	accountRateMultiplier := account.BillingRateMultiplier()
 	usageLog := s.buildRecordUsageLog(ctx, input, result, apiKey, user, account, subscription,
 		requestedModel, multiplier, imageMultiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost)
+	usageLog.ApplyTokenUsageMultiplier(tokenUsageMultiplier)
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {

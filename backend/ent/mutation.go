@@ -22088,6 +22088,8 @@ type GroupMutation struct {
 	description                             *string
 	rate_multiplier                         *float64
 	addrate_multiplier                      *float64
+	token_usage_multiplier                  *float64
+	addtoken_usage_multiplier               *float64
 	peak_rate_enabled                       *bool
 	peak_start                              *string
 	peak_end                                *string
@@ -22559,6 +22561,62 @@ func (m *GroupMutation) AddedRateMultiplier() (r float64, exists bool) {
 func (m *GroupMutation) ResetRateMultiplier() {
 	m.rate_multiplier = nil
 	m.addrate_multiplier = nil
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (m *GroupMutation) SetTokenUsageMultiplier(f float64) {
+	m.token_usage_multiplier = &f
+	m.addtoken_usage_multiplier = nil
+}
+
+// TokenUsageMultiplier returns the value of the "token_usage_multiplier" field in the mutation.
+func (m *GroupMutation) TokenUsageMultiplier() (r float64, exists bool) {
+	v := m.token_usage_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenUsageMultiplier returns the old "token_usage_multiplier" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldTokenUsageMultiplier(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenUsageMultiplier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenUsageMultiplier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenUsageMultiplier: %w", err)
+	}
+	return oldValue.TokenUsageMultiplier, nil
+}
+
+// AddTokenUsageMultiplier adds f to the "token_usage_multiplier" field.
+func (m *GroupMutation) AddTokenUsageMultiplier(f float64) {
+	if m.addtoken_usage_multiplier != nil {
+		*m.addtoken_usage_multiplier += f
+	} else {
+		m.addtoken_usage_multiplier = &f
+	}
+}
+
+// AddedTokenUsageMultiplier returns the value that was added to the "token_usage_multiplier" field in this mutation.
+func (m *GroupMutation) AddedTokenUsageMultiplier() (r float64, exists bool) {
+	v := m.addtoken_usage_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTokenUsageMultiplier resets all changes to the "token_usage_multiplier" field.
+func (m *GroupMutation) ResetTokenUsageMultiplier() {
+	m.token_usage_multiplier = nil
+	m.addtoken_usage_multiplier = nil
 }
 
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
@@ -25921,7 +25979,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 66)
+	fields := make([]string, 0, 67)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -25939,6 +25997,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
+	}
+	if m.token_usage_multiplier != nil {
+		fields = append(fields, group.FieldTokenUsageMultiplier)
 	}
 	if m.peak_rate_enabled != nil {
 		fields = append(fields, group.FieldPeakRateEnabled)
@@ -26140,6 +26201,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case group.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case group.FieldTokenUsageMultiplier:
+		return m.TokenUsageMultiplier()
 	case group.FieldPeakRateEnabled:
 		return m.PeakRateEnabled()
 	case group.FieldPeakStart:
@@ -26281,6 +26344,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDescription(ctx)
 	case group.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case group.FieldTokenUsageMultiplier:
+		return m.OldTokenUsageMultiplier(ctx)
 	case group.FieldPeakRateEnabled:
 		return m.OldPeakRateEnabled(ctx)
 	case group.FieldPeakStart:
@@ -26451,6 +26516,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRateMultiplier(v)
+		return nil
+	case group.FieldTokenUsageMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenUsageMultiplier(v)
 		return nil
 	case group.FieldPeakRateEnabled:
 		v, ok := value.(bool)
@@ -26883,6 +26955,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, group.FieldRateMultiplier)
 	}
+	if m.addtoken_usage_multiplier != nil {
+		fields = append(fields, group.FieldTokenUsageMultiplier)
+	}
 	if m.addpeak_rate_multiplier != nil {
 		fields = append(fields, group.FieldPeakRateMultiplier)
 	}
@@ -26971,6 +27046,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case group.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case group.FieldTokenUsageMultiplier:
+		return m.AddedTokenUsageMultiplier()
 	case group.FieldPeakRateMultiplier:
 		return m.AddedPeakRateMultiplier()
 	case group.FieldDailyLimitUsd:
@@ -27038,6 +27115,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRateMultiplier(v)
+		return nil
+	case group.FieldTokenUsageMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTokenUsageMultiplier(v)
 		return nil
 	case group.FieldPeakRateMultiplier:
 		v, ok := value.(float64)
@@ -27400,6 +27484,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case group.FieldTokenUsageMultiplier:
+		m.ResetTokenUsageMultiplier()
 		return nil
 	case group.FieldPeakRateEnabled:
 		m.ResetPeakRateEnabled()
@@ -44444,86 +44531,104 @@ func (m *UsageCleanupTaskMutation) ResetEdge(name string) error {
 // UsageLogMutation represents an operation that mutates the UsageLog nodes in the graph.
 type UsageLogMutation struct {
 	config
-	op                           Op
-	typ                          string
-	id                           *int64
-	request_id                   *string
-	model                        *string
-	requested_model              *string
-	upstream_model               *string
-	upstream_response_model      *string
-	upstream_model_mismatch      *bool
-	channel_id                   *int64
-	addchannel_id                *int64
-	model_mapping_chain          *string
-	billing_tier                 *string
-	billing_mode                 *string
-	input_tokens                 *int
-	addinput_tokens              *int
-	output_tokens                *int
-	addoutput_tokens             *int
-	cache_creation_tokens        *int
-	addcache_creation_tokens     *int
-	cache_read_tokens            *int
-	addcache_read_tokens         *int
-	cache_creation_5m_tokens     *int
-	addcache_creation_5m_tokens  *int
-	cache_creation_1h_tokens     *int
-	addcache_creation_1h_tokens  *int
-	input_cost                   *float64
-	addinput_cost                *float64
-	output_cost                  *float64
-	addoutput_cost               *float64
-	cache_creation_cost          *float64
-	addcache_creation_cost       *float64
-	cache_read_cost              *float64
-	addcache_read_cost           *float64
-	total_cost                   *float64
-	addtotal_cost                *float64
-	actual_cost                  *float64
-	addactual_cost               *float64
-	rate_multiplier              *float64
-	addrate_multiplier           *float64
-	long_context_billing_applied *bool
-	account_rate_multiplier      *float64
-	addaccount_rate_multiplier   *float64
-	billing_type                 *int8
-	addbilling_type              *int8
-	stream                       *bool
-	duration_ms                  *int
-	addduration_ms               *int
-	first_token_ms               *int
-	addfirst_token_ms            *int
-	user_agent                   *string
-	ip_address                   *string
-	image_count                  *int
-	addimage_count               *int
-	image_size                   *string
-	image_input_size             *string
-	image_output_size            *string
-	image_size_source            *string
-	image_size_breakdown         *map[string]int
-	video_count                  *int
-	addvideo_count               *int
-	video_resolution             *string
-	video_duration_seconds       *int
-	addvideo_duration_seconds    *int
-	cache_ttl_overridden         *bool
-	created_at                   *time.Time
-	clearedFields                map[string]struct{}
-	user                         *int64
-	cleareduser                  bool
-	api_key                      *int64
-	clearedapi_key               bool
-	account                      *int64
-	clearedaccount               bool
-	group                        *int64
-	clearedgroup                 bool
-	subscription                 *int64
-	clearedsubscription          bool
-	done                         bool
-	oldValue                     func(context.Context) (*UsageLog, error)
-	predicates                   []predicate.UsageLog
+	op                                 Op
+	typ                                string
+	id                                 *int64
+	request_id                         *string
+	model                              *string
+	requested_model                    *string
+	upstream_model                     *string
+	upstream_response_model            *string
+	upstream_model_mismatch            *bool
+	channel_id                         *int64
+	addchannel_id                      *int64
+	model_mapping_chain                *string
+	billing_tier                       *string
+	billing_mode                       *string
+	input_tokens                       *int
+	addinput_tokens                    *int
+	output_tokens                      *int
+	addoutput_tokens                   *int
+	cache_creation_tokens              *int
+	addcache_creation_tokens           *int
+	cache_read_tokens                  *int
+	addcache_read_tokens               *int
+	cache_creation_5m_tokens           *int
+	addcache_creation_5m_tokens        *int
+	cache_creation_1h_tokens           *int
+	addcache_creation_1h_tokens        *int
+	token_usage_multiplier             *float64
+	addtoken_usage_multiplier          *float64
+	actual_input_tokens                *int
+	addactual_input_tokens             *int
+	actual_output_tokens               *int
+	addactual_output_tokens            *int
+	actual_cache_creation_tokens       *int
+	addactual_cache_creation_tokens    *int
+	actual_cache_read_tokens           *int
+	addactual_cache_read_tokens        *int
+	actual_cache_creation_5m_tokens    *int
+	addactual_cache_creation_5m_tokens *int
+	actual_cache_creation_1h_tokens    *int
+	addactual_cache_creation_1h_tokens *int
+	actual_image_input_tokens          *int
+	addactual_image_input_tokens       *int
+	actual_image_output_tokens         *int
+	addactual_image_output_tokens      *int
+	input_cost                         *float64
+	addinput_cost                      *float64
+	output_cost                        *float64
+	addoutput_cost                     *float64
+	cache_creation_cost                *float64
+	addcache_creation_cost             *float64
+	cache_read_cost                    *float64
+	addcache_read_cost                 *float64
+	total_cost                         *float64
+	addtotal_cost                      *float64
+	actual_cost                        *float64
+	addactual_cost                     *float64
+	rate_multiplier                    *float64
+	addrate_multiplier                 *float64
+	long_context_billing_applied       *bool
+	account_rate_multiplier            *float64
+	addaccount_rate_multiplier         *float64
+	billing_type                       *int8
+	addbilling_type                    *int8
+	stream                             *bool
+	duration_ms                        *int
+	addduration_ms                     *int
+	first_token_ms                     *int
+	addfirst_token_ms                  *int
+	user_agent                         *string
+	ip_address                         *string
+	image_count                        *int
+	addimage_count                     *int
+	image_size                         *string
+	image_input_size                   *string
+	image_output_size                  *string
+	image_size_source                  *string
+	image_size_breakdown               *map[string]int
+	video_count                        *int
+	addvideo_count                     *int
+	video_resolution                   *string
+	video_duration_seconds             *int
+	addvideo_duration_seconds          *int
+	cache_ttl_overridden               *bool
+	created_at                         *time.Time
+	clearedFields                      map[string]struct{}
+	user                               *int64
+	cleareduser                        bool
+	api_key                            *int64
+	clearedapi_key                     bool
+	account                            *int64
+	clearedaccount                     bool
+	group                              *int64
+	clearedgroup                       bool
+	subscription                       *int64
+	clearedsubscription                bool
+	done                               bool
+	oldValue                           func(context.Context) (*UsageLog, error)
+	predicates                         []predicate.UsageLog
 }
 
 var _ ent.Mutation = (*UsageLogMutation)(nil)
@@ -45649,6 +45754,510 @@ func (m *UsageLogMutation) AddedCacheCreation1hTokens() (r int, exists bool) {
 func (m *UsageLogMutation) ResetCacheCreation1hTokens() {
 	m.cache_creation_1h_tokens = nil
 	m.addcache_creation_1h_tokens = nil
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (m *UsageLogMutation) SetTokenUsageMultiplier(f float64) {
+	m.token_usage_multiplier = &f
+	m.addtoken_usage_multiplier = nil
+}
+
+// TokenUsageMultiplier returns the value of the "token_usage_multiplier" field in the mutation.
+func (m *UsageLogMutation) TokenUsageMultiplier() (r float64, exists bool) {
+	v := m.token_usage_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenUsageMultiplier returns the old "token_usage_multiplier" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldTokenUsageMultiplier(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenUsageMultiplier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenUsageMultiplier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenUsageMultiplier: %w", err)
+	}
+	return oldValue.TokenUsageMultiplier, nil
+}
+
+// AddTokenUsageMultiplier adds f to the "token_usage_multiplier" field.
+func (m *UsageLogMutation) AddTokenUsageMultiplier(f float64) {
+	if m.addtoken_usage_multiplier != nil {
+		*m.addtoken_usage_multiplier += f
+	} else {
+		m.addtoken_usage_multiplier = &f
+	}
+}
+
+// AddedTokenUsageMultiplier returns the value that was added to the "token_usage_multiplier" field in this mutation.
+func (m *UsageLogMutation) AddedTokenUsageMultiplier() (r float64, exists bool) {
+	v := m.addtoken_usage_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTokenUsageMultiplier resets all changes to the "token_usage_multiplier" field.
+func (m *UsageLogMutation) ResetTokenUsageMultiplier() {
+	m.token_usage_multiplier = nil
+	m.addtoken_usage_multiplier = nil
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (m *UsageLogMutation) SetActualInputTokens(i int) {
+	m.actual_input_tokens = &i
+	m.addactual_input_tokens = nil
+}
+
+// ActualInputTokens returns the value of the "actual_input_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualInputTokens() (r int, exists bool) {
+	v := m.actual_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualInputTokens returns the old "actual_input_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualInputTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualInputTokens: %w", err)
+	}
+	return oldValue.ActualInputTokens, nil
+}
+
+// AddActualInputTokens adds i to the "actual_input_tokens" field.
+func (m *UsageLogMutation) AddActualInputTokens(i int) {
+	if m.addactual_input_tokens != nil {
+		*m.addactual_input_tokens += i
+	} else {
+		m.addactual_input_tokens = &i
+	}
+}
+
+// AddedActualInputTokens returns the value that was added to the "actual_input_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualInputTokens() (r int, exists bool) {
+	v := m.addactual_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualInputTokens resets all changes to the "actual_input_tokens" field.
+func (m *UsageLogMutation) ResetActualInputTokens() {
+	m.actual_input_tokens = nil
+	m.addactual_input_tokens = nil
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (m *UsageLogMutation) SetActualOutputTokens(i int) {
+	m.actual_output_tokens = &i
+	m.addactual_output_tokens = nil
+}
+
+// ActualOutputTokens returns the value of the "actual_output_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualOutputTokens() (r int, exists bool) {
+	v := m.actual_output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualOutputTokens returns the old "actual_output_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualOutputTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualOutputTokens: %w", err)
+	}
+	return oldValue.ActualOutputTokens, nil
+}
+
+// AddActualOutputTokens adds i to the "actual_output_tokens" field.
+func (m *UsageLogMutation) AddActualOutputTokens(i int) {
+	if m.addactual_output_tokens != nil {
+		*m.addactual_output_tokens += i
+	} else {
+		m.addactual_output_tokens = &i
+	}
+}
+
+// AddedActualOutputTokens returns the value that was added to the "actual_output_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualOutputTokens() (r int, exists bool) {
+	v := m.addactual_output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualOutputTokens resets all changes to the "actual_output_tokens" field.
+func (m *UsageLogMutation) ResetActualOutputTokens() {
+	m.actual_output_tokens = nil
+	m.addactual_output_tokens = nil
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (m *UsageLogMutation) SetActualCacheCreationTokens(i int) {
+	m.actual_cache_creation_tokens = &i
+	m.addactual_cache_creation_tokens = nil
+}
+
+// ActualCacheCreationTokens returns the value of the "actual_cache_creation_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualCacheCreationTokens() (r int, exists bool) {
+	v := m.actual_cache_creation_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualCacheCreationTokens returns the old "actual_cache_creation_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualCacheCreationTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualCacheCreationTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualCacheCreationTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualCacheCreationTokens: %w", err)
+	}
+	return oldValue.ActualCacheCreationTokens, nil
+}
+
+// AddActualCacheCreationTokens adds i to the "actual_cache_creation_tokens" field.
+func (m *UsageLogMutation) AddActualCacheCreationTokens(i int) {
+	if m.addactual_cache_creation_tokens != nil {
+		*m.addactual_cache_creation_tokens += i
+	} else {
+		m.addactual_cache_creation_tokens = &i
+	}
+}
+
+// AddedActualCacheCreationTokens returns the value that was added to the "actual_cache_creation_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualCacheCreationTokens() (r int, exists bool) {
+	v := m.addactual_cache_creation_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualCacheCreationTokens resets all changes to the "actual_cache_creation_tokens" field.
+func (m *UsageLogMutation) ResetActualCacheCreationTokens() {
+	m.actual_cache_creation_tokens = nil
+	m.addactual_cache_creation_tokens = nil
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (m *UsageLogMutation) SetActualCacheReadTokens(i int) {
+	m.actual_cache_read_tokens = &i
+	m.addactual_cache_read_tokens = nil
+}
+
+// ActualCacheReadTokens returns the value of the "actual_cache_read_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualCacheReadTokens() (r int, exists bool) {
+	v := m.actual_cache_read_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualCacheReadTokens returns the old "actual_cache_read_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualCacheReadTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualCacheReadTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualCacheReadTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualCacheReadTokens: %w", err)
+	}
+	return oldValue.ActualCacheReadTokens, nil
+}
+
+// AddActualCacheReadTokens adds i to the "actual_cache_read_tokens" field.
+func (m *UsageLogMutation) AddActualCacheReadTokens(i int) {
+	if m.addactual_cache_read_tokens != nil {
+		*m.addactual_cache_read_tokens += i
+	} else {
+		m.addactual_cache_read_tokens = &i
+	}
+}
+
+// AddedActualCacheReadTokens returns the value that was added to the "actual_cache_read_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualCacheReadTokens() (r int, exists bool) {
+	v := m.addactual_cache_read_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualCacheReadTokens resets all changes to the "actual_cache_read_tokens" field.
+func (m *UsageLogMutation) ResetActualCacheReadTokens() {
+	m.actual_cache_read_tokens = nil
+	m.addactual_cache_read_tokens = nil
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (m *UsageLogMutation) SetActualCacheCreation5mTokens(i int) {
+	m.actual_cache_creation_5m_tokens = &i
+	m.addactual_cache_creation_5m_tokens = nil
+}
+
+// ActualCacheCreation5mTokens returns the value of the "actual_cache_creation_5m_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualCacheCreation5mTokens() (r int, exists bool) {
+	v := m.actual_cache_creation_5m_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualCacheCreation5mTokens returns the old "actual_cache_creation_5m_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualCacheCreation5mTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualCacheCreation5mTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualCacheCreation5mTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualCacheCreation5mTokens: %w", err)
+	}
+	return oldValue.ActualCacheCreation5mTokens, nil
+}
+
+// AddActualCacheCreation5mTokens adds i to the "actual_cache_creation_5m_tokens" field.
+func (m *UsageLogMutation) AddActualCacheCreation5mTokens(i int) {
+	if m.addactual_cache_creation_5m_tokens != nil {
+		*m.addactual_cache_creation_5m_tokens += i
+	} else {
+		m.addactual_cache_creation_5m_tokens = &i
+	}
+}
+
+// AddedActualCacheCreation5mTokens returns the value that was added to the "actual_cache_creation_5m_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualCacheCreation5mTokens() (r int, exists bool) {
+	v := m.addactual_cache_creation_5m_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualCacheCreation5mTokens resets all changes to the "actual_cache_creation_5m_tokens" field.
+func (m *UsageLogMutation) ResetActualCacheCreation5mTokens() {
+	m.actual_cache_creation_5m_tokens = nil
+	m.addactual_cache_creation_5m_tokens = nil
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (m *UsageLogMutation) SetActualCacheCreation1hTokens(i int) {
+	m.actual_cache_creation_1h_tokens = &i
+	m.addactual_cache_creation_1h_tokens = nil
+}
+
+// ActualCacheCreation1hTokens returns the value of the "actual_cache_creation_1h_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualCacheCreation1hTokens() (r int, exists bool) {
+	v := m.actual_cache_creation_1h_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualCacheCreation1hTokens returns the old "actual_cache_creation_1h_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualCacheCreation1hTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualCacheCreation1hTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualCacheCreation1hTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualCacheCreation1hTokens: %w", err)
+	}
+	return oldValue.ActualCacheCreation1hTokens, nil
+}
+
+// AddActualCacheCreation1hTokens adds i to the "actual_cache_creation_1h_tokens" field.
+func (m *UsageLogMutation) AddActualCacheCreation1hTokens(i int) {
+	if m.addactual_cache_creation_1h_tokens != nil {
+		*m.addactual_cache_creation_1h_tokens += i
+	} else {
+		m.addactual_cache_creation_1h_tokens = &i
+	}
+}
+
+// AddedActualCacheCreation1hTokens returns the value that was added to the "actual_cache_creation_1h_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualCacheCreation1hTokens() (r int, exists bool) {
+	v := m.addactual_cache_creation_1h_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualCacheCreation1hTokens resets all changes to the "actual_cache_creation_1h_tokens" field.
+func (m *UsageLogMutation) ResetActualCacheCreation1hTokens() {
+	m.actual_cache_creation_1h_tokens = nil
+	m.addactual_cache_creation_1h_tokens = nil
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (m *UsageLogMutation) SetActualImageInputTokens(i int) {
+	m.actual_image_input_tokens = &i
+	m.addactual_image_input_tokens = nil
+}
+
+// ActualImageInputTokens returns the value of the "actual_image_input_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualImageInputTokens() (r int, exists bool) {
+	v := m.actual_image_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualImageInputTokens returns the old "actual_image_input_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualImageInputTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualImageInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualImageInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualImageInputTokens: %w", err)
+	}
+	return oldValue.ActualImageInputTokens, nil
+}
+
+// AddActualImageInputTokens adds i to the "actual_image_input_tokens" field.
+func (m *UsageLogMutation) AddActualImageInputTokens(i int) {
+	if m.addactual_image_input_tokens != nil {
+		*m.addactual_image_input_tokens += i
+	} else {
+		m.addactual_image_input_tokens = &i
+	}
+}
+
+// AddedActualImageInputTokens returns the value that was added to the "actual_image_input_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualImageInputTokens() (r int, exists bool) {
+	v := m.addactual_image_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualImageInputTokens resets all changes to the "actual_image_input_tokens" field.
+func (m *UsageLogMutation) ResetActualImageInputTokens() {
+	m.actual_image_input_tokens = nil
+	m.addactual_image_input_tokens = nil
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (m *UsageLogMutation) SetActualImageOutputTokens(i int) {
+	m.actual_image_output_tokens = &i
+	m.addactual_image_output_tokens = nil
+}
+
+// ActualImageOutputTokens returns the value of the "actual_image_output_tokens" field in the mutation.
+func (m *UsageLogMutation) ActualImageOutputTokens() (r int, exists bool) {
+	v := m.actual_image_output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActualImageOutputTokens returns the old "actual_image_output_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldActualImageOutputTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActualImageOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActualImageOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActualImageOutputTokens: %w", err)
+	}
+	return oldValue.ActualImageOutputTokens, nil
+}
+
+// AddActualImageOutputTokens adds i to the "actual_image_output_tokens" field.
+func (m *UsageLogMutation) AddActualImageOutputTokens(i int) {
+	if m.addactual_image_output_tokens != nil {
+		*m.addactual_image_output_tokens += i
+	} else {
+		m.addactual_image_output_tokens = &i
+	}
+}
+
+// AddedActualImageOutputTokens returns the value that was added to the "actual_image_output_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedActualImageOutputTokens() (r int, exists bool) {
+	v := m.addactual_image_output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetActualImageOutputTokens resets all changes to the "actual_image_output_tokens" field.
+func (m *UsageLogMutation) ResetActualImageOutputTokens() {
+	m.actual_image_output_tokens = nil
+	m.addactual_image_output_tokens = nil
 }
 
 // SetInputCost sets the "input_cost" field.
@@ -47196,7 +47805,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 47)
+	fields := make([]string, 0, 56)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -47259,6 +47868,33 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.cache_creation_1h_tokens != nil {
 		fields = append(fields, usagelog.FieldCacheCreation1hTokens)
+	}
+	if m.token_usage_multiplier != nil {
+		fields = append(fields, usagelog.FieldTokenUsageMultiplier)
+	}
+	if m.actual_input_tokens != nil {
+		fields = append(fields, usagelog.FieldActualInputTokens)
+	}
+	if m.actual_output_tokens != nil {
+		fields = append(fields, usagelog.FieldActualOutputTokens)
+	}
+	if m.actual_cache_creation_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheCreationTokens)
+	}
+	if m.actual_cache_read_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheReadTokens)
+	}
+	if m.actual_cache_creation_5m_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheCreation5mTokens)
+	}
+	if m.actual_cache_creation_1h_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheCreation1hTokens)
+	}
+	if m.actual_image_input_tokens != nil {
+		fields = append(fields, usagelog.FieldActualImageInputTokens)
+	}
+	if m.actual_image_output_tokens != nil {
+		fields = append(fields, usagelog.FieldActualImageOutputTokens)
 	}
 	if m.input_cost != nil {
 		fields = append(fields, usagelog.FieldInputCost)
@@ -47388,6 +48024,24 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheCreation5mTokens()
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.CacheCreation1hTokens()
+	case usagelog.FieldTokenUsageMultiplier:
+		return m.TokenUsageMultiplier()
+	case usagelog.FieldActualInputTokens:
+		return m.ActualInputTokens()
+	case usagelog.FieldActualOutputTokens:
+		return m.ActualOutputTokens()
+	case usagelog.FieldActualCacheCreationTokens:
+		return m.ActualCacheCreationTokens()
+	case usagelog.FieldActualCacheReadTokens:
+		return m.ActualCacheReadTokens()
+	case usagelog.FieldActualCacheCreation5mTokens:
+		return m.ActualCacheCreation5mTokens()
+	case usagelog.FieldActualCacheCreation1hTokens:
+		return m.ActualCacheCreation1hTokens()
+	case usagelog.FieldActualImageInputTokens:
+		return m.ActualImageInputTokens()
+	case usagelog.FieldActualImageOutputTokens:
+		return m.ActualImageOutputTokens()
 	case usagelog.FieldInputCost:
 		return m.InputCost()
 	case usagelog.FieldOutputCost:
@@ -47491,6 +48145,24 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldCacheCreation5mTokens(ctx)
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.OldCacheCreation1hTokens(ctx)
+	case usagelog.FieldTokenUsageMultiplier:
+		return m.OldTokenUsageMultiplier(ctx)
+	case usagelog.FieldActualInputTokens:
+		return m.OldActualInputTokens(ctx)
+	case usagelog.FieldActualOutputTokens:
+		return m.OldActualOutputTokens(ctx)
+	case usagelog.FieldActualCacheCreationTokens:
+		return m.OldActualCacheCreationTokens(ctx)
+	case usagelog.FieldActualCacheReadTokens:
+		return m.OldActualCacheReadTokens(ctx)
+	case usagelog.FieldActualCacheCreation5mTokens:
+		return m.OldActualCacheCreation5mTokens(ctx)
+	case usagelog.FieldActualCacheCreation1hTokens:
+		return m.OldActualCacheCreation1hTokens(ctx)
+	case usagelog.FieldActualImageInputTokens:
+		return m.OldActualImageInputTokens(ctx)
+	case usagelog.FieldActualImageOutputTokens:
+		return m.OldActualImageOutputTokens(ctx)
 	case usagelog.FieldInputCost:
 		return m.OldInputCost(ctx)
 	case usagelog.FieldOutputCost:
@@ -47698,6 +48370,69 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCacheCreation1hTokens(v)
+		return nil
+	case usagelog.FieldTokenUsageMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenUsageMultiplier(v)
+		return nil
+	case usagelog.FieldActualInputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualInputTokens(v)
+		return nil
+	case usagelog.FieldActualOutputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualOutputTokens(v)
+		return nil
+	case usagelog.FieldActualCacheCreationTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualCacheCreationTokens(v)
+		return nil
+	case usagelog.FieldActualCacheReadTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualCacheReadTokens(v)
+		return nil
+	case usagelog.FieldActualCacheCreation5mTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualCacheCreation5mTokens(v)
+		return nil
+	case usagelog.FieldActualCacheCreation1hTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualCacheCreation1hTokens(v)
+		return nil
+	case usagelog.FieldActualImageInputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualImageInputTokens(v)
+		return nil
+	case usagelog.FieldActualImageOutputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActualImageOutputTokens(v)
 		return nil
 	case usagelog.FieldInputCost:
 		v, ok := value.(float64)
@@ -47910,6 +48645,33 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addcache_creation_1h_tokens != nil {
 		fields = append(fields, usagelog.FieldCacheCreation1hTokens)
 	}
+	if m.addtoken_usage_multiplier != nil {
+		fields = append(fields, usagelog.FieldTokenUsageMultiplier)
+	}
+	if m.addactual_input_tokens != nil {
+		fields = append(fields, usagelog.FieldActualInputTokens)
+	}
+	if m.addactual_output_tokens != nil {
+		fields = append(fields, usagelog.FieldActualOutputTokens)
+	}
+	if m.addactual_cache_creation_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheCreationTokens)
+	}
+	if m.addactual_cache_read_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheReadTokens)
+	}
+	if m.addactual_cache_creation_5m_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheCreation5mTokens)
+	}
+	if m.addactual_cache_creation_1h_tokens != nil {
+		fields = append(fields, usagelog.FieldActualCacheCreation1hTokens)
+	}
+	if m.addactual_image_input_tokens != nil {
+		fields = append(fields, usagelog.FieldActualImageInputTokens)
+	}
+	if m.addactual_image_output_tokens != nil {
+		fields = append(fields, usagelog.FieldActualImageOutputTokens)
+	}
 	if m.addinput_cost != nil {
 		fields = append(fields, usagelog.FieldInputCost)
 	}
@@ -47974,6 +48736,24 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedCacheCreation5mTokens()
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.AddedCacheCreation1hTokens()
+	case usagelog.FieldTokenUsageMultiplier:
+		return m.AddedTokenUsageMultiplier()
+	case usagelog.FieldActualInputTokens:
+		return m.AddedActualInputTokens()
+	case usagelog.FieldActualOutputTokens:
+		return m.AddedActualOutputTokens()
+	case usagelog.FieldActualCacheCreationTokens:
+		return m.AddedActualCacheCreationTokens()
+	case usagelog.FieldActualCacheReadTokens:
+		return m.AddedActualCacheReadTokens()
+	case usagelog.FieldActualCacheCreation5mTokens:
+		return m.AddedActualCacheCreation5mTokens()
+	case usagelog.FieldActualCacheCreation1hTokens:
+		return m.AddedActualCacheCreation1hTokens()
+	case usagelog.FieldActualImageInputTokens:
+		return m.AddedActualImageInputTokens()
+	case usagelog.FieldActualImageOutputTokens:
+		return m.AddedActualImageOutputTokens()
 	case usagelog.FieldInputCost:
 		return m.AddedInputCost()
 	case usagelog.FieldOutputCost:
@@ -48059,6 +48839,69 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddCacheCreation1hTokens(v)
+		return nil
+	case usagelog.FieldTokenUsageMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTokenUsageMultiplier(v)
+		return nil
+	case usagelog.FieldActualInputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualInputTokens(v)
+		return nil
+	case usagelog.FieldActualOutputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualOutputTokens(v)
+		return nil
+	case usagelog.FieldActualCacheCreationTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualCacheCreationTokens(v)
+		return nil
+	case usagelog.FieldActualCacheReadTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualCacheReadTokens(v)
+		return nil
+	case usagelog.FieldActualCacheCreation5mTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualCacheCreation5mTokens(v)
+		return nil
+	case usagelog.FieldActualCacheCreation1hTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualCacheCreation1hTokens(v)
+		return nil
+	case usagelog.FieldActualImageInputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualImageInputTokens(v)
+		return nil
+	case usagelog.FieldActualImageOutputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddActualImageOutputTokens(v)
 		return nil
 	case usagelog.FieldInputCost:
 		v, ok := value.(float64)
@@ -48382,6 +49225,33 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldCacheCreation1hTokens:
 		m.ResetCacheCreation1hTokens()
+		return nil
+	case usagelog.FieldTokenUsageMultiplier:
+		m.ResetTokenUsageMultiplier()
+		return nil
+	case usagelog.FieldActualInputTokens:
+		m.ResetActualInputTokens()
+		return nil
+	case usagelog.FieldActualOutputTokens:
+		m.ResetActualOutputTokens()
+		return nil
+	case usagelog.FieldActualCacheCreationTokens:
+		m.ResetActualCacheCreationTokens()
+		return nil
+	case usagelog.FieldActualCacheReadTokens:
+		m.ResetActualCacheReadTokens()
+		return nil
+	case usagelog.FieldActualCacheCreation5mTokens:
+		m.ResetActualCacheCreation5mTokens()
+		return nil
+	case usagelog.FieldActualCacheCreation1hTokens:
+		m.ResetActualCacheCreation1hTokens()
+		return nil
+	case usagelog.FieldActualImageInputTokens:
+		m.ResetActualImageInputTokens()
+		return nil
+	case usagelog.FieldActualImageOutputTokens:
+		m.ResetActualImageOutputTokens()
 		return nil
 	case usagelog.FieldInputCost:
 		m.ResetInputCost()

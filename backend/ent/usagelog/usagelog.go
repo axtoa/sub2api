@@ -56,6 +56,24 @@ const (
 	FieldCacheCreation5mTokens = "cache_creation_5m_tokens"
 	// FieldCacheCreation1hTokens holds the string denoting the cache_creation_1h_tokens field in the database.
 	FieldCacheCreation1hTokens = "cache_creation_1h_tokens"
+	// FieldTokenUsageMultiplier holds the string denoting the token_usage_multiplier field in the database.
+	FieldTokenUsageMultiplier = "token_usage_multiplier"
+	// FieldActualInputTokens holds the string denoting the actual_input_tokens field in the database.
+	FieldActualInputTokens = "actual_input_tokens"
+	// FieldActualOutputTokens holds the string denoting the actual_output_tokens field in the database.
+	FieldActualOutputTokens = "actual_output_tokens"
+	// FieldActualCacheCreationTokens holds the string denoting the actual_cache_creation_tokens field in the database.
+	FieldActualCacheCreationTokens = "actual_cache_creation_tokens"
+	// FieldActualCacheReadTokens holds the string denoting the actual_cache_read_tokens field in the database.
+	FieldActualCacheReadTokens = "actual_cache_read_tokens"
+	// FieldActualCacheCreation5mTokens holds the string denoting the actual_cache_creation_5m_tokens field in the database.
+	FieldActualCacheCreation5mTokens = "actual_cache_creation_5m_tokens"
+	// FieldActualCacheCreation1hTokens holds the string denoting the actual_cache_creation_1h_tokens field in the database.
+	FieldActualCacheCreation1hTokens = "actual_cache_creation_1h_tokens"
+	// FieldActualImageInputTokens holds the string denoting the actual_image_input_tokens field in the database.
+	FieldActualImageInputTokens = "actual_image_input_tokens"
+	// FieldActualImageOutputTokens holds the string denoting the actual_image_output_tokens field in the database.
+	FieldActualImageOutputTokens = "actual_image_output_tokens"
 	// FieldInputCost holds the string denoting the input_cost field in the database.
 	FieldInputCost = "input_cost"
 	// FieldOutputCost holds the string denoting the output_cost field in the database.
@@ -181,6 +199,15 @@ var Columns = []string{
 	FieldCacheReadTokens,
 	FieldCacheCreation5mTokens,
 	FieldCacheCreation1hTokens,
+	FieldTokenUsageMultiplier,
+	FieldActualInputTokens,
+	FieldActualOutputTokens,
+	FieldActualCacheCreationTokens,
+	FieldActualCacheReadTokens,
+	FieldActualCacheCreation5mTokens,
+	FieldActualCacheCreation1hTokens,
+	FieldActualImageInputTokens,
+	FieldActualImageOutputTokens,
 	FieldInputCost,
 	FieldOutputCost,
 	FieldCacheCreationCost,
@@ -248,6 +275,24 @@ var (
 	DefaultCacheCreation5mTokens int
 	// DefaultCacheCreation1hTokens holds the default value on creation for the "cache_creation_1h_tokens" field.
 	DefaultCacheCreation1hTokens int
+	// DefaultTokenUsageMultiplier holds the default value on creation for the "token_usage_multiplier" field.
+	DefaultTokenUsageMultiplier float64
+	// DefaultActualInputTokens holds the default value on creation for the "actual_input_tokens" field.
+	DefaultActualInputTokens int
+	// DefaultActualOutputTokens holds the default value on creation for the "actual_output_tokens" field.
+	DefaultActualOutputTokens int
+	// DefaultActualCacheCreationTokens holds the default value on creation for the "actual_cache_creation_tokens" field.
+	DefaultActualCacheCreationTokens int
+	// DefaultActualCacheReadTokens holds the default value on creation for the "actual_cache_read_tokens" field.
+	DefaultActualCacheReadTokens int
+	// DefaultActualCacheCreation5mTokens holds the default value on creation for the "actual_cache_creation_5m_tokens" field.
+	DefaultActualCacheCreation5mTokens int
+	// DefaultActualCacheCreation1hTokens holds the default value on creation for the "actual_cache_creation_1h_tokens" field.
+	DefaultActualCacheCreation1hTokens int
+	// DefaultActualImageInputTokens holds the default value on creation for the "actual_image_input_tokens" field.
+	DefaultActualImageInputTokens int
+	// DefaultActualImageOutputTokens holds the default value on creation for the "actual_image_output_tokens" field.
+	DefaultActualImageOutputTokens int
 	// DefaultInputCost holds the default value on creation for the "input_cost" field.
 	DefaultInputCost float64
 	// DefaultOutputCost holds the default value on creation for the "output_cost" field.
@@ -403,6 +448,51 @@ func ByCacheCreation5mTokens(opts ...sql.OrderTermOption) OrderOption {
 // ByCacheCreation1hTokens orders the results by the cache_creation_1h_tokens field.
 func ByCacheCreation1hTokens(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheCreation1hTokens, opts...).ToFunc()
+}
+
+// ByTokenUsageMultiplier orders the results by the token_usage_multiplier field.
+func ByTokenUsageMultiplier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTokenUsageMultiplier, opts...).ToFunc()
+}
+
+// ByActualInputTokens orders the results by the actual_input_tokens field.
+func ByActualInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualInputTokens, opts...).ToFunc()
+}
+
+// ByActualOutputTokens orders the results by the actual_output_tokens field.
+func ByActualOutputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualOutputTokens, opts...).ToFunc()
+}
+
+// ByActualCacheCreationTokens orders the results by the actual_cache_creation_tokens field.
+func ByActualCacheCreationTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualCacheCreationTokens, opts...).ToFunc()
+}
+
+// ByActualCacheReadTokens orders the results by the actual_cache_read_tokens field.
+func ByActualCacheReadTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualCacheReadTokens, opts...).ToFunc()
+}
+
+// ByActualCacheCreation5mTokens orders the results by the actual_cache_creation_5m_tokens field.
+func ByActualCacheCreation5mTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualCacheCreation5mTokens, opts...).ToFunc()
+}
+
+// ByActualCacheCreation1hTokens orders the results by the actual_cache_creation_1h_tokens field.
+func ByActualCacheCreation1hTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualCacheCreation1hTokens, opts...).ToFunc()
+}
+
+// ByActualImageInputTokens orders the results by the actual_image_input_tokens field.
+func ByActualImageInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualImageInputTokens, opts...).ToFunc()
+}
+
+// ByActualImageOutputTokens orders the results by the actual_image_output_tokens field.
+func ByActualImageOutputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActualImageOutputTokens, opts...).ToFunc()
 }
 
 // ByInputCost orders the results by the input_cost field.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/shopspring/decimal"
 )
 
 type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfig
@@ -21,6 +22,9 @@ type Group struct {
 	Description    string
 	Platform       string
 	RateMultiplier float64
+	// TokenUsageMultiplier scales customer-visible token usage and customer-side
+	// quota consumption without changing upstream usage or account-side cost.
+	TokenUsageMultiplier float64
 	// 高峰时段倍率：peak_rate_enabled 为 true 且当前时刻处于 [PeakStart, PeakEnd) 时，
 	// token 计费倍率额外乘以 PeakRateMultiplier。详见 PeakMultiplierAt。
 	PeakRateEnabled    bool
@@ -139,6 +143,30 @@ type Group struct {
 	AccountCount            int64
 	ActiveAccountCount      int64
 	RateLimitedAccountCount int64
+}
+
+const (
+	MinTokenUsageMultiplier = 1.0
+	MaxTokenUsageMultiplier = 100.0
+)
+
+func ValidateTokenUsageMultiplier(multiplier float64) error {
+	if math.IsNaN(multiplier) || math.IsInf(multiplier, 0) || multiplier < MinTokenUsageMultiplier || multiplier > MaxTokenUsageMultiplier {
+		return fmt.Errorf("token_usage_multiplier must be between %.0f and %.0f", MinTokenUsageMultiplier, MaxTokenUsageMultiplier)
+	}
+	// Match NUMERIC(10,4) snapshots; never silently bill a value different from
+	// the value persisted and later restored through the authentication cache.
+	if decimal.NewFromFloat(multiplier).Exponent() < -4 {
+		return fmt.Errorf("token_usage_multiplier must have at most 4 decimal places")
+	}
+	return nil
+}
+
+func (g *Group) EffectiveTokenUsageMultiplier() float64 {
+	if g == nil || ValidateTokenUsageMultiplier(g.TokenUsageMultiplier) != nil {
+		return MinTokenUsageMultiplier
+	}
+	return g.TokenUsageMultiplier
 }
 
 // IsGroupBindableInSimpleMode is the shared policy for groups that may be

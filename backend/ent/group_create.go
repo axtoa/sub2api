@@ -106,6 +106,20 @@ func (_c *GroupCreate) SetNillableRateMultiplier(v *float64) *GroupCreate {
 	return _c
 }
 
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (_c *GroupCreate) SetTokenUsageMultiplier(v float64) *GroupCreate {
+	_c.mutation.SetTokenUsageMultiplier(v)
+	return _c
+}
+
+// SetNillableTokenUsageMultiplier sets the "token_usage_multiplier" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableTokenUsageMultiplier(v *float64) *GroupCreate {
+	if v != nil {
+		_c.SetTokenUsageMultiplier(*v)
+	}
+	return _c
+}
+
 // SetPeakRateEnabled sets the "peak_rate_enabled" field.
 func (_c *GroupCreate) SetPeakRateEnabled(v bool) *GroupCreate {
 	_c.mutation.SetPeakRateEnabled(v)
@@ -1051,6 +1065,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.TokenUsageMultiplier(); !ok {
+		v := group.DefaultTokenUsageMultiplier
+		_c.mutation.SetTokenUsageMultiplier(v)
+	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		v := group.DefaultPeakRateEnabled
 		_c.mutation.SetPeakRateEnabled(v)
@@ -1232,6 +1250,14 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "Group.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.TokenUsageMultiplier(); !ok {
+		return &ValidationError{Name: "token_usage_multiplier", err: errors.New(`ent: missing required field "Group.token_usage_multiplier"`)}
+	}
+	if v, ok := _c.mutation.TokenUsageMultiplier(); ok {
+		if err := group.TokenUsageMultiplierValidator(v); err != nil {
+			return &ValidationError{Name: "token_usage_multiplier", err: fmt.Errorf(`ent: validator failed for field "Group.token_usage_multiplier": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.PeakRateEnabled(); !ok {
 		return &ValidationError{Name: "peak_rate_enabled", err: errors.New(`ent: missing required field "Group.peak_rate_enabled"`)}
@@ -1468,6 +1494,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(group.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.TokenUsageMultiplier(); ok {
+		_spec.SetField(group.FieldTokenUsageMultiplier, field.TypeFloat64, value)
+		_node.TokenUsageMultiplier = value
 	}
 	if value, ok := _c.mutation.PeakRateEnabled(); ok {
 		_spec.SetField(group.FieldPeakRateEnabled, field.TypeBool, value)
@@ -1940,6 +1970,24 @@ func (u *GroupUpsert) UpdateRateMultiplier() *GroupUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *GroupUpsert) AddRateMultiplier(v float64) *GroupUpsert {
 	u.Add(group.FieldRateMultiplier, v)
+	return u
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (u *GroupUpsert) SetTokenUsageMultiplier(v float64) *GroupUpsert {
+	u.Set(group.FieldTokenUsageMultiplier, v)
+	return u
+}
+
+// UpdateTokenUsageMultiplier sets the "token_usage_multiplier" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateTokenUsageMultiplier() *GroupUpsert {
+	u.SetExcluded(group.FieldTokenUsageMultiplier)
+	return u
+}
+
+// AddTokenUsageMultiplier adds v to the "token_usage_multiplier" field.
+func (u *GroupUpsert) AddTokenUsageMultiplier(v float64) *GroupUpsert {
+	u.Add(group.FieldTokenUsageMultiplier, v)
 	return u
 }
 
@@ -3057,6 +3105,27 @@ func (u *GroupUpsertOne) AddRateMultiplier(v float64) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateRateMultiplier() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (u *GroupUpsertOne) SetTokenUsageMultiplier(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetTokenUsageMultiplier(v)
+	})
+}
+
+// AddTokenUsageMultiplier adds v to the "token_usage_multiplier" field.
+func (u *GroupUpsertOne) AddTokenUsageMultiplier(v float64) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddTokenUsageMultiplier(v)
+	})
+}
+
+// UpdateTokenUsageMultiplier sets the "token_usage_multiplier" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateTokenUsageMultiplier() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateTokenUsageMultiplier()
 	})
 }
 
@@ -4503,6 +4572,27 @@ func (u *GroupUpsertBulk) AddRateMultiplier(v float64) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateRateMultiplier() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (u *GroupUpsertBulk) SetTokenUsageMultiplier(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetTokenUsageMultiplier(v)
+	})
+}
+
+// AddTokenUsageMultiplier adds v to the "token_usage_multiplier" field.
+func (u *GroupUpsertBulk) AddTokenUsageMultiplier(v float64) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.AddTokenUsageMultiplier(v)
+	})
+}
+
+// UpdateTokenUsageMultiplier sets the "token_usage_multiplier" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateTokenUsageMultiplier() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateTokenUsageMultiplier()
 	})
 }
 

@@ -259,6 +259,10 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 	inboundEndpoint := "/v1/images/batches"
 	upstreamEndpoint := "vertex:batchPredictionJobs"
 	imageSize := "1K"
+	multiplier := MinTokenUsageMultiplier
+	if job.PricingSnapshotVersion >= 2 && ValidateTokenUsageMultiplier(job.TokenUsageMultiplier) == nil {
+		multiplier = job.TokenUsageMultiplier
+	}
 	usageLog := &UsageLog{
 		UserID:                job.UserID,
 		APIKeyID:              *job.APIKeyID,
@@ -269,9 +273,10 @@ func (s *BatchImageSettlementService) recordUsageLog(ctx context.Context, job *B
 		InboundEndpoint:       &inboundEndpoint,
 		UpstreamEndpoint:      &upstreamEndpoint,
 		ImageCount:            job.SuccessCount,
-		ImageOutputCost:       actualCost,
-		TotalCost:             actualCost,
+		ImageOutputCost:       actualCost / multiplier,
+		TotalCost:             actualCost / multiplier,
 		ActualCost:            actualCost,
+		TokenUsageMultiplier:  multiplier,
 		RateMultiplier:        job.GroupRateMultiplier * job.BatchDiscountMultiplier,
 		AccountRateMultiplier: &accountRateMultiplier,
 		BillingType:           BillingTypeBalance,

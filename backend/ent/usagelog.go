@@ -65,6 +65,24 @@ type UsageLog struct {
 	CacheCreation5mTokens int `json:"cache_creation_5m_tokens,omitempty"`
 	// CacheCreation1hTokens holds the value of the "cache_creation_1h_tokens" field.
 	CacheCreation1hTokens int `json:"cache_creation_1h_tokens,omitempty"`
+	// TokenUsageMultiplier holds the value of the "token_usage_multiplier" field.
+	TokenUsageMultiplier float64 `json:"token_usage_multiplier,omitempty"`
+	// ActualInputTokens holds the value of the "actual_input_tokens" field.
+	ActualInputTokens int `json:"actual_input_tokens,omitempty"`
+	// ActualOutputTokens holds the value of the "actual_output_tokens" field.
+	ActualOutputTokens int `json:"actual_output_tokens,omitempty"`
+	// ActualCacheCreationTokens holds the value of the "actual_cache_creation_tokens" field.
+	ActualCacheCreationTokens int `json:"actual_cache_creation_tokens,omitempty"`
+	// ActualCacheReadTokens holds the value of the "actual_cache_read_tokens" field.
+	ActualCacheReadTokens int `json:"actual_cache_read_tokens,omitempty"`
+	// ActualCacheCreation5mTokens holds the value of the "actual_cache_creation_5m_tokens" field.
+	ActualCacheCreation5mTokens int `json:"actual_cache_creation_5m_tokens,omitempty"`
+	// ActualCacheCreation1hTokens holds the value of the "actual_cache_creation_1h_tokens" field.
+	ActualCacheCreation1hTokens int `json:"actual_cache_creation_1h_tokens,omitempty"`
+	// ActualImageInputTokens holds the value of the "actual_image_input_tokens" field.
+	ActualImageInputTokens int `json:"actual_image_input_tokens,omitempty"`
+	// ActualImageOutputTokens holds the value of the "actual_image_output_tokens" field.
+	ActualImageOutputTokens int `json:"actual_image_output_tokens,omitempty"`
 	// InputCost holds the value of the "input_cost" field.
 	InputCost float64 `json:"input_cost,omitempty"`
 	// OutputCost holds the value of the "output_cost" field.
@@ -204,9 +222,9 @@ func (*UsageLog) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case usagelog.FieldUpstreamModelMismatch, usagelog.FieldLongContextBillingApplied, usagelog.FieldStream, usagelog.FieldCacheTTLOverridden:
 			values[i] = new(sql.NullBool)
-		case usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
+		case usagelog.FieldTokenUsageMultiplier, usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount, usagelog.FieldVideoCount, usagelog.FieldVideoDurationSeconds:
+		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldActualInputTokens, usagelog.FieldActualOutputTokens, usagelog.FieldActualCacheCreationTokens, usagelog.FieldActualCacheReadTokens, usagelog.FieldActualCacheCreation5mTokens, usagelog.FieldActualCacheCreation1hTokens, usagelog.FieldActualImageInputTokens, usagelog.FieldActualImageOutputTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount, usagelog.FieldVideoCount, usagelog.FieldVideoDurationSeconds:
 			values[i] = new(sql.NullInt64)
 		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldUpstreamResponseModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource, usagelog.FieldVideoResolution:
 			values[i] = new(sql.NullString)
@@ -368,6 +386,60 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field cache_creation_1h_tokens", values[i])
 			} else if value.Valid {
 				_m.CacheCreation1hTokens = int(value.Int64)
+			}
+		case usagelog.FieldTokenUsageMultiplier:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field token_usage_multiplier", values[i])
+			} else if value.Valid {
+				_m.TokenUsageMultiplier = value.Float64
+			}
+		case usagelog.FieldActualInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_input_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualInputTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualOutputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_output_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualOutputTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualCacheCreationTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_cache_creation_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualCacheCreationTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualCacheReadTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_cache_read_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualCacheReadTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualCacheCreation5mTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_cache_creation_5m_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualCacheCreation5mTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualCacheCreation1hTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_cache_creation_1h_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualCacheCreation1hTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualImageInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_image_input_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualImageInputTokens = int(value.Int64)
+			}
+		case usagelog.FieldActualImageOutputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field actual_image_output_tokens", values[i])
+			} else if value.Valid {
+				_m.ActualImageOutputTokens = int(value.Int64)
 			}
 		case usagelog.FieldInputCost:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -681,6 +753,33 @@ func (_m *UsageLog) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cache_creation_1h_tokens=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CacheCreation1hTokens))
+	builder.WriteString(", ")
+	builder.WriteString("token_usage_multiplier=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TokenUsageMultiplier))
+	builder.WriteString(", ")
+	builder.WriteString("actual_input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualInputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_output_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualOutputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_cache_creation_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualCacheCreationTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_cache_read_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualCacheReadTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_cache_creation_5m_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualCacheCreation5mTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_cache_creation_1h_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualCacheCreation1hTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_image_input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualImageInputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("actual_image_output_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ActualImageOutputTokens))
 	builder.WriteString(", ")
 	builder.WriteString("input_cost=")
 	builder.WriteString(fmt.Sprintf("%v", _m.InputCost))

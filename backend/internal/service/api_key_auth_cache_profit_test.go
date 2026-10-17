@@ -35,6 +35,7 @@ func profitAuthTestAPIKey() *APIKey {
 			Status:               StatusActive,
 			Hydrated:             true,
 			RateMultiplier:       0.06,
+			TokenUsageMultiplier: 2.5,
 			SubscriptionType:     SubscriptionTypeStandard,
 			PeakRateEnabled:      false,
 			ProfitControlEnabled: true,
@@ -70,6 +71,7 @@ func TestAPIKeyAuthSnapshotProfitControlRoundtrip(t *testing.T) {
 	require.InDelta(t, 0.2, materialized.Group.ProfitMinMargin, 1e-12)
 	require.InDelta(t, 0.05, materialized.Group.ProfitSafetyBuffer, 1e-12)
 	require.InDelta(t, 0.06, materialized.Group.RateMultiplier, 1e-12)
+	require.Equal(t, 2.5, materialized.Group.TokenUsageMultiplier)
 
 	// 中间件语义：materialized.Group 进请求 ctx → 门必须按快照配置装上。
 	ctx := context.WithValue(context.Background(), ctxkey.Group, materialized.Group)

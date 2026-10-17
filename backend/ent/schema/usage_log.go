@@ -88,6 +88,17 @@ func (UsageLog) Fields() []ent.Field {
 			Default(0),
 		field.Int("cache_creation_1h_tokens").
 			Default(0),
+		field.Float("token_usage_multiplier").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
+			Default(1.0),
+		field.Int("actual_input_tokens").Default(0),
+		field.Int("actual_output_tokens").Default(0),
+		field.Int("actual_cache_creation_tokens").Default(0),
+		field.Int("actual_cache_read_tokens").Default(0),
+		field.Int("actual_cache_creation_5m_tokens").Default(0),
+		field.Int("actual_cache_creation_1h_tokens").Default(0),
+		field.Int("actual_image_input_tokens").Default(0),
+		field.Int("actual_image_output_tokens").Default(0),
 
 		// 成本字段
 		field.Float("input_cost").

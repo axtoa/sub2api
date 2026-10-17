@@ -35,7 +35,10 @@ WITH usage_base AS (
     ul.group_id AS group_id,
     ul.duration_ms AS duration_ms,
     ul.first_token_ms AS first_token_ms,
-    (ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens) AS tokens
+    (COALESCE(NULLIF(ul.actual_input_tokens, 0), ul.input_tokens) +
+     COALESCE(NULLIF(ul.actual_output_tokens, 0), ul.output_tokens) +
+     COALESCE(NULLIF(ul.actual_cache_creation_tokens, 0), ul.cache_creation_tokens) +
+     COALESCE(NULLIF(ul.actual_cache_read_tokens, 0), ul.cache_read_tokens)) AS tokens
   FROM usage_logs ul
   JOIN groups g ON g.id = ul.group_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2

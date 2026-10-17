@@ -384,6 +384,13 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
 	}
+	tokenUsageMultiplier := MinTokenUsageMultiplier
+	if input.TokenUsageMultiplier != nil {
+		tokenUsageMultiplier = *input.TokenUsageMultiplier
+	}
+	if err := ValidateTokenUsageMultiplier(tokenUsageMultiplier); err != nil {
+		return nil, err
+	}
 
 	platform := NormalizeGroupPlatform(input.Platform)
 	// 固定账号 manifest 配置：账号绑定发生在创建之后，创建时无法校验成员关系，
@@ -557,6 +564,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		Description:                     input.Description,
 		Platform:                        platform,
 		RateMultiplier:                  input.RateMultiplier,
+		TokenUsageMultiplier:            tokenUsageMultiplier,
 		IsExclusive:                     input.IsExclusive,
 		Status:                          StatusActive,
 		SubscriptionType:                subscriptionType,
@@ -774,6 +782,12 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 			return nil, errors.New("rate_multiplier must be > 0")
 		}
 		group.RateMultiplier = *input.RateMultiplier
+	}
+	if input.TokenUsageMultiplier != nil {
+		if err := ValidateTokenUsageMultiplier(*input.TokenUsageMultiplier); err != nil {
+			return nil, err
+		}
+		group.TokenUsageMultiplier = *input.TokenUsageMultiplier
 	}
 	if input.IsExclusive != nil {
 		group.IsExclusive = *input.IsExclusive

@@ -91,13 +91,14 @@ type APIKey struct {
 }
 
 type Group struct {
-	ID             int64   `json:"id"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	Platform       string  `json:"platform"`
-	RateMultiplier float64 `json:"rate_multiplier"`
-	IsExclusive    bool    `json:"is_exclusive"`
-	Status         string  `json:"status"`
+	ID                   int64   `json:"id"`
+	Name                 string  `json:"name"`
+	Description          string  `json:"description"`
+	Platform             string  `json:"platform"`
+	RateMultiplier       float64 `json:"rate_multiplier"`
+	TokenUsageMultiplier float64 `json:"token_usage_multiplier"`
+	IsExclusive          bool    `json:"is_exclusive"`
+	Status               string  `json:"status"`
 
 	SubscriptionType          string   `json:"subscription_type"`
 	DailyLimitUSD             *float64 `json:"daily_limit_usd"`
@@ -610,8 +611,9 @@ type UsageLog struct {
 	CacheCreationTokens int `json:"cache_creation_tokens"`
 	CacheReadTokens     int `json:"cache_read_tokens"`
 
-	CacheCreation5mTokens int `json:"cache_creation_5m_tokens"`
-	CacheCreation1hTokens int `json:"cache_creation_1h_tokens"`
+	CacheCreation5mTokens int     `json:"cache_creation_5m_tokens"`
+	CacheCreation1hTokens int     `json:"cache_creation_1h_tokens"`
+	TokenUsageMultiplier  float64 `json:"token_usage_multiplier"`
 
 	InputCost                 float64 `json:"input_cost"`
 	OutputCost                float64 `json:"output_cost"`
@@ -670,6 +672,14 @@ type UsageLog struct {
 // AdminUsageLog 是管理员接口使用的 usage log DTO（包含管理员字段）。
 type AdminUsageLog struct {
 	UsageLog
+	ActualInputTokens           int `json:"actual_input_tokens"`
+	ActualOutputTokens          int `json:"actual_output_tokens"`
+	ActualCacheCreationTokens   int `json:"actual_cache_creation_tokens"`
+	ActualCacheReadTokens       int `json:"actual_cache_read_tokens"`
+	ActualCacheCreation5mTokens int `json:"actual_cache_creation_5m_tokens"`
+	ActualCacheCreation1hTokens int `json:"actual_cache_creation_1h_tokens"`
+	ActualImageInputTokens      int `json:"actual_image_input_tokens"`
+	ActualImageOutputTokens     int `json:"actual_image_output_tokens"`
 
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Omitted when no mapping was applied (requested model was used as-is).

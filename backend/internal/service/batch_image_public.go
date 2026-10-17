@@ -100,6 +100,7 @@ type BatchImagePublicService struct {
 }
 
 type BatchImagePricingSnapshot struct {
+	TokenUsageMultiplier    float64
 	BaseUnitPrice           float64
 	GroupRateMultiplier     float64
 	AccountRateMultiplier   float64
@@ -289,7 +290,8 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		HoldMultiplier:          pricingSnapshot.HoldMultiplier,
 		BillableUnitPrice:       pricingSnapshot.BillableUnitPrice,
 		HoldUnitPrice:           pricingSnapshot.HoldUnitPrice,
-		PricingSnapshotVersion:  1,
+		PricingSnapshotVersion:  2,
+		TokenUsageMultiplier:    pricingSnapshot.TokenUsageMultiplier,
 		Currency:                "USD",
 		HoldID:                  &holdID,
 		IdempotencyKey:          batchImageOptionalStringPtr(idempotencyKey),
@@ -1034,6 +1036,7 @@ func (s *BatchImagePublicService) groupHasBatchImageUnitPrice(ctx context.Contex
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
 	unit := -1.0
 	groupMultiplier := 1.0
+	tokenUsageMultiplier := MinTokenUsageMultiplier
 	discountMultiplier := defaultBatchImageDiscountMultiplier
 	holdMultiplier := defaultBatchImageHoldMultiplier
 	if owner.GroupID != nil && *owner.GroupID > 0 {
@@ -1048,6 +1051,9 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 			return nil, ErrBatchImageGroupDisabled
 		}
 		groupDefaultMultiplier := group.RateMultiplier
+		if s.Config == nil || s.Config.RunMode != config.RunModeSimple {
+			tokenUsageMultiplier = group.EffectiveTokenUsageMultiplier()
+		}
 		if groupDefaultMultiplier < 0 {
 			groupDefaultMultiplier = 0
 		}
@@ -1107,9 +1113,10 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 		accountMultiplier = 0
 	}
 	standardUnitPrice := unit * groupMultiplier * accountMultiplier
-	billableUnitPrice := standardUnitPrice * discountMultiplier
-	holdUnitPrice := standardUnitPrice * holdMultiplier
+	billableUnitPrice := standardUnitPrice * discountMultiplier * tokenUsageMultiplier
+	holdUnitPrice := standardUnitPrice * holdMultiplier * tokenUsageMultiplier
 	return &BatchImagePricingSnapshot{
+		TokenUsageMultiplier:    tokenUsageMultiplier,
 		BaseUnitPrice:           unit,
 		GroupRateMultiplier:     groupMultiplier,
 		AccountRateMultiplier:   accountMultiplier,

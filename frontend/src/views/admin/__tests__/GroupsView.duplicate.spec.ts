@@ -325,6 +325,23 @@ describe('GroupsView duplicate action', () => {
     wrapper.unmount()
   })
 
+  it('loads and saves the token usage multiplier independently of the price rate', async () => {
+    listGroups.mockResolvedValueOnce({ items: [{ ...sourceGroup, token_usage_multiplier: 2.5 }], total: 1, page: 1, page_size: 20, pages: 1 })
+    updateGroup.mockResolvedValue(sourceGroup)
+    const wrapper = mountView()
+    await flushPromises()
+    const editButton = wrapper.findAll('button').find((button) => button.text() === 'common.edit')!
+    await editButton.trigger('click')
+    await flushPromises()
+    const multiplier = wrapper.get('#edit-group-form input[type="number"][min="1"][max="100"]')
+    expect((multiplier.element as HTMLInputElement).value).toBe('2.5')
+    await multiplier.setValue('3.5')
+    await wrapper.get('#edit-group-form').trigger('submit')
+    await flushPromises()
+    expect(updateGroup).toHaveBeenCalledWith(sourceGroup.id, expect.objectContaining({ token_usage_multiplier: 3.5, rate_multiplier: 1 }))
+    wrapper.unmount()
+  })
+
   it('updates manifest controls immediately and submits the displayed selection', async () => {
     vi.useFakeTimers()
     vi.mocked(adminAPI.accounts.list).mockResolvedValue({

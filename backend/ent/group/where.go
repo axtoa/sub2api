@@ -85,6 +85,11 @@ func RateMultiplier(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// TokenUsageMultiplier applies equality check predicate on the "token_usage_multiplier" field. It's identical to TokenUsageMultiplierEQ.
+func TokenUsageMultiplier(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldTokenUsageMultiplier, v))
+}
+
 // PeakRateEnabled applies equality check predicate on the "peak_rate_enabled" field. It's identical to PeakRateEnabledEQ.
 func PeakRateEnabled(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldPeakRateEnabled, v))
@@ -653,6 +658,46 @@ func RateMultiplierLT(v float64) predicate.Group {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.Group {
 	return predicate.Group(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// TokenUsageMultiplierEQ applies the EQ predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierNEQ applies the NEQ predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierNEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierIn applies the In predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldTokenUsageMultiplier, vs...))
+}
+
+// TokenUsageMultiplierNotIn applies the NotIn predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierNotIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldTokenUsageMultiplier, vs...))
+}
+
+// TokenUsageMultiplierGT applies the GT predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierGT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierGTE applies the GTE predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierGTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierLT applies the LT predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierLT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierLTE applies the LTE predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierLTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldTokenUsageMultiplier, v))
 }
 
 // PeakRateEnabledEQ applies the EQ predicate on the "peak_rate_enabled" field.

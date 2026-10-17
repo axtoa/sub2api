@@ -324,6 +324,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			cost.ActualCost = standardCost.ActualCost
 		}
 	}
+	tokenUsageMultiplier := MinTokenUsageMultiplier
+	if s.cfg == nil || s.cfg.RunMode != config.RunModeSimple {
+		tokenUsageMultiplier = applyTokenUsageBillingMultiplier(cost, apiKey)
+	}
 
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -426,6 +430,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.RateMultiplier = multiplier
 	}
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
+	usageLog.ApplyTokenUsageMultiplier(tokenUsageMultiplier)
 	usageLog.BillingType = billingType
 	usageLog.Stream = result.Stream
 	if input.CyberBlocked {

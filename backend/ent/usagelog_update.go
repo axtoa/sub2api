@@ -435,6 +435,195 @@ func (_u *UsageLogUpdate) AddCacheCreation1hTokens(v int) *UsageLogUpdate {
 	return _u
 }
 
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (_u *UsageLogUpdate) SetTokenUsageMultiplier(v float64) *UsageLogUpdate {
+	_u.mutation.ResetTokenUsageMultiplier()
+	_u.mutation.SetTokenUsageMultiplier(v)
+	return _u
+}
+
+// SetNillableTokenUsageMultiplier sets the "token_usage_multiplier" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableTokenUsageMultiplier(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetTokenUsageMultiplier(*v)
+	}
+	return _u
+}
+
+// AddTokenUsageMultiplier adds value to the "token_usage_multiplier" field.
+func (_u *UsageLogUpdate) AddTokenUsageMultiplier(v float64) *UsageLogUpdate {
+	_u.mutation.AddTokenUsageMultiplier(v)
+	return _u
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (_u *UsageLogUpdate) SetActualInputTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualInputTokens()
+	_u.mutation.SetActualInputTokens(v)
+	return _u
+}
+
+// SetNillableActualInputTokens sets the "actual_input_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualInputTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualInputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualInputTokens adds value to the "actual_input_tokens" field.
+func (_u *UsageLogUpdate) AddActualInputTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualInputTokens(v)
+	return _u
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (_u *UsageLogUpdate) SetActualOutputTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualOutputTokens()
+	_u.mutation.SetActualOutputTokens(v)
+	return _u
+}
+
+// SetNillableActualOutputTokens sets the "actual_output_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualOutputTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualOutputTokens adds value to the "actual_output_tokens" field.
+func (_u *UsageLogUpdate) AddActualOutputTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualOutputTokens(v)
+	return _u
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (_u *UsageLogUpdate) SetActualCacheCreationTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualCacheCreationTokens()
+	_u.mutation.SetActualCacheCreationTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheCreationTokens sets the "actual_cache_creation_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualCacheCreationTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualCacheCreationTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheCreationTokens adds value to the "actual_cache_creation_tokens" field.
+func (_u *UsageLogUpdate) AddActualCacheCreationTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualCacheCreationTokens(v)
+	return _u
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (_u *UsageLogUpdate) SetActualCacheReadTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualCacheReadTokens()
+	_u.mutation.SetActualCacheReadTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheReadTokens sets the "actual_cache_read_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualCacheReadTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualCacheReadTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheReadTokens adds value to the "actual_cache_read_tokens" field.
+func (_u *UsageLogUpdate) AddActualCacheReadTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualCacheReadTokens(v)
+	return _u
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (_u *UsageLogUpdate) SetActualCacheCreation5mTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualCacheCreation5mTokens()
+	_u.mutation.SetActualCacheCreation5mTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualCacheCreation5mTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualCacheCreation5mTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheCreation5mTokens adds value to the "actual_cache_creation_5m_tokens" field.
+func (_u *UsageLogUpdate) AddActualCacheCreation5mTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualCacheCreation5mTokens(v)
+	return _u
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (_u *UsageLogUpdate) SetActualCacheCreation1hTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualCacheCreation1hTokens()
+	_u.mutation.SetActualCacheCreation1hTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualCacheCreation1hTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualCacheCreation1hTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheCreation1hTokens adds value to the "actual_cache_creation_1h_tokens" field.
+func (_u *UsageLogUpdate) AddActualCacheCreation1hTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualCacheCreation1hTokens(v)
+	return _u
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (_u *UsageLogUpdate) SetActualImageInputTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualImageInputTokens()
+	_u.mutation.SetActualImageInputTokens(v)
+	return _u
+}
+
+// SetNillableActualImageInputTokens sets the "actual_image_input_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualImageInputTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualImageInputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualImageInputTokens adds value to the "actual_image_input_tokens" field.
+func (_u *UsageLogUpdate) AddActualImageInputTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualImageInputTokens(v)
+	return _u
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (_u *UsageLogUpdate) SetActualImageOutputTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetActualImageOutputTokens()
+	_u.mutation.SetActualImageOutputTokens(v)
+	return _u
+}
+
+// SetNillableActualImageOutputTokens sets the "actual_image_output_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableActualImageOutputTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetActualImageOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualImageOutputTokens adds value to the "actual_image_output_tokens" field.
+func (_u *UsageLogUpdate) AddActualImageOutputTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddActualImageOutputTokens(v)
+	return _u
+}
+
 // SetInputCost sets the "input_cost" field.
 func (_u *UsageLogUpdate) SetInputCost(v float64) *UsageLogUpdate {
 	_u.mutation.ResetInputCost()
@@ -1228,6 +1417,60 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedCacheCreation1hTokens(); ok {
 		_spec.AddField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.TokenUsageMultiplier(); ok {
+		_spec.SetField(usagelog.FieldTokenUsageMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTokenUsageMultiplier(); ok {
+		_spec.AddField(usagelog.FieldTokenUsageMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ActualInputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualInputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualOutputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheCreationTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheCreationTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheCreationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheReadTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheReadTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheReadTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheReadTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheCreation5mTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreation5mTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheCreation5mTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheCreation5mTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheCreation1hTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreation1hTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheCreation1hTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheCreation1hTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualImageInputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualImageInputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualImageOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualImageOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualImageOutputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualImageOutputTokens, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)
 	}
@@ -1946,6 +2189,195 @@ func (_u *UsageLogUpdateOne) SetNillableCacheCreation1hTokens(v *int) *UsageLogU
 // AddCacheCreation1hTokens adds value to the "cache_creation_1h_tokens" field.
 func (_u *UsageLogUpdateOne) AddCacheCreation1hTokens(v int) *UsageLogUpdateOne {
 	_u.mutation.AddCacheCreation1hTokens(v)
+	return _u
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (_u *UsageLogUpdateOne) SetTokenUsageMultiplier(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetTokenUsageMultiplier()
+	_u.mutation.SetTokenUsageMultiplier(v)
+	return _u
+}
+
+// SetNillableTokenUsageMultiplier sets the "token_usage_multiplier" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableTokenUsageMultiplier(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetTokenUsageMultiplier(*v)
+	}
+	return _u
+}
+
+// AddTokenUsageMultiplier adds value to the "token_usage_multiplier" field.
+func (_u *UsageLogUpdateOne) AddTokenUsageMultiplier(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddTokenUsageMultiplier(v)
+	return _u
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualInputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualInputTokens()
+	_u.mutation.SetActualInputTokens(v)
+	return _u
+}
+
+// SetNillableActualInputTokens sets the "actual_input_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualInputTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualInputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualInputTokens adds value to the "actual_input_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualInputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualInputTokens(v)
+	return _u
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualOutputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualOutputTokens()
+	_u.mutation.SetActualOutputTokens(v)
+	return _u
+}
+
+// SetNillableActualOutputTokens sets the "actual_output_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualOutputTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualOutputTokens adds value to the "actual_output_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualOutputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualOutputTokens(v)
+	return _u
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualCacheCreationTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualCacheCreationTokens()
+	_u.mutation.SetActualCacheCreationTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheCreationTokens sets the "actual_cache_creation_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualCacheCreationTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualCacheCreationTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheCreationTokens adds value to the "actual_cache_creation_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualCacheCreationTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualCacheCreationTokens(v)
+	return _u
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualCacheReadTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualCacheReadTokens()
+	_u.mutation.SetActualCacheReadTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheReadTokens sets the "actual_cache_read_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualCacheReadTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualCacheReadTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheReadTokens adds value to the "actual_cache_read_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualCacheReadTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualCacheReadTokens(v)
+	return _u
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualCacheCreation5mTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualCacheCreation5mTokens()
+	_u.mutation.SetActualCacheCreation5mTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualCacheCreation5mTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualCacheCreation5mTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheCreation5mTokens adds value to the "actual_cache_creation_5m_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualCacheCreation5mTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualCacheCreation5mTokens(v)
+	return _u
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualCacheCreation1hTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualCacheCreation1hTokens()
+	_u.mutation.SetActualCacheCreation1hTokens(v)
+	return _u
+}
+
+// SetNillableActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualCacheCreation1hTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualCacheCreation1hTokens(*v)
+	}
+	return _u
+}
+
+// AddActualCacheCreation1hTokens adds value to the "actual_cache_creation_1h_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualCacheCreation1hTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualCacheCreation1hTokens(v)
+	return _u
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualImageInputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualImageInputTokens()
+	_u.mutation.SetActualImageInputTokens(v)
+	return _u
+}
+
+// SetNillableActualImageInputTokens sets the "actual_image_input_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualImageInputTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualImageInputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualImageInputTokens adds value to the "actual_image_input_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualImageInputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualImageInputTokens(v)
+	return _u
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (_u *UsageLogUpdateOne) SetActualImageOutputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetActualImageOutputTokens()
+	_u.mutation.SetActualImageOutputTokens(v)
+	return _u
+}
+
+// SetNillableActualImageOutputTokens sets the "actual_image_output_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableActualImageOutputTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetActualImageOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddActualImageOutputTokens adds value to the "actual_image_output_tokens" field.
+func (_u *UsageLogUpdateOne) AddActualImageOutputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddActualImageOutputTokens(v)
 	return _u
 }
 
@@ -2771,6 +3203,60 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.AddedCacheCreation1hTokens(); ok {
 		_spec.AddField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TokenUsageMultiplier(); ok {
+		_spec.SetField(usagelog.FieldTokenUsageMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedTokenUsageMultiplier(); ok {
+		_spec.AddField(usagelog.FieldTokenUsageMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ActualInputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualInputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualOutputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheCreationTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheCreationTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheCreationTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheReadTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheReadTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheReadTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheReadTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheCreation5mTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreation5mTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheCreation5mTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheCreation5mTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualCacheCreation1hTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreation1hTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualCacheCreation1hTokens(); ok {
+		_spec.AddField(usagelog.FieldActualCacheCreation1hTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualImageInputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualImageInputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ActualImageOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualImageOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedActualImageOutputTokens(); ok {
+		_spec.AddField(usagelog.FieldActualImageOutputTokens, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)

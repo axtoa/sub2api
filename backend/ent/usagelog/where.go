@@ -160,6 +160,51 @@ func CacheCreation1hTokens(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldCacheCreation1hTokens, v))
 }
 
+// TokenUsageMultiplier applies equality check predicate on the "token_usage_multiplier" field. It's identical to TokenUsageMultiplierEQ.
+func TokenUsageMultiplier(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTokenUsageMultiplier, v))
+}
+
+// ActualInputTokens applies equality check predicate on the "actual_input_tokens" field. It's identical to ActualInputTokensEQ.
+func ActualInputTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualInputTokens, v))
+}
+
+// ActualOutputTokens applies equality check predicate on the "actual_output_tokens" field. It's identical to ActualOutputTokensEQ.
+func ActualOutputTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualOutputTokens, v))
+}
+
+// ActualCacheCreationTokens applies equality check predicate on the "actual_cache_creation_tokens" field. It's identical to ActualCacheCreationTokensEQ.
+func ActualCacheCreationTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheReadTokens applies equality check predicate on the "actual_cache_read_tokens" field. It's identical to ActualCacheReadTokensEQ.
+func ActualCacheReadTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheCreation5mTokens applies equality check predicate on the "actual_cache_creation_5m_tokens" field. It's identical to ActualCacheCreation5mTokensEQ.
+func ActualCacheCreation5mTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation1hTokens applies equality check predicate on the "actual_cache_creation_1h_tokens" field. It's identical to ActualCacheCreation1hTokensEQ.
+func ActualCacheCreation1hTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualImageInputTokens applies equality check predicate on the "actual_image_input_tokens" field. It's identical to ActualImageInputTokensEQ.
+func ActualImageInputTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualImageInputTokens, v))
+}
+
+// ActualImageOutputTokens applies equality check predicate on the "actual_image_output_tokens" field. It's identical to ActualImageOutputTokensEQ.
+func ActualImageOutputTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualImageOutputTokens, v))
+}
+
 // InputCost applies equality check predicate on the "input_cost" field. It's identical to InputCostEQ.
 func InputCost(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldInputCost, v))
@@ -1293,6 +1338,366 @@ func CacheCreation1hTokensLT(v int) predicate.UsageLog {
 // CacheCreation1hTokensLTE applies the LTE predicate on the "cache_creation_1h_tokens" field.
 func CacheCreation1hTokensLTE(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldCacheCreation1hTokens, v))
+}
+
+// TokenUsageMultiplierEQ applies the EQ predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierNEQ applies the NEQ predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierIn applies the In predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldTokenUsageMultiplier, vs...))
+}
+
+// TokenUsageMultiplierNotIn applies the NotIn predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldTokenUsageMultiplier, vs...))
+}
+
+// TokenUsageMultiplierGT applies the GT predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierGTE applies the GTE predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierLT applies the LT predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldTokenUsageMultiplier, v))
+}
+
+// TokenUsageMultiplierLTE applies the LTE predicate on the "token_usage_multiplier" field.
+func TokenUsageMultiplierLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldTokenUsageMultiplier, v))
+}
+
+// ActualInputTokensEQ applies the EQ predicate on the "actual_input_tokens" field.
+func ActualInputTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualInputTokens, v))
+}
+
+// ActualInputTokensNEQ applies the NEQ predicate on the "actual_input_tokens" field.
+func ActualInputTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualInputTokens, v))
+}
+
+// ActualInputTokensIn applies the In predicate on the "actual_input_tokens" field.
+func ActualInputTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualInputTokens, vs...))
+}
+
+// ActualInputTokensNotIn applies the NotIn predicate on the "actual_input_tokens" field.
+func ActualInputTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualInputTokens, vs...))
+}
+
+// ActualInputTokensGT applies the GT predicate on the "actual_input_tokens" field.
+func ActualInputTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualInputTokens, v))
+}
+
+// ActualInputTokensGTE applies the GTE predicate on the "actual_input_tokens" field.
+func ActualInputTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualInputTokens, v))
+}
+
+// ActualInputTokensLT applies the LT predicate on the "actual_input_tokens" field.
+func ActualInputTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualInputTokens, v))
+}
+
+// ActualInputTokensLTE applies the LTE predicate on the "actual_input_tokens" field.
+func ActualInputTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualInputTokens, v))
+}
+
+// ActualOutputTokensEQ applies the EQ predicate on the "actual_output_tokens" field.
+func ActualOutputTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualOutputTokens, v))
+}
+
+// ActualOutputTokensNEQ applies the NEQ predicate on the "actual_output_tokens" field.
+func ActualOutputTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualOutputTokens, v))
+}
+
+// ActualOutputTokensIn applies the In predicate on the "actual_output_tokens" field.
+func ActualOutputTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualOutputTokens, vs...))
+}
+
+// ActualOutputTokensNotIn applies the NotIn predicate on the "actual_output_tokens" field.
+func ActualOutputTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualOutputTokens, vs...))
+}
+
+// ActualOutputTokensGT applies the GT predicate on the "actual_output_tokens" field.
+func ActualOutputTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualOutputTokens, v))
+}
+
+// ActualOutputTokensGTE applies the GTE predicate on the "actual_output_tokens" field.
+func ActualOutputTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualOutputTokens, v))
+}
+
+// ActualOutputTokensLT applies the LT predicate on the "actual_output_tokens" field.
+func ActualOutputTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualOutputTokens, v))
+}
+
+// ActualOutputTokensLTE applies the LTE predicate on the "actual_output_tokens" field.
+func ActualOutputTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualOutputTokens, v))
+}
+
+// ActualCacheCreationTokensEQ applies the EQ predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheCreationTokensNEQ applies the NEQ predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheCreationTokensIn applies the In predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualCacheCreationTokens, vs...))
+}
+
+// ActualCacheCreationTokensNotIn applies the NotIn predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualCacheCreationTokens, vs...))
+}
+
+// ActualCacheCreationTokensGT applies the GT predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheCreationTokensGTE applies the GTE predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheCreationTokensLT applies the LT predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheCreationTokensLTE applies the LTE predicate on the "actual_cache_creation_tokens" field.
+func ActualCacheCreationTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualCacheCreationTokens, v))
+}
+
+// ActualCacheReadTokensEQ applies the EQ predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheReadTokensNEQ applies the NEQ predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheReadTokensIn applies the In predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualCacheReadTokens, vs...))
+}
+
+// ActualCacheReadTokensNotIn applies the NotIn predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualCacheReadTokens, vs...))
+}
+
+// ActualCacheReadTokensGT applies the GT predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheReadTokensGTE applies the GTE predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheReadTokensLT applies the LT predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheReadTokensLTE applies the LTE predicate on the "actual_cache_read_tokens" field.
+func ActualCacheReadTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualCacheReadTokens, v))
+}
+
+// ActualCacheCreation5mTokensEQ applies the EQ predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation5mTokensNEQ applies the NEQ predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation5mTokensIn applies the In predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualCacheCreation5mTokens, vs...))
+}
+
+// ActualCacheCreation5mTokensNotIn applies the NotIn predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualCacheCreation5mTokens, vs...))
+}
+
+// ActualCacheCreation5mTokensGT applies the GT predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation5mTokensGTE applies the GTE predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation5mTokensLT applies the LT predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation5mTokensLTE applies the LTE predicate on the "actual_cache_creation_5m_tokens" field.
+func ActualCacheCreation5mTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualCacheCreation5mTokens, v))
+}
+
+// ActualCacheCreation1hTokensEQ applies the EQ predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualCacheCreation1hTokensNEQ applies the NEQ predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualCacheCreation1hTokensIn applies the In predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualCacheCreation1hTokens, vs...))
+}
+
+// ActualCacheCreation1hTokensNotIn applies the NotIn predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualCacheCreation1hTokens, vs...))
+}
+
+// ActualCacheCreation1hTokensGT applies the GT predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualCacheCreation1hTokensGTE applies the GTE predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualCacheCreation1hTokensLT applies the LT predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualCacheCreation1hTokensLTE applies the LTE predicate on the "actual_cache_creation_1h_tokens" field.
+func ActualCacheCreation1hTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualCacheCreation1hTokens, v))
+}
+
+// ActualImageInputTokensEQ applies the EQ predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualImageInputTokens, v))
+}
+
+// ActualImageInputTokensNEQ applies the NEQ predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualImageInputTokens, v))
+}
+
+// ActualImageInputTokensIn applies the In predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualImageInputTokens, vs...))
+}
+
+// ActualImageInputTokensNotIn applies the NotIn predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualImageInputTokens, vs...))
+}
+
+// ActualImageInputTokensGT applies the GT predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualImageInputTokens, v))
+}
+
+// ActualImageInputTokensGTE applies the GTE predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualImageInputTokens, v))
+}
+
+// ActualImageInputTokensLT applies the LT predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualImageInputTokens, v))
+}
+
+// ActualImageInputTokensLTE applies the LTE predicate on the "actual_image_input_tokens" field.
+func ActualImageInputTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualImageInputTokens, v))
+}
+
+// ActualImageOutputTokensEQ applies the EQ predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldActualImageOutputTokens, v))
+}
+
+// ActualImageOutputTokensNEQ applies the NEQ predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldActualImageOutputTokens, v))
+}
+
+// ActualImageOutputTokensIn applies the In predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldActualImageOutputTokens, vs...))
+}
+
+// ActualImageOutputTokensNotIn applies the NotIn predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldActualImageOutputTokens, vs...))
+}
+
+// ActualImageOutputTokensGT applies the GT predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldActualImageOutputTokens, v))
+}
+
+// ActualImageOutputTokensGTE applies the GTE predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldActualImageOutputTokens, v))
+}
+
+// ActualImageOutputTokensLT applies the LT predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldActualImageOutputTokens, v))
+}
+
+// ActualImageOutputTokensLTE applies the LTE predicate on the "actual_image_output_tokens" field.
+func ActualImageOutputTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldActualImageOutputTokens, v))
 }
 
 // InputCostEQ applies the EQ predicate on the "input_cost" field.

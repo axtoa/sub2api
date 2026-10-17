@@ -623,6 +623,19 @@
           <p class="input-hint">{{ t("admin.groups.rateMultiplierHint") }}</p>
         </div>
         <div>
+          <label class="input-label">{{ t("admin.groups.form.tokenUsageMultiplier") }}</label>
+          <input
+            v-model.number="createForm.token_usage_multiplier"
+            type="number"
+            step="0.1"
+            min="1"
+            max="100"
+            required
+            class="input"
+          />
+          <p class="input-hint">{{ t("admin.groups.form.tokenUsageMultiplierHint") }}</p>
+        </div>
+        <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
           <input
             v-model.number="createForm.rpm_limit"
@@ -2259,6 +2272,19 @@
             class="input"
             data-tour="group-form-multiplier"
           />
+        </div>
+        <div>
+          <label class="input-label">{{ t("admin.groups.form.tokenUsageMultiplier") }}</label>
+          <input
+            v-model.number="editForm.token_usage_multiplier"
+            type="number"
+            step="0.1"
+            min="1"
+            max="100"
+            required
+            class="input"
+          />
+          <p class="input-hint">{{ t("admin.groups.form.tokenUsageMultiplierHint") }}</p>
         </div>
         <div>
           <label class="input-label">{{ t("admin.groups.form.rpmLimit") }}</label>
@@ -4925,6 +4951,7 @@ const createForm = reactive({
   description: "",
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  token_usage_multiplier: 1.0,
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
   daily_limit_usd: null as number | null,
@@ -5289,6 +5316,7 @@ const editForm = reactive({
   description: "",
   platform: "anthropic" as GroupPlatform,
   rate_multiplier: 1.0,
+  token_usage_multiplier: 1.0,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
   subscription_type: "standard" as SubscriptionType,
@@ -5755,6 +5783,7 @@ const closeCreateModal = () => {
   createForm.description = "";
   createForm.platform = "anthropic";
   createForm.rate_multiplier = 1.0;
+  createForm.token_usage_multiplier = 1.0;
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
   createForm.daily_limit_usd = null;
@@ -6024,6 +6053,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.description = group.description || "";
   editForm.platform = group.platform;
   editForm.rate_multiplier = group.rate_multiplier;
+  editForm.token_usage_multiplier = group.token_usage_multiplier ?? 1;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;
   editForm.subscription_type = group.subscription_type || "standard";

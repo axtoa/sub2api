@@ -134,6 +134,7 @@ type BatchImageJob struct {
 	BillableUnitPrice       float64
 	HoldUnitPrice           float64
 	PricingSnapshotVersion  int
+	TokenUsageMultiplier    float64
 	Currency                string
 	HoldID                  *string
 
@@ -194,6 +195,7 @@ type CreateBatchImageJobParams struct {
 	BillableUnitPrice       float64
 	HoldUnitPrice           float64
 	PricingSnapshotVersion  int
+	TokenUsageMultiplier    float64
 	Currency                string
 	HoldID                  *string
 

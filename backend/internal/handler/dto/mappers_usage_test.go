@@ -28,6 +28,30 @@ func TestUsageLogFromService_IncludesOpenAIWSMode(t *testing.T) {
 	require.False(t, UsageLogFromServiceAdmin(httpLog).OpenAIWSMode)
 }
 
+func TestUsageLogFromService_ActualTokensAreAdminOnly(t *testing.T) {
+	t.Parallel()
+
+	log := &service.UsageLog{
+		RequestID:               "req_token_multiplier",
+		Model:                   "gpt-5",
+		InputTokens:             20,
+		ActualInputTokens:       10,
+		ActualImageOutputTokens: 3,
+		TokenUsageMultiplier:    2,
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+	require.Equal(t, 20, userDTO.InputTokens)
+	require.Equal(t, 2.0, userDTO.TokenUsageMultiplier)
+	require.Equal(t, 10, adminDTO.ActualInputTokens)
+	require.Equal(t, 3, adminDTO.ActualImageOutputTokens)
+
+	payload, err := json.Marshal(userDTO)
+	require.NoError(t, err)
+	require.NotContains(t, string(payload), "actual_input_tokens")
+}
+
 func TestUsageLogFromService_PreservesNativeCompactionAndStream(t *testing.T) {
 	t.Parallel()
 

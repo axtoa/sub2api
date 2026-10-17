@@ -281,6 +281,132 @@ func (_c *UsageLogCreate) SetNillableCacheCreation1hTokens(v *int) *UsageLogCrea
 	return _c
 }
 
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (_c *UsageLogCreate) SetTokenUsageMultiplier(v float64) *UsageLogCreate {
+	_c.mutation.SetTokenUsageMultiplier(v)
+	return _c
+}
+
+// SetNillableTokenUsageMultiplier sets the "token_usage_multiplier" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableTokenUsageMultiplier(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetTokenUsageMultiplier(*v)
+	}
+	return _c
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (_c *UsageLogCreate) SetActualInputTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualInputTokens(v)
+	return _c
+}
+
+// SetNillableActualInputTokens sets the "actual_input_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualInputTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualInputTokens(*v)
+	}
+	return _c
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (_c *UsageLogCreate) SetActualOutputTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualOutputTokens(v)
+	return _c
+}
+
+// SetNillableActualOutputTokens sets the "actual_output_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualOutputTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualOutputTokens(*v)
+	}
+	return _c
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (_c *UsageLogCreate) SetActualCacheCreationTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualCacheCreationTokens(v)
+	return _c
+}
+
+// SetNillableActualCacheCreationTokens sets the "actual_cache_creation_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualCacheCreationTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualCacheCreationTokens(*v)
+	}
+	return _c
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (_c *UsageLogCreate) SetActualCacheReadTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualCacheReadTokens(v)
+	return _c
+}
+
+// SetNillableActualCacheReadTokens sets the "actual_cache_read_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualCacheReadTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualCacheReadTokens(*v)
+	}
+	return _c
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (_c *UsageLogCreate) SetActualCacheCreation5mTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualCacheCreation5mTokens(v)
+	return _c
+}
+
+// SetNillableActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualCacheCreation5mTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualCacheCreation5mTokens(*v)
+	}
+	return _c
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (_c *UsageLogCreate) SetActualCacheCreation1hTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualCacheCreation1hTokens(v)
+	return _c
+}
+
+// SetNillableActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualCacheCreation1hTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualCacheCreation1hTokens(*v)
+	}
+	return _c
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (_c *UsageLogCreate) SetActualImageInputTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualImageInputTokens(v)
+	return _c
+}
+
+// SetNillableActualImageInputTokens sets the "actual_image_input_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualImageInputTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualImageInputTokens(*v)
+	}
+	return _c
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (_c *UsageLogCreate) SetActualImageOutputTokens(v int) *UsageLogCreate {
+	_c.mutation.SetActualImageOutputTokens(v)
+	return _c
+}
+
+// SetNillableActualImageOutputTokens sets the "actual_image_output_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableActualImageOutputTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetActualImageOutputTokens(*v)
+	}
+	return _c
+}
+
 // SetInputCost sets the "input_cost" field.
 func (_c *UsageLogCreate) SetInputCost(v float64) *UsageLogCreate {
 	_c.mutation.SetInputCost(v)
@@ -721,6 +847,42 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultCacheCreation1hTokens
 		_c.mutation.SetCacheCreation1hTokens(v)
 	}
+	if _, ok := _c.mutation.TokenUsageMultiplier(); !ok {
+		v := usagelog.DefaultTokenUsageMultiplier
+		_c.mutation.SetTokenUsageMultiplier(v)
+	}
+	if _, ok := _c.mutation.ActualInputTokens(); !ok {
+		v := usagelog.DefaultActualInputTokens
+		_c.mutation.SetActualInputTokens(v)
+	}
+	if _, ok := _c.mutation.ActualOutputTokens(); !ok {
+		v := usagelog.DefaultActualOutputTokens
+		_c.mutation.SetActualOutputTokens(v)
+	}
+	if _, ok := _c.mutation.ActualCacheCreationTokens(); !ok {
+		v := usagelog.DefaultActualCacheCreationTokens
+		_c.mutation.SetActualCacheCreationTokens(v)
+	}
+	if _, ok := _c.mutation.ActualCacheReadTokens(); !ok {
+		v := usagelog.DefaultActualCacheReadTokens
+		_c.mutation.SetActualCacheReadTokens(v)
+	}
+	if _, ok := _c.mutation.ActualCacheCreation5mTokens(); !ok {
+		v := usagelog.DefaultActualCacheCreation5mTokens
+		_c.mutation.SetActualCacheCreation5mTokens(v)
+	}
+	if _, ok := _c.mutation.ActualCacheCreation1hTokens(); !ok {
+		v := usagelog.DefaultActualCacheCreation1hTokens
+		_c.mutation.SetActualCacheCreation1hTokens(v)
+	}
+	if _, ok := _c.mutation.ActualImageInputTokens(); !ok {
+		v := usagelog.DefaultActualImageInputTokens
+		_c.mutation.SetActualImageInputTokens(v)
+	}
+	if _, ok := _c.mutation.ActualImageOutputTokens(); !ok {
+		v := usagelog.DefaultActualImageOutputTokens
+		_c.mutation.SetActualImageOutputTokens(v)
+	}
 	if _, ok := _c.mutation.InputCost(); !ok {
 		v := usagelog.DefaultInputCost
 		_c.mutation.SetInputCost(v)
@@ -853,6 +1015,33 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.CacheCreation1hTokens(); !ok {
 		return &ValidationError{Name: "cache_creation_1h_tokens", err: errors.New(`ent: missing required field "UsageLog.cache_creation_1h_tokens"`)}
+	}
+	if _, ok := _c.mutation.TokenUsageMultiplier(); !ok {
+		return &ValidationError{Name: "token_usage_multiplier", err: errors.New(`ent: missing required field "UsageLog.token_usage_multiplier"`)}
+	}
+	if _, ok := _c.mutation.ActualInputTokens(); !ok {
+		return &ValidationError{Name: "actual_input_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_input_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualOutputTokens(); !ok {
+		return &ValidationError{Name: "actual_output_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_output_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualCacheCreationTokens(); !ok {
+		return &ValidationError{Name: "actual_cache_creation_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_cache_creation_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualCacheReadTokens(); !ok {
+		return &ValidationError{Name: "actual_cache_read_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_cache_read_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualCacheCreation5mTokens(); !ok {
+		return &ValidationError{Name: "actual_cache_creation_5m_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_cache_creation_5m_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualCacheCreation1hTokens(); !ok {
+		return &ValidationError{Name: "actual_cache_creation_1h_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_cache_creation_1h_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualImageInputTokens(); !ok {
+		return &ValidationError{Name: "actual_image_input_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_image_input_tokens"`)}
+	}
+	if _, ok := _c.mutation.ActualImageOutputTokens(); !ok {
+		return &ValidationError{Name: "actual_image_output_tokens", err: errors.New(`ent: missing required field "UsageLog.actual_image_output_tokens"`)}
 	}
 	if _, ok := _c.mutation.InputCost(); !ok {
 		return &ValidationError{Name: "input_cost", err: errors.New(`ent: missing required field "UsageLog.input_cost"`)}
@@ -1030,6 +1219,42 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CacheCreation1hTokens(); ok {
 		_spec.SetField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
 		_node.CacheCreation1hTokens = value
+	}
+	if value, ok := _c.mutation.TokenUsageMultiplier(); ok {
+		_spec.SetField(usagelog.FieldTokenUsageMultiplier, field.TypeFloat64, value)
+		_node.TokenUsageMultiplier = value
+	}
+	if value, ok := _c.mutation.ActualInputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualInputTokens, field.TypeInt, value)
+		_node.ActualInputTokens = value
+	}
+	if value, ok := _c.mutation.ActualOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualOutputTokens, field.TypeInt, value)
+		_node.ActualOutputTokens = value
+	}
+	if value, ok := _c.mutation.ActualCacheCreationTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreationTokens, field.TypeInt, value)
+		_node.ActualCacheCreationTokens = value
+	}
+	if value, ok := _c.mutation.ActualCacheReadTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheReadTokens, field.TypeInt, value)
+		_node.ActualCacheReadTokens = value
+	}
+	if value, ok := _c.mutation.ActualCacheCreation5mTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreation5mTokens, field.TypeInt, value)
+		_node.ActualCacheCreation5mTokens = value
+	}
+	if value, ok := _c.mutation.ActualCacheCreation1hTokens(); ok {
+		_spec.SetField(usagelog.FieldActualCacheCreation1hTokens, field.TypeInt, value)
+		_node.ActualCacheCreation1hTokens = value
+	}
+	if value, ok := _c.mutation.ActualImageInputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualImageInputTokens, field.TypeInt, value)
+		_node.ActualImageInputTokens = value
+	}
+	if value, ok := _c.mutation.ActualImageOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldActualImageOutputTokens, field.TypeInt, value)
+		_node.ActualImageOutputTokens = value
 	}
 	if value, ok := _c.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)
@@ -1623,6 +1848,168 @@ func (u *UsageLogUpsert) UpdateCacheCreation1hTokens() *UsageLogUpsert {
 // AddCacheCreation1hTokens adds v to the "cache_creation_1h_tokens" field.
 func (u *UsageLogUpsert) AddCacheCreation1hTokens(v int) *UsageLogUpsert {
 	u.Add(usagelog.FieldCacheCreation1hTokens, v)
+	return u
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (u *UsageLogUpsert) SetTokenUsageMultiplier(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldTokenUsageMultiplier, v)
+	return u
+}
+
+// UpdateTokenUsageMultiplier sets the "token_usage_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateTokenUsageMultiplier() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldTokenUsageMultiplier)
+	return u
+}
+
+// AddTokenUsageMultiplier adds v to the "token_usage_multiplier" field.
+func (u *UsageLogUpsert) AddTokenUsageMultiplier(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldTokenUsageMultiplier, v)
+	return u
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (u *UsageLogUpsert) SetActualInputTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualInputTokens, v)
+	return u
+}
+
+// UpdateActualInputTokens sets the "actual_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualInputTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualInputTokens)
+	return u
+}
+
+// AddActualInputTokens adds v to the "actual_input_tokens" field.
+func (u *UsageLogUpsert) AddActualInputTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualInputTokens, v)
+	return u
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (u *UsageLogUpsert) SetActualOutputTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualOutputTokens, v)
+	return u
+}
+
+// UpdateActualOutputTokens sets the "actual_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualOutputTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualOutputTokens)
+	return u
+}
+
+// AddActualOutputTokens adds v to the "actual_output_tokens" field.
+func (u *UsageLogUpsert) AddActualOutputTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualOutputTokens, v)
+	return u
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (u *UsageLogUpsert) SetActualCacheCreationTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualCacheCreationTokens, v)
+	return u
+}
+
+// UpdateActualCacheCreationTokens sets the "actual_cache_creation_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualCacheCreationTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualCacheCreationTokens)
+	return u
+}
+
+// AddActualCacheCreationTokens adds v to the "actual_cache_creation_tokens" field.
+func (u *UsageLogUpsert) AddActualCacheCreationTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualCacheCreationTokens, v)
+	return u
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (u *UsageLogUpsert) SetActualCacheReadTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualCacheReadTokens, v)
+	return u
+}
+
+// UpdateActualCacheReadTokens sets the "actual_cache_read_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualCacheReadTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualCacheReadTokens)
+	return u
+}
+
+// AddActualCacheReadTokens adds v to the "actual_cache_read_tokens" field.
+func (u *UsageLogUpsert) AddActualCacheReadTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualCacheReadTokens, v)
+	return u
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (u *UsageLogUpsert) SetActualCacheCreation5mTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualCacheCreation5mTokens, v)
+	return u
+}
+
+// UpdateActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualCacheCreation5mTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualCacheCreation5mTokens)
+	return u
+}
+
+// AddActualCacheCreation5mTokens adds v to the "actual_cache_creation_5m_tokens" field.
+func (u *UsageLogUpsert) AddActualCacheCreation5mTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualCacheCreation5mTokens, v)
+	return u
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (u *UsageLogUpsert) SetActualCacheCreation1hTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualCacheCreation1hTokens, v)
+	return u
+}
+
+// UpdateActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualCacheCreation1hTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualCacheCreation1hTokens)
+	return u
+}
+
+// AddActualCacheCreation1hTokens adds v to the "actual_cache_creation_1h_tokens" field.
+func (u *UsageLogUpsert) AddActualCacheCreation1hTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualCacheCreation1hTokens, v)
+	return u
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (u *UsageLogUpsert) SetActualImageInputTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualImageInputTokens, v)
+	return u
+}
+
+// UpdateActualImageInputTokens sets the "actual_image_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualImageInputTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualImageInputTokens)
+	return u
+}
+
+// AddActualImageInputTokens adds v to the "actual_image_input_tokens" field.
+func (u *UsageLogUpsert) AddActualImageInputTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualImageInputTokens, v)
+	return u
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (u *UsageLogUpsert) SetActualImageOutputTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldActualImageOutputTokens, v)
+	return u
+}
+
+// UpdateActualImageOutputTokens sets the "actual_image_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateActualImageOutputTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldActualImageOutputTokens)
+	return u
+}
+
+// AddActualImageOutputTokens adds v to the "actual_image_output_tokens" field.
+func (u *UsageLogUpsert) AddActualImageOutputTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldActualImageOutputTokens, v)
 	return u
 }
 
@@ -2537,6 +2924,195 @@ func (u *UsageLogUpsertOne) AddCacheCreation1hTokens(v int) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateCacheCreation1hTokens() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheCreation1hTokens()
+	})
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (u *UsageLogUpsertOne) SetTokenUsageMultiplier(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTokenUsageMultiplier(v)
+	})
+}
+
+// AddTokenUsageMultiplier adds v to the "token_usage_multiplier" field.
+func (u *UsageLogUpsertOne) AddTokenUsageMultiplier(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddTokenUsageMultiplier(v)
+	})
+}
+
+// UpdateTokenUsageMultiplier sets the "token_usage_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateTokenUsageMultiplier() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTokenUsageMultiplier()
+	})
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (u *UsageLogUpsertOne) SetActualInputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualInputTokens(v)
+	})
+}
+
+// AddActualInputTokens adds v to the "actual_input_tokens" field.
+func (u *UsageLogUpsertOne) AddActualInputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualInputTokens(v)
+	})
+}
+
+// UpdateActualInputTokens sets the "actual_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualInputTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualInputTokens()
+	})
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (u *UsageLogUpsertOne) SetActualOutputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualOutputTokens(v)
+	})
+}
+
+// AddActualOutputTokens adds v to the "actual_output_tokens" field.
+func (u *UsageLogUpsertOne) AddActualOutputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualOutputTokens(v)
+	})
+}
+
+// UpdateActualOutputTokens sets the "actual_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualOutputTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualOutputTokens()
+	})
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (u *UsageLogUpsertOne) SetActualCacheCreationTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheCreationTokens(v)
+	})
+}
+
+// AddActualCacheCreationTokens adds v to the "actual_cache_creation_tokens" field.
+func (u *UsageLogUpsertOne) AddActualCacheCreationTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheCreationTokens(v)
+	})
+}
+
+// UpdateActualCacheCreationTokens sets the "actual_cache_creation_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualCacheCreationTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheCreationTokens()
+	})
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (u *UsageLogUpsertOne) SetActualCacheReadTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheReadTokens(v)
+	})
+}
+
+// AddActualCacheReadTokens adds v to the "actual_cache_read_tokens" field.
+func (u *UsageLogUpsertOne) AddActualCacheReadTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheReadTokens(v)
+	})
+}
+
+// UpdateActualCacheReadTokens sets the "actual_cache_read_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualCacheReadTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheReadTokens()
+	})
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (u *UsageLogUpsertOne) SetActualCacheCreation5mTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheCreation5mTokens(v)
+	})
+}
+
+// AddActualCacheCreation5mTokens adds v to the "actual_cache_creation_5m_tokens" field.
+func (u *UsageLogUpsertOne) AddActualCacheCreation5mTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheCreation5mTokens(v)
+	})
+}
+
+// UpdateActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualCacheCreation5mTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheCreation5mTokens()
+	})
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (u *UsageLogUpsertOne) SetActualCacheCreation1hTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheCreation1hTokens(v)
+	})
+}
+
+// AddActualCacheCreation1hTokens adds v to the "actual_cache_creation_1h_tokens" field.
+func (u *UsageLogUpsertOne) AddActualCacheCreation1hTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheCreation1hTokens(v)
+	})
+}
+
+// UpdateActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualCacheCreation1hTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheCreation1hTokens()
+	})
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (u *UsageLogUpsertOne) SetActualImageInputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualImageInputTokens(v)
+	})
+}
+
+// AddActualImageInputTokens adds v to the "actual_image_input_tokens" field.
+func (u *UsageLogUpsertOne) AddActualImageInputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualImageInputTokens(v)
+	})
+}
+
+// UpdateActualImageInputTokens sets the "actual_image_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualImageInputTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualImageInputTokens()
+	})
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (u *UsageLogUpsertOne) SetActualImageOutputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualImageOutputTokens(v)
+	})
+}
+
+// AddActualImageOutputTokens adds v to the "actual_image_output_tokens" field.
+func (u *UsageLogUpsertOne) AddActualImageOutputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualImageOutputTokens(v)
+	})
+}
+
+// UpdateActualImageOutputTokens sets the "actual_image_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateActualImageOutputTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualImageOutputTokens()
 	})
 }
 
@@ -3693,6 +4269,195 @@ func (u *UsageLogUpsertBulk) AddCacheCreation1hTokens(v int) *UsageLogUpsertBulk
 func (u *UsageLogUpsertBulk) UpdateCacheCreation1hTokens() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheCreation1hTokens()
+	})
+}
+
+// SetTokenUsageMultiplier sets the "token_usage_multiplier" field.
+func (u *UsageLogUpsertBulk) SetTokenUsageMultiplier(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetTokenUsageMultiplier(v)
+	})
+}
+
+// AddTokenUsageMultiplier adds v to the "token_usage_multiplier" field.
+func (u *UsageLogUpsertBulk) AddTokenUsageMultiplier(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddTokenUsageMultiplier(v)
+	})
+}
+
+// UpdateTokenUsageMultiplier sets the "token_usage_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateTokenUsageMultiplier() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateTokenUsageMultiplier()
+	})
+}
+
+// SetActualInputTokens sets the "actual_input_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualInputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualInputTokens(v)
+	})
+}
+
+// AddActualInputTokens adds v to the "actual_input_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualInputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualInputTokens(v)
+	})
+}
+
+// UpdateActualInputTokens sets the "actual_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualInputTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualInputTokens()
+	})
+}
+
+// SetActualOutputTokens sets the "actual_output_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualOutputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualOutputTokens(v)
+	})
+}
+
+// AddActualOutputTokens adds v to the "actual_output_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualOutputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualOutputTokens(v)
+	})
+}
+
+// UpdateActualOutputTokens sets the "actual_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualOutputTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualOutputTokens()
+	})
+}
+
+// SetActualCacheCreationTokens sets the "actual_cache_creation_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualCacheCreationTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheCreationTokens(v)
+	})
+}
+
+// AddActualCacheCreationTokens adds v to the "actual_cache_creation_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualCacheCreationTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheCreationTokens(v)
+	})
+}
+
+// UpdateActualCacheCreationTokens sets the "actual_cache_creation_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualCacheCreationTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheCreationTokens()
+	})
+}
+
+// SetActualCacheReadTokens sets the "actual_cache_read_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualCacheReadTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheReadTokens(v)
+	})
+}
+
+// AddActualCacheReadTokens adds v to the "actual_cache_read_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualCacheReadTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheReadTokens(v)
+	})
+}
+
+// UpdateActualCacheReadTokens sets the "actual_cache_read_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualCacheReadTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheReadTokens()
+	})
+}
+
+// SetActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualCacheCreation5mTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheCreation5mTokens(v)
+	})
+}
+
+// AddActualCacheCreation5mTokens adds v to the "actual_cache_creation_5m_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualCacheCreation5mTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheCreation5mTokens(v)
+	})
+}
+
+// UpdateActualCacheCreation5mTokens sets the "actual_cache_creation_5m_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualCacheCreation5mTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheCreation5mTokens()
+	})
+}
+
+// SetActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualCacheCreation1hTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualCacheCreation1hTokens(v)
+	})
+}
+
+// AddActualCacheCreation1hTokens adds v to the "actual_cache_creation_1h_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualCacheCreation1hTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualCacheCreation1hTokens(v)
+	})
+}
+
+// UpdateActualCacheCreation1hTokens sets the "actual_cache_creation_1h_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualCacheCreation1hTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualCacheCreation1hTokens()
+	})
+}
+
+// SetActualImageInputTokens sets the "actual_image_input_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualImageInputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualImageInputTokens(v)
+	})
+}
+
+// AddActualImageInputTokens adds v to the "actual_image_input_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualImageInputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualImageInputTokens(v)
+	})
+}
+
+// UpdateActualImageInputTokens sets the "actual_image_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualImageInputTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualImageInputTokens()
+	})
+}
+
+// SetActualImageOutputTokens sets the "actual_image_output_tokens" field.
+func (u *UsageLogUpsertBulk) SetActualImageOutputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetActualImageOutputTokens(v)
+	})
+}
+
+// AddActualImageOutputTokens adds v to the "actual_image_output_tokens" field.
+func (u *UsageLogUpsertBulk) AddActualImageOutputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddActualImageOutputTokens(v)
+	})
+}
+
+// UpdateActualImageOutputTokens sets the "actual_image_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateActualImageOutputTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateActualImageOutputTokens()
 	})
 }
 

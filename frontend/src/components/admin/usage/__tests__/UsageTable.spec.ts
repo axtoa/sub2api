@@ -273,6 +273,15 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')
     expect(text).toContain('$0.069568')
+
+    await wrapper.setProps({ data: [{ ...row, token_usage_multiplier: 2, input_tokens: 8114, output_tokens: 202, actual_cost: 0.185766 }] })
+    const updatedTriggers = wrapper.findAll('.group.relative')
+    await updatedTriggers[updatedTriggers.length - 1].trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).toContain('admin.groups.form.tokenUsageMultiplier')
+    expect(wrapper.text()).toContain('2.00x')
+    expect(wrapper.text()).toContain('$0.185766')
+    expect(wrapper.text()).not.toContain('/ 1M tokens')
   })
 
   it('shows requested and upstream models separately for admin rows', () => {
