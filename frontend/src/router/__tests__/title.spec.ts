@@ -46,4 +46,14 @@ describe('resolveRouteDocumentTitle', () => {
       }
     ])).toBe('账号调度器 - EzouAPI')
   })
+
+  it('supports a route-specific site-name override', () => {
+    const route = {
+      name: 'Login',
+      params: {},
+      meta: { title: 'Login', siteName: 'Best AI' },
+    }
+
+    expect(resolveRouteDocumentTitle(route, 'Sub2API')).toBe('Login - Best AI')
+  })
 })

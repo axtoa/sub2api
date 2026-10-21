@@ -1,5 +1,5 @@
 <template>
-  <AuthLayout>
+  <AuthLayout brand-name="Best AI" :brand-subtitle="t('home.heroEyebrow')" best-ai-theme>
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">

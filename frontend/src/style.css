@@ -10,14 +10,19 @@
   html {
     @apply scroll-smooth antialiased;
     color-scheme: light;
+    --app-canvas: #f7f8f2;
+    --app-sidebar: #fbfcf8;
   }
 
   .dark {
     color-scheme: dark;
+    --app-canvas: #141d19;
+    --app-sidebar: #18231d;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-gray-100;
+    @apply text-gray-900 dark:text-gray-100;
+    background-color: var(--app-canvas);
     @apply min-h-screen;
   }
 
@@ -562,7 +567,8 @@
   /* ============ 侧边栏 ============ */
   .sidebar {
     @apply fixed inset-y-0 left-0 z-40;
-    @apply w-64 bg-white dark:bg-dark-900;
+    @apply w-64;
+    background-color: var(--app-sidebar);
     @apply border-r border-gray-200 dark:border-dark-800;
     @apply flex flex-col;
     @apply transition-transform duration-300;
@@ -598,6 +604,11 @@
     @apply bg-primary-50 dark:bg-primary-900/20;
     @apply text-primary-600 dark:text-primary-400;
     @apply hover:bg-primary-100 dark:hover:bg-primary-900/30;
+  }
+
+  .dark .sidebar-link-active {
+    @apply text-primary-300;
+    background-color: rgb(131 173 112 / 13%);
   }
 
   .sidebar-section {

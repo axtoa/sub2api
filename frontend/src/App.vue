@@ -43,6 +43,7 @@ watch(
     () => route.fullPath,
     () => route.meta.title,
     () => route.meta.titleKey,
+    () => route.meta.siteName,
     () => appStore.siteName,
     () => appStore.cachedPublicSettings?.custom_menu_items,
     () => authStore.isAdmin,

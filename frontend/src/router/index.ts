@@ -46,7 +46,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: false,
       title: 'Login',
-      titleKey: 'home.login'
+      titleKey: 'home.login',
+      siteName: 'Best AI'
     }
   },
   {
@@ -56,7 +57,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: false,
       title: 'Register',
-      titleKey: 'auth.createAccount'
+      titleKey: 'auth.createAccount',
+      siteName: 'Best AI'
     }
   },
   {

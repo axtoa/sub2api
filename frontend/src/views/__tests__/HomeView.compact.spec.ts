@@ -108,7 +108,22 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome(settings)
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
-    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.find('.hero-visual').exists()).toBe(true)
+    expect(wrapper.text()).toContain('ChatGPT')
+    expect(wrapper.text()).toContain('Anthropic')
+    expect(wrapper.text()).toContain('home.subscriptionTeaser')
+    expect(wrapper.text()).not.toContain('Gemini')
+    expect(wrapper.text()).not.toContain('Antigravity')
+    expect(wrapper.text()).not.toContain('subscriptionToApi')
+  })
+
+  it('keeps the default home call to action on the existing login and dashboard routes', () => {
+    const anonymous = mountHome()
+    expect(anonymous.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/login')).toBe(true)
+
+    authStore.isAuthenticated = true
+    const member = mountHome()
+    expect(member.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/dashboard')).toBe(true)
   })
 
   it('links unauthenticated visitors to login', () => {

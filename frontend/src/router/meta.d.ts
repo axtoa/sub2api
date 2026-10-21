@@ -24,6 +24,9 @@ declare module 'vue-router' {
      */
     title?: string
 
+    /** Site-name suffix override for routes with a dedicated brand */
+    siteName?: string
+
     /**
      * Optional breadcrumb items for navigation
      */
