@@ -89,7 +89,7 @@
   <div v-else class="best-ai-home">
     <header class="home-header">
       <a class="home-brand" href="/home" aria-label="Best AI 首页">
-        <span class="home-brand-mark" aria-hidden="true">B</span>
+        <img class="home-brand-mark" :src="siteLogo || '/logo.svg'" alt="Best AI" />
         <span>Best AI</span>
       </a>
       <nav class="home-actions" :aria-label="t('home.navigation')">
@@ -280,15 +280,12 @@ onMounted(() => {
 }
 
 .home-brand-mark {
-  display: grid;
+  display: block;
   width: 32px;
   height: 32px;
-  place-items: center;
+  flex-shrink: 0;
   border-radius: 8px;
-  background: #173b32;
-  color: #def58b;
-  font-size: 20px;
-  font-weight: 700;
+  object-fit: contain;
 }
 
 .home-actions {

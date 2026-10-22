@@ -35,12 +35,10 @@
         <!-- Custom Logo or Default Logo -->
         <template v-if="settingsLoaded || bestAiTheme">
           <div
-            v-if="!bestAiTheme"
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30"
+            :class="bestAiTheme ? 'auth-brand-mark mb-4' : 'mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30'"
           >
             <img :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
           </div>
-          <div v-else class="auth-brand-mark mb-4" aria-hidden="true">B</div>
           <h1 class="text-gradient mb-2 text-3xl font-bold" :class="{ 'auth-title-best-ai': bestAiTheme }">
             {{ siteName }}
           </h1>
@@ -112,10 +110,6 @@ onMounted(() => {
   height: 48px;
   place-items: center;
   border-radius: 10px;
-  background: #173b32;
-  color: #def58b;
-  font-size: 28px;
-  font-weight: 700;
 }
 .auth-title-best-ai { margin-bottom: 5px; background: none; color: #173b32; -webkit-text-fill-color: currentColor; }
 .auth-subtitle-best-ai { color: #737c71; }
