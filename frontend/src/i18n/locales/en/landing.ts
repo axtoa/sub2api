@@ -32,8 +32,9 @@ export default {
     codeRouting: 'Request forwarded',
     visualCaption: 'One API for your workflow',
     simpleBilling: 'Usage-based billing',
+    invoiceAvailable: 'Invoices available',
     nextStep: 'Need help getting connected?',
-    subscriptionTeaser: 'Looking for an official subscription? Best AI also offers ChatGPT subscription purchasing assistance.',
+    subscriptionTeaser: 'Need ChatGPT or Anthropic official products? Best AI also offers purchasing assistance.',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',

@@ -18,9 +18,11 @@ describe("groups image pricing platform support", () => {
     expect(imagePricingPlatforms.has("grok")).toBe(true);
   });
 
-  it("enables video pricing controls for Grok only", () => {
+  it("enables video pricing controls for supported media platforms", () => {
     expect(supportsVideoPricingPlatform("grok")).toBe(true);
-    expect(supportsVideoPricingPlatform("openai")).toBe(false);
+    expect(supportsVideoPricingPlatform("openai")).toBe(true);
+    expect(supportsVideoPricingPlatform("minimax")).toBe(true);
+    expect(supportsVideoPricingPlatform("anthropic")).toBe(false);
   });
 
   it("keeps non-media group platforms out of the image pricing controls", () => {
@@ -52,6 +54,8 @@ describe("groups image pricing platform support", () => {
   it("keeps non-Grok image placeholders on the generic image card", () => {
     expect(getImagePricePlaceholder("openai", "image_price_1k")).toBe("0.134");
     expect(getDefaultImagePreviewPrice("openai", "image_price_2k")).toBe(0.201);
-    expect(getDefaultVideoPreviewPrice("openai", "video_price_480p")).toBeNull();
+    expect(getDefaultVideoPreviewPrice("openai", "video_price_480p")).toBe(0.1);
+    expect(getDefaultVideoPreviewPrice("minimax", "video_price_480p")).toBe(0.02);
+    expect(getDefaultVideoPreviewPrice("anthropic", "video_price_480p")).toBeNull();
   });
 });

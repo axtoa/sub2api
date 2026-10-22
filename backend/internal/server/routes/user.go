@@ -17,6 +17,7 @@ func RegisterUserRoutes(
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
+	v1.GET("/shop/products", panelRateLimiter.PublicIP(), h.Shop.Products)
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -25,6 +26,12 @@ func RegisterUserRoutes(
 	// 用户管理面变更类操作入审计（含 TOTP 启用/禁用、step-up 验证、密码修改等安全事件）
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
+		shop := authenticated.Group("/shop")
+		shop.POST("/orders", h.Shop.Create)
+		shop.GET("/orders", h.Shop.Orders)
+		shop.GET("/orders/:id", h.Shop.Order)
+		shop.POST("/orders/:id/actions", h.Shop.Action)
+
 		// 用户接口
 		user := authenticated.Group("/user")
 		{

@@ -13,11 +13,38 @@ import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { completeShopEntry, resolveShopEntryRedirect } from '@/features/shop/entryFlow'
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 /**
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/shop', name: 'Shop',
+    component: () => import('@/features/shop/ShopPage.vue'),
+    meta: { requiresAuth: true, titleKey: 'shop.entry' }
+  },
+  {
+    path: '/shop/orders/:id?', name: 'ShopOrders',
+    component: () => import('@/features/shop/ShopPage.vue'),
+    meta: { requiresAuth: true, titleKey: 'shop.myOrders' }
+  },
+  {
+    path: '/admin/shop', name: 'ShopAdmin',
+    component: () => import('@/features/shop/ShopAdminPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.adminEntry' }
+  },
+  {
+    path: '/admin/shop/products', name: 'ShopProductsAdmin',
+    component: () => import('@/features/shop/ShopAdminPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.products' }
+  },
+  {
+    path: '/admin/shop/orders/:id', name: 'ShopOrderAdmin',
+    component: () => import('@/features/shop/ShopAdminPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.allOrders' }
+  },
   // ==================== Setup Routes ====================
   {
     path: '/setup',
@@ -808,8 +835,18 @@ router.beforeEach(async (to, _from, next) => {
     authInitialized = true
   }
 
-  // Set page title
   const appStore = useAppStore()
+  // Backend-only mode must keep its existing non-admin login page reachable,
+  // rather than repeatedly resuming a shop visit that the mode will reject.
+  const canResumeShop = authStore.isAuthenticated && (!appStore.backendModeEnabled || authStore.isAdmin)
+  const shopRedirect = resolveShopEntryRedirect(to, canResumeShop)
+  if (shopRedirect && shopRedirect !== to.fullPath) {
+    const destination = new URL(shopRedirect, window.location.origin)
+    next({ path: destination.pathname, query: Object.fromEntries(destination.searchParams), replace: true })
+    return
+  }
+
+  // Set page title
   const adminSettingsStore = useAdminSettingsStore()
   const customMenuItems = [
     ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
@@ -1003,9 +1040,13 @@ router.beforeEach(async (to, _from, next) => {
 /**
  * Navigation guard: End loading and trigger prefetch
  */
-router.afterEach((to) => {
+router.afterEach((to, _from, failure) => {
   // 结束导航加载状态
   navigationLoading.endNavigation()
+
+  if (!failure) {
+    completeShopEntry(to.path, useAuthStore().isAuthenticated, isFeatureFlagEnabled(FeatureFlags.officialShop))
+  }
 
   // 懒初始化预加载（首次导航时创建，传入 router 实例）
   if (!routePrefetch) {

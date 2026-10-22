@@ -32,8 +32,9 @@ export default {
     codeRouting: '请求已转发',
     visualCaption: '一个 API，连接你的工作流',
     simpleBilling: '按量计费',
+    invoiceAvailable: '可开发票',
     nextStep: '需要了解如何接入？',
-    subscriptionTeaser: '需要官方订阅？Best AI 也提供 ChatGPT 订阅代购服务。',
+    subscriptionTeaser: '需要开通 ChatGPT 或 Anthropic 官方产品？Best AI 也提供代购服务。',
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',

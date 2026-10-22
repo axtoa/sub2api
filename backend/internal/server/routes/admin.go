@@ -31,6 +31,16 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		shop := admin.Group("/shop")
+		shop.GET("/settings", h.Shop.Availability)
+		shop.PUT("/settings", h.Shop.SetAvailability)
+		shop.GET("/products", h.Shop.Products)
+		shop.POST("/products", h.Shop.SaveProduct)
+		shop.PUT("/products/:id", h.Shop.SaveProduct)
+		shop.GET("/orders", h.Shop.Orders)
+		shop.GET("/orders/:id", h.Shop.Order)
+		shop.POST("/orders/:id/actions", h.Shop.Action)
+
 		// 部署与运营合规确认
 		registerAdminComplianceRoutes(admin, h)
 

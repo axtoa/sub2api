@@ -80,9 +80,11 @@
             <router-link
               v-else
               :to="item.path"
+              :target="item.openInNewTab ? '_blank' : undefined"
+              :rel="item.openInNewTab ? 'noopener noreferrer' : undefined"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
-              :title="sidebarCollapsed ? item.label : undefined"
+              :title="item.openInNewTab ? item.label + ' · ' + t('shop.openInNewTab') : sidebarCollapsed ? item.label : undefined"
               :id="
                 item.path === '/admin/accounts'
                   ? 'sidebar-channel-manage'
@@ -109,10 +111,13 @@
             </span>
           </div>
 
-          <router-link
+          <component
             v-for="item in personalNavItems"
             :key="item.path"
-            :to="item.path"
+            :is="item.external ? 'a' : RouterLink"
+            v-bind="item.external ? { href: item.path } : { to: item.path }"
+            :target="item.openInNewTab ? '_blank' : undefined"
+            :rel="item.openInNewTab ? 'noopener noreferrer' : undefined"
             class="sidebar-link mb-1"
             :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
@@ -122,17 +127,20 @@
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
+          </component>
         </div>
       </template>
 
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
         <div class="sidebar-section">
-          <router-link
+          <component
             v-for="item in userNavItems"
             :key="item.path"
-            :to="item.path"
+            :is="item.external ? 'a' : RouterLink"
+            v-bind="item.external ? { href: item.path } : { to: item.path }"
+            :target="item.openInNewTab ? '_blank' : undefined"
+            :rel="item.openInNewTab ? 'noopener noreferrer' : undefined"
             class="sidebar-link mb-1"
             :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
@@ -142,39 +150,57 @@
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
+          </component>
         </div>
       </template>
     </nav>
 
     <!-- Bottom Section -->
-    <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
-      <!-- Theme Toggle -->
-      <button
-        type="button"
-        class="sidebar-link mb-1 w-full"
-        :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-        :title="isDark ? t('nav.lightMode') : t('nav.darkMode')"
-        :aria-label="isDark ? t('nav.lightMode') : t('nav.darkMode')"
-        @click="toggleTheme"
-      >
-        <Icon :name="isDark ? 'sun' : 'moon'" class="h-5 w-5 flex-shrink-0" />
-        <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
-          {{ isDark ? t('nav.lightMode') : t('nav.darkMode') }}
-        </span>
-      </button>
+    <div class="mt-auto shrink-0">
+      <div v-if="officialShopEnabled && (isAdmin || !appStore.backendModeEnabled)" class="sidebar-shop-entry p-3">
+        <router-link
+          to="/shop"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="sidebar-link"
+          :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+          :title="t('shop.entry') + ' · ' + t('shop.openInNewTab')"
+          :aria-label="t('shop.entry') + ' · ' + t('shop.openInNewTab')"
+          @click="handleMenuItemClick('/shop')"
+        >
+          <OpenAIIcon class="h-5 w-5 flex-shrink-0" />
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('shop.entry') }}</span>
+        </router-link>
+      </div>
 
-      <!-- Collapse Button -->
-      <button
-        @click="toggleSidebar"
-        class="sidebar-link w-full"
-        :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-        :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
-      >
-        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
-        <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
-        <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
-      </button>
+      <div class="border-t border-gray-100 p-3 dark:border-dark-800">
+        <!-- Theme Toggle -->
+        <button
+          type="button"
+          class="sidebar-link mb-1 w-full"
+          :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+          :title="isDark ? t('nav.lightMode') : t('nav.darkMode')"
+          :aria-label="isDark ? t('nav.lightMode') : t('nav.darkMode')"
+          @click="toggleTheme"
+        >
+          <Icon :name="isDark ? 'sun' : 'moon'" class="h-5 w-5 flex-shrink-0" />
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+            {{ isDark ? t('nav.lightMode') : t('nav.darkMode') }}
+          </span>
+        </button>
+
+        <!-- Collapse Button -->
+        <button
+          @click="toggleSidebar"
+          class="sidebar-link w-full"
+          :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+          :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
+        >
+          <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
+          <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
+        </button>
+      </div>
     </div>
   </aside>
 
@@ -190,9 +216,10 @@
 
 <script setup lang="ts">
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeSvg } from '@/utils/sanitize'
@@ -200,12 +227,15 @@ import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useTheme } from '@/composables/useTheme'
+import { useShopAvailability } from '@/features/shop/availability'
 
 interface NavItem {
   path: string
   label: string
   icon: unknown
   iconSvg?: string
+  external?: boolean
+  openInNewTab?: boolean
   hideInSimpleMode?: boolean
   children?: NavItem[]
   /**
@@ -247,6 +277,7 @@ const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseCreativeStudio, refreshBatchImageAccess } = useBatchImageAccess()
 const { isDark, toggleTheme } = useTheme()
+const { enabled: officialShopEnabled } = useShopAvailability()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -482,6 +513,18 @@ const PluginIcon = {
   render: () => h(Icon, { name: 'cube' })
 }
 
+const DollarIcon = {
+  render: () => h(Icon, { name: 'dollar', 'aria-hidden': true })
+}
+
+const OpenAIIcon = {
+  render: () => h(
+    'span',
+    { class: 'inline-flex items-center justify-center', 'aria-hidden': true },
+    [h(PlatformIcon, { platform: 'openai', size: 'md' })]
+  )
+}
+
 const BellIcon = {
   render: () =>
     h(
@@ -690,6 +733,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
+    { path: 'https://catfk.com/shop/DFMROLGS', label: t('nav.balanceTopUp'), icon: DollarIcon, external: true, openInNewTab: true, hideInSimpleMode: true },
     { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
     ...customMenuItemsForUser.value.map((item): NavItem => ({
@@ -803,6 +847,7 @@ const adminNavItems = computed((): NavItem[] => {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
+    filtered.push({ path: '/admin/shop', label: t('shop.adminEntry'), icon: OpenAIIcon, openInNewTab: true })
     for (const cm of customMenuItemsForAdmin.value) {
       filtered.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
     }
@@ -810,6 +855,7 @@ const adminNavItems = computed((): NavItem[] => {
   }
 
   visible.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
+  visible.push({ path: '/admin/shop', label: t('shop.adminEntry'), icon: OpenAIIcon, openInNewTab: true })
   for (const cm of customMenuItemsForAdmin.value) {
     visible.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
   }

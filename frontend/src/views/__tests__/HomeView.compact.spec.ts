@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, mount, RouterLinkStub } from '@vue/test-utils'
 
 import HomeView from '../HomeView.vue'
+import { shopAPI } from '@/features/shop/api'
+enableAutoUnmount(afterEach)
 
 const { appStore, authStore } = vi.hoisted(() => ({
   appStore: {
@@ -27,6 +29,14 @@ vi.mock('@/stores', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => appStore,
+}))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
+vi.mock('vue-router', async original => ({
+  ...await original<typeof import('vue-router')>(),
+  useRouter: () => ({ currentRoute: { value: { path: '/home' } }, replace: vi.fn() }),
+}))
+vi.mock('@/features/shop/api', () => ({
+  shopAPI: { products: vi.fn().mockResolvedValue([]) },
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -73,6 +83,7 @@ describe('HomeView compact mode', () => {
     authStore.user = null
     authStore.checkAuth.mockClear()
     appStore.fetchPublicSettings.mockClear()
+    vi.mocked(shopAPI.products).mockClear()
     localStorage.clear()
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
   })
@@ -124,6 +135,20 @@ describe('HomeView compact mode', () => {
     authStore.isAuthenticated = true
     const member = mountHome()
     expect(member.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/dashboard')).toBe(true)
+  })
+  it('shows invoice availability immediately after usage-based billing', () => {
+    const wrapper = mountHome()
+    expect(wrapper.get('.home-proof').findAll('span').map(item => item.text())).toEqual([
+      'ChatGPT', 'Anthropic', 'home.simpleBilling', 'home.invoiceAvailable',
+    ])
+  })
+  it('hides the complete purchasing section without loading products when closed', () => {
+    const wrapper = mountHome({ official_shop_enabled: false })
+    expect(wrapper.find('.home-shop').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('home.subscriptionTeaser')
+    expect(shopAPI.products).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(RouterLinkStub).some(link => link.props('to') === '/login')).toBe(true)
+    wrapper.unmount()
   })
 
   it('links unauthenticated visitors to login', () => {

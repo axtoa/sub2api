@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"database/sql"
+
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/shop"
 
 	"github.com/google/wire"
 )
@@ -199,8 +202,11 @@ func ProvideHandlers(
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 	_ *service.OpenAIQuotaAutoResetService,
+	db *sql.DB,
+	settingService *service.SettingService,
 ) *Handlers {
 	return &Handlers{
+		Shop:             shop.NewHandler(db, settingService),
 		Auth:             authHandler,
 		User:             userHandler,
 		APIKey:           apiKeyHandler,

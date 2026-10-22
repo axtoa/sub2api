@@ -180,6 +180,7 @@ export default {
     creativeStudio: 'AI 创作台',
     usage: '使用记录',
     redeem: '兑换充值',
+    balanceTopUp: '余额充值',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
     affiliateInviteRecords: '邀请记录',

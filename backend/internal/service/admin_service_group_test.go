@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func ptrString[T ~string](v T) *string {
+func adminGroupTestStringPtr[T ~string](v T) *string {
 	s := string(v)
 	return &s
 }
@@ -263,7 +263,7 @@ func TestAdminServiceSimpleModeNormalizesAllUnsupportedUpdateFieldsDirectly(t *t
 		AudioRealtimePricePerMin: &one, ClaudeCodeOnly: &truth, FallbackGroupID: &fallbackID,
 		ModelRouting: map[string][]int64{"claude": {1}}, ModelRoutingEnabled: &truth,
 		AllowMessagesDispatch: &truth, AllowLive: &truth, ForceOpenAIFast: &truth, RequireOAuthOnly: &truth,
-		RPMLimit: new(int), MaxReasoningEffort: ptrString("high"), ProfitControlEnabled: &truth,
+		RPMLimit: new(int), MaxReasoningEffort: adminGroupTestStringPtr("high"), ProfitControlEnabled: &truth,
 		ProfitMinMargin: &one, CopyAccountsFromGroupIDs: []int64{2},
 	}
 	existing := &Group{ID: 1, Name: "old", Description: "old description", Platform: PlatformAnthropic, Status: StatusActive, RateMultiplier: 3, RPMLimit: 8, FallbackGroupID: &fallbackID}

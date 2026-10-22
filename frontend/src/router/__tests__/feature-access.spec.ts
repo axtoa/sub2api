@@ -8,6 +8,7 @@ type NavigationGuard = (
 
 const routerHarness = vi.hoisted(() => ({
   guard: null as NavigationGuard | null,
+  routes: [] as { path: string; meta?: Record<string, unknown> }[],
 }))
 
 const authStore = vi.hoisted(() => ({
@@ -33,13 +34,16 @@ const appStore = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   createWebHistory: vi.fn(() => ({})),
-  createRouter: vi.fn(() => ({
+  createRouter: vi.fn((options: { routes: typeof routerHarness.routes }) => {
+    routerHarness.routes = options.routes
+    return {
     beforeEach: vi.fn((guard: NavigationGuard) => {
       routerHarness.guard = guard
     }),
     afterEach: vi.fn(),
     onError: vi.fn(),
-  })),
+    }
+  }),
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -98,6 +102,7 @@ function runGuard(meta: Record<string, unknown>, path: string) {
       fullPath: path,
       name: 'FeatureRoute',
       params: {},
+      query: {},
       meta: { requiresAuth: true, ...meta },
     },
     {},
@@ -108,16 +113,68 @@ function runGuard(meta: Record<string, unknown>, path: string) {
 
 describe('feature route guard', () => {
   beforeAll(async () => {
+    const { initI18n } = await import('@/i18n')
+    await initI18n()
     await import('@/router')
   })
 
   beforeEach(() => {
+    sessionStorage.clear()
     authStore.isAuthenticated = true
     authStore.isAdmin = false
     authStore.isSimpleMode = false
+    appStore.backendModeEnabled = false
     appStore.publicSettingsLoaded = false
     appStore.cachedPublicSettings = null
     appStore.fetchPublicSettings.mockReset()
+  })
+
+  it('requires login for the shop catalogue and all orders, with administration restricted to admins', () => {
+    expect(routerHarness.routes.find(route => route.path === '/shop')?.meta?.requiresAuth).toBe(true)
+    expect(routerHarness.routes.find(route => route.path === '/shop/orders/:id?')?.meta?.requiresAuth).toBe(true)
+    for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id']) {
+      expect(routerHarness.routes.find(route => route.path === path)?.meta).toMatchObject({ requiresAuth: true, requiresAdmin: true })
+    }
+  })
+
+  it.each(['/shop', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id'])('requires login for %s', async path => {
+    authStore.isAuthenticated = false
+    const meta = routerHarness.routes.find(route => route.path === path)!.meta!
+    const { navigation, next } = runGuard(meta, path)
+    await navigation
+    expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: path } })
+  })
+
+  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id'])('denies ordinary users access to %s', async path => {
+    const meta = routerHarness.routes.find(route => route.path === path)!.meta!
+    const { navigation, next } = runGuard(meta, path)
+    await navigation
+    expect(next).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('keeps login reachable for non-admin shop visitors in backend-only mode', async () => {
+    authStore.isAuthenticated = false
+    const entry = runGuard({ requiresAuth: true }, '/shop')
+    await entry.navigation
+    expect(entry.next).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/shop' } })
+    authStore.isAuthenticated = true
+    appStore.backendModeEnabled = true
+    const blocked = runGuard({ requiresAuth: true }, '/shop')
+    await blocked.navigation
+    expect(blocked.next).toHaveBeenCalledWith('/login')
+    const login = runGuard({ requiresAuth: false }, '/login')
+    await login.navigation
+    expect(login.next).toHaveBeenCalledOnce()
+    expect(login.next).toHaveBeenCalledWith()
+  })
+
+  it('does not couple shop ordering to the gateway payment switch', async () => {
+    appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = { payment_enabled: false }
+    const meta = routerHarness.routes.find(route => route.path === '/shop/orders/:id?')!.meta!
+    const { navigation, next } = runGuard(meta, '/shop/orders')
+    await navigation
+    expect(next).toHaveBeenCalledWith()
   })
 
   it('waits for the first public-settings request before deciding payment access', async () => {

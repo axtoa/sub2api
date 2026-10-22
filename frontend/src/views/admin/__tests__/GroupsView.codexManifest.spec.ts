@@ -1,6 +1,7 @@
 import { defineComponent, h, type PropType } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, setActivePinia } from "pinia";
 
 import type { AdminGroup, CodexModelsManifestConfig } from "@/types";
 import GroupsView from "@/views/admin/GroupsView.vue";
@@ -25,6 +26,7 @@ vi.mock("@/api/admin", () => ({
       list: listGroups,
       getAll: vi.fn(),
       getModelsListCandidates,
+      getModelAllowlistCandidates: vi.fn().mockResolvedValue([]),
       getUsageSummary,
       getCapacitySummary,
       getLiveCapability,
@@ -228,6 +230,7 @@ const mountView = () =>
 
 describe("GroupsView Codex manifest binding", () => {
   beforeEach(() => {
+    setActivePinia(createPinia());
     localStorage.clear();
     listGroups.mockReset();
     getModelsListCandidates.mockReset();

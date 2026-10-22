@@ -94,6 +94,11 @@ function defineFlag<K extends keyof PublicSettings>(
  * public-settings-driven switch; see the "Adding a new flag" checklist above.
  */
 export const FeatureFlags = {
+  officialShop: defineFlag({
+    key: 'official_shop_enabled',
+    mode: 'opt-out',
+    label: 'Official Product Purchasing',
+  }),
   channelMonitor: defineFlag({
     key: 'channel_monitor_enabled',
     mode: 'opt-out',

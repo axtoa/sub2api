@@ -316,6 +316,7 @@ type DefaultSubscriptionSetting struct {
 }
 
 type PublicSettings struct {
+	OfficialShopEnabled                 bool `json:"official_shop_enabled"`
 	RegistrationEnabled                 bool
 	EmailVerifyEnabled                  bool
 	ForceEmailOnThirdPartySignup        bool

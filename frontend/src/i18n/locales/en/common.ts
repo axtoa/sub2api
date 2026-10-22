@@ -180,6 +180,7 @@ export default {
     creativeStudio: 'AI Studio',
     usage: 'Usage',
     redeem: 'Redeem & Top Up',
+    balanceTopUp: 'Balance Top Up',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
     affiliateInviteRecords: 'Invite Records',

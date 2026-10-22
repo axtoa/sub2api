@@ -171,11 +171,12 @@ client = <b>OpenAI</b>(
         <span>Anthropic</span>
         <i aria-hidden="true"></i>
         <span>{{ t('home.simpleBilling') }}</span>
+        <i aria-hidden="true"></i>
+        <span>{{ t('home.invoiceAvailable') }}</span>
       </section>
 
-      <section class="home-secondary">
-        <!-- Temporarily hidden until the subscription purchase flow is ready. -->
-        <!-- <p>{{ t('home.subscriptionTeaser') }}</p> -->
+      <HomeShopSection v-if="officialShopEnabled" />
+      <section v-if="docUrl" class="home-secondary">
         <div v-if="docUrl" class="home-next-step">
           <span>{{ t('home.nextStep') }}</span>
           <a :href="docUrl" target="_blank" rel="noopener noreferrer">
@@ -200,11 +201,14 @@ import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { useTheme } from '@/composables/useTheme'
+import HomeShopSection from '@/features/shop/HomeShopSection.vue'
+import { useShopAvailability } from '@/features/shop/availability'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 const { isDark, toggleTheme } = useTheme()
+const { enabled: officialShopEnabled } = useShopAvailability()
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Best AI')
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
@@ -496,16 +500,21 @@ onMounted(() => {
 
 .home-proof {
   display: flex;
+  flex-wrap: wrap;
   min-height: 74px;
+  padding: 16px 0;
   align-items: center;
   justify-content: center;
   gap: 22px;
+  row-gap: 10px;
   border-top: 1px solid var(--home-line);
   border-bottom: 1px solid var(--home-line);
   color: #45564b;
   font-size: 13px;
   font-weight: 600;
 }
+
+.home-proof span { white-space: nowrap; }
 
 .home-proof i {
   width: 4px;
