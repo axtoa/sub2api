@@ -174,7 +174,8 @@ client = <b>OpenAI</b>(
       </section>
 
       <section class="home-secondary">
-        <p>{{ t('home.subscriptionTeaser') }}</p>
+        <!-- Temporarily hidden until the subscription purchase flow is ready. -->
+        <!-- <p>{{ t('home.subscriptionTeaser') }}</p> -->
         <div v-if="docUrl" class="home-next-step">
           <span>{{ t('home.nextStep') }}</span>
           <a :href="docUrl" target="_blank" rel="noopener noreferrer">
@@ -593,4 +594,11 @@ onMounted(() => {
 }
 
 .dark .best-ai-home .home-proof { color: #c0cec2; }
+
+.dark .best-ai-home .hero-highlight::after {
+  bottom: 3px;
+  height: 6px;
+  background: #9aa982;
+  opacity: 0.42;
+}
 </style>

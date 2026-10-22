@@ -29,7 +29,7 @@
             'rounded-full px-2.5 py-1 text-xs font-semibold',
             account.status === 'active'
               ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+              : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
           ]"
         >
           {{ account.status }}
@@ -502,8 +502,8 @@ const isDarkMode = computed(() => {
 
 // Chart colors
 const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#e5e7eb' : '#374151',
-  grid: isDarkMode.value ? '#374151' : '#e5e7eb'
+  text: isDarkMode.value ? '#e5eae6' : '#374151',
+  grid: isDarkMode.value ? '#2b3b31' : '#e5e7eb'
 }))
 
 // Line chart data

@@ -119,7 +119,7 @@ const limitOptions = [
 // 前三名金/银/铜徽章
 const RANK_BADGE_CLASSES = [
   'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
-  'bg-gray-200 text-gray-600 dark:bg-gray-500/20 dark:text-gray-300',
+  'bg-gray-200 text-gray-600 dark:bg-dark-500/20 dark:text-gray-300',
   'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
 ]
 

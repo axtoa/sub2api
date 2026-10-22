@@ -149,6 +149,21 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+      <!-- Theme Toggle -->
+      <button
+        type="button"
+        class="sidebar-link mb-1 w-full"
+        :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+        :title="isDark ? t('nav.lightMode') : t('nav.darkMode')"
+        :aria-label="isDark ? t('nav.lightMode') : t('nav.darkMode')"
+        @click="toggleTheme"
+      >
+        <Icon :name="isDark ? 'sun' : 'moon'" class="h-5 w-5 flex-shrink-0" />
+        <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+          {{ isDark ? t('nav.lightMode') : t('nav.darkMode') }}
+        </span>
+      </button>
+
       <!-- Collapse Button -->
       <button
         @click="toggleSidebar"
@@ -184,6 +199,7 @@ import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
+import { useTheme } from '@/composables/useTheme'
 
 interface NavItem {
   path: string
@@ -230,6 +246,7 @@ const authStore = useAuthStore()
 const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseCreativeStudio, refreshBatchImageAccess } = useBatchImageAccess()
+const { isDark, toggleTheme } = useTheme()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -976,7 +993,7 @@ onBeforeUnmount(() => {
 }
 
 .dark .sidebar-section-title::after {
-  background: rgb(55 65 81);
+  background: #2b3b31;
 }
 
 .sidebar-section-title-text-collapsed {

@@ -461,7 +461,7 @@ watch(
 }
 
 .dark .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #4b5563, #374151);
+  background: linear-gradient(to bottom, #46584c, #2b3b31);
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
@@ -469,6 +469,6 @@ watch(
 }
 
 .dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #6b7280, #4b5563);
+  background: linear-gradient(to bottom, #65766b, #46584c);
 }
 </style>

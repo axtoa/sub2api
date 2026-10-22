@@ -580,9 +580,9 @@ function formatBucketRange(value: string) {
   white-space: nowrap;
 }
 :global(.dark) .pulse-tooltip {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
-  color: rgb(229 231 235);
+  border-color: #2b3b31;
+  background: #1d2a22;
+  color: #e5eae6;
 }
 .pulse-tooltip-line {
   display: block;
@@ -591,7 +591,7 @@ function formatBucketRange(value: string) {
   color: rgb(75 85 99);
 }
 :global(.dark) .pulse-tooltip-line {
-  color: rgb(209 213 219);
+  color: #d2d9d4;
 }
 .pulse-tooltip-title {
   margin-bottom: 0.2rem;
@@ -599,7 +599,7 @@ function formatBucketRange(value: string) {
   color: rgb(17 24 39);
 }
 :global(.dark) .pulse-tooltip-title {
-  color: rgb(243 244 246);
+  color: #f4f7f4;
 }
 .pulse-cell:hover .pulse-tooltip,
 .pulse-cell:focus-visible .pulse-tooltip {
@@ -627,9 +627,9 @@ function formatBucketRange(value: string) {
   white-space: nowrap;
 }
 :global(.dark) .matrix-floating-tooltip {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
-  color: rgb(229 231 235);
+  border-color: #2b3b31;
+  background: #1d2a22;
+  color: #e5eae6;
 }
 .matrix-floating-tooltip-line {
   display: block;
@@ -638,7 +638,7 @@ function formatBucketRange(value: string) {
   color: rgb(75 85 99);
 }
 :global(.dark) .matrix-floating-tooltip-line {
-  color: rgb(209 213 219);
+  color: #d2d9d4;
 }
 .matrix-floating-tooltip-title {
   margin-bottom: 0.2rem;
@@ -646,7 +646,7 @@ function formatBucketRange(value: string) {
   color: rgb(17 24 39);
 }
 :global(.dark) .matrix-floating-tooltip-title {
-  color: rgb(243 244 246);
+  color: #f4f7f4;
 }
 
 @media (max-width: 640px) {

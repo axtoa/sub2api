@@ -337,15 +337,15 @@ onUnmounted(() => {
 
 :root.dark .aliyun-captcha-button,
 .dark .aliyun-captcha-button {
-  border-color: rgb(55 65 81);
-  background-color: rgb(31 41 55);
-  color: rgb(209 213 219);
+  border-color: #46584c;
+  background-color: #1d2a22;
+  color: #d2d9d4;
 }
 
 :root.dark .aliyun-captcha-button:hover:not(:disabled),
 .dark .aliyun-captcha-button:hover:not(:disabled) {
-  border-color: rgb(75 85 99);
-  background-color: rgb(55 65 81);
+  border-color: #65766b;
+  background-color: #2b3b31;
 }
 
 :root.dark .aliyun-captcha-button--verified,
