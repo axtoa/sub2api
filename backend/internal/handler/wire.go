@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"log/slog"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
@@ -10,6 +11,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/Wei-Shaw/sub2api/internal/shop"
+	"github.com/Wei-Shaw/sub2api/internal/upstreambalance"
 
 	"github.com/google/wire"
 )
@@ -191,6 +193,16 @@ func ProvideLedgerHandler(db *sql.DB, email *service.EmailService, cfg *config.C
 	return &ledger.Handler{Runner: runner}
 }
 
+func ProvideUpstreamBalanceHandler(accounts service.AccountRepository, email *service.EmailService, cfg *config.Config) *upstreambalance.Handler {
+	engine, err := upstreambalance.NewIsolatedEngine(accounts, email, cfg)
+	if err != nil {
+		slog.Warn("upstream wallet observer disabled; other features remain available")
+		return &upstreambalance.Handler{}
+	}
+	engine.Start()
+	return &upstreambalance.Handler{Engine: engine}
+}
+
 // ProvideHandlers creates the Handlers struct.
 func ProvideHandlers(
 	authHandler *AuthHandler,
@@ -221,8 +233,10 @@ func ProvideHandlers(
 	settingService *service.SettingService,
 	qualityHandler *quality.Handler,
 	ledgerHandler *ledger.Handler,
+	upstreamBalanceHandler *upstreambalance.Handler,
 ) *Handlers {
 	return &Handlers{
+		UpstreamBalance:  upstreamBalanceHandler,
 		Ledger:           ledgerHandler,
 		Quality:          qualityHandler,
 		Shop:             shop.NewHandler(db, settingService),
@@ -275,6 +289,7 @@ var ProviderSet = wire.NewSet(
 	ProvideBatchImageHandler,
 	ProvideQualityHandler,
 	ProvideLedgerHandler,
+	ProvideUpstreamBalanceHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

@@ -21,6 +21,11 @@ import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
  */
 const routes: RouteRecordRaw[] = [
   {
+    path: '/admin/upstream-balances', name: 'UpstreamBalances',
+    component: () => import('@/features/upstreamBalance/UpstreamBalancePage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'upstreamBalance.title' }
+  },
+  {
     path: '/admin/ledger', name: 'AdminLedger',
     component: () => import('@/features/ledger/LedgerPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'ledger.title' }

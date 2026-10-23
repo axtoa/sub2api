@@ -48,6 +48,10 @@ func TestShopAndExistingPanelRoutesUseRealAuthentication(t *testing.T) {
 	RegisterAdminRoutes(router.Group("/api/v1"), handlers, middleware.NewAdminAuthMiddleware(auth, users, nil, nil), audit, stepUp, nil, nil)
 
 	adminRoutes := []struct{ method, path string }{
+		{"GET", "/api/v1/admin/upstream-balances"}, {"POST", "/api/v1/admin/upstream-balances"},
+		{"GET", "/api/v1/admin/upstream-balances/accounts"}, {"PUT", "/api/v1/admin/upstream-balances/wallet"},
+		{"POST", "/api/v1/admin/upstream-balances/wallet/query"}, {"POST", "/api/v1/admin/upstream-balances/wallet/calibrate"},
+		{"GET", "/api/v1/admin/upstream-balances/wallet/history"}, {"GET", "/api/v1/admin/upstream-balances/settings"}, {"PUT", "/api/v1/admin/upstream-balances/settings"},
 		{"GET", "/api/v1/admin/ledger/entries"}, {"GET", "/api/v1/admin/ledger/export"},
 		{"POST", "/api/v1/admin/ledger/entries"}, {"PUT", "/api/v1/admin/ledger/entries/entry"}, {"POST", "/api/v1/admin/ledger/entries/entry/void"},
 		{"GET", "/api/v1/admin/ledger/resources"}, {"POST", "/api/v1/admin/ledger/resources"}, {"PUT", "/api/v1/admin/ledger/resources/resource"}, {"POST", "/api/v1/admin/ledger/resources/resource/renew"},

@@ -68,6 +68,20 @@ afterEach(() => {
 })
 
 describe('AppSidebar official product purchasing', () => {
+  it.each([false, true])('places upstream balances below the ledger for admins (simple: %s)', async simple => {
+    state.auth.isAdmin = true; state.auth.isSimpleMode = simple
+    const { wrapper, router } = await mountSidebar()
+    const paths = wrapper.findAll('nav a').map(a => a.attributes('href'))
+    expect(paths.indexOf('/admin/upstream-balances')).toBe(paths.indexOf('/admin/ledger') + 1)
+    const link = wrapper.get('nav a[href="/admin/upstream-balances"]')
+    expect(link.attributes('target')).toBeUndefined()
+    await link.trigger('click'); await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/admin/upstream-balances')
+  })
+  it('hides upstream wallet administration from ordinary users', async () => {
+    const { wrapper } = await mountSidebar()
+    expect(wrapper.find('a[href="/admin/upstream-balances"]').exists()).toBe(false)
+  })
   it.each([false, true])('opens the admin ledger below shop in the existing console (simple: %s)', async simple => {
     state.auth.isAdmin = true
     state.auth.isSimpleMode = simple

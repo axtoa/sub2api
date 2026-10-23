@@ -31,6 +31,18 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		wallets := admin.Group("/upstream-balances")
+		wallets.Use(h.UpstreamBalance.Isolation)
+		wallets.GET("", h.UpstreamBalance.List)
+		wallets.GET("/accounts", h.UpstreamBalance.Options)
+		wallets.POST("", h.UpstreamBalance.Save)
+		wallets.PUT("/:id", h.UpstreamBalance.Save)
+		wallets.POST("/:id/calibrate", h.UpstreamBalance.Calibrate)
+		wallets.POST("/:id/query", h.UpstreamBalance.Query)
+		wallets.GET("/:id/history", h.UpstreamBalance.History)
+		wallets.GET("/settings", h.UpstreamBalance.Settings)
+		wallets.PUT("/settings", h.UpstreamBalance.SaveSettings)
+
 		ledger := admin.Group("/ledger")
 		ledger.Use(func(c *gin.Context) { c.Header("Cache-Control", "no-store"); c.Next() })
 		ledger.GET("/entries", h.Ledger.Entries)

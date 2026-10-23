@@ -99,6 +99,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // pluginManager
 		nil, // qualityMonitor
 		nil, // ledgerReminders
+		nil, // upstreamBalance
 	)
 
 	require.NotPanics(t, func() {
