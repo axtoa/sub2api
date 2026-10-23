@@ -137,7 +137,7 @@ describe('feature route guard', () => {
     }
   })
 
-  it.each(['/shop', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id', '/admin/quality-monitor'])('requires login for %s', async path => {
+  it.each(['/shop', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger'])('requires login for %s', async path => {
     authStore.isAuthenticated = false
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)
@@ -145,7 +145,7 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: path } })
   })
 
-  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id', '/admin/quality-monitor'])('denies ordinary users access to %s', async path => {
+  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger'])('denies ordinary users access to %s', async path => {
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)
     await navigation

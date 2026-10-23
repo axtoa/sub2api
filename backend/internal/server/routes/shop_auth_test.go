@@ -48,6 +48,10 @@ func TestShopAndExistingPanelRoutesUseRealAuthentication(t *testing.T) {
 	RegisterAdminRoutes(router.Group("/api/v1"), handlers, middleware.NewAdminAuthMiddleware(auth, users, nil, nil), audit, stepUp, nil, nil)
 
 	adminRoutes := []struct{ method, path string }{
+		{"GET", "/api/v1/admin/ledger/entries"}, {"GET", "/api/v1/admin/ledger/export"},
+		{"POST", "/api/v1/admin/ledger/entries"}, {"PUT", "/api/v1/admin/ledger/entries/entry"}, {"POST", "/api/v1/admin/ledger/entries/entry/void"},
+		{"GET", "/api/v1/admin/ledger/resources"}, {"POST", "/api/v1/admin/ledger/resources"}, {"PUT", "/api/v1/admin/ledger/resources/resource"}, {"POST", "/api/v1/admin/ledger/resources/resource/renew"},
+		{"GET", "/api/v1/admin/ledger/history/entry"}, {"GET", "/api/v1/admin/ledger/settings"}, {"PUT", "/api/v1/admin/ledger/settings"},
 		{"POST", "/api/v1/admin/quality-monitor/sync"}, {"PUT", "/api/v1/admin/quality-monitor/accounts/1"},
 		{"GET", "/api/v1/admin/quality-monitor/snapshot"}, {"PUT", "/api/v1/admin/quality-monitor/settings"},
 		{"GET", "/api/v1/admin/quality-monitor/accounts"}, {"POST", "/api/v1/admin/quality-monitor/targets"},

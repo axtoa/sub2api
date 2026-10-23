@@ -5,6 +5,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
+	"github.com/Wei-Shaw/sub2api/internal/ledger"
 	"github.com/Wei-Shaw/sub2api/internal/quality"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -184,6 +185,12 @@ func ProvideQualityHandler(db *sql.DB, accounts service.AccountRepository, tests
 	return &quality.Handler{Runner: runner}
 }
 
+func ProvideLedgerHandler(db *sql.DB, email *service.EmailService, cfg *config.Config) *ledger.Handler {
+	runner := ledger.NewRunner(db, email, cfg.Timezone)
+	runner.Start()
+	return &ledger.Handler{Runner: runner}
+}
+
 // ProvideHandlers creates the Handlers struct.
 func ProvideHandlers(
 	authHandler *AuthHandler,
@@ -213,8 +220,10 @@ func ProvideHandlers(
 	db *sql.DB,
 	settingService *service.SettingService,
 	qualityHandler *quality.Handler,
+	ledgerHandler *ledger.Handler,
 ) *Handlers {
 	return &Handlers{
+		Ledger:           ledgerHandler,
 		Quality:          qualityHandler,
 		Shop:             shop.NewHandler(db, settingService),
 		Auth:             authHandler,
@@ -265,6 +274,7 @@ var ProviderSet = wire.NewSet(
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
 	ProvideQualityHandler,
+	ProvideLedgerHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

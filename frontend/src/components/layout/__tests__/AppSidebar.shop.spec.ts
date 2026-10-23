@@ -68,6 +68,21 @@ afterEach(() => {
 })
 
 describe('AppSidebar official product purchasing', () => {
+  it.each([false, true])('opens the admin ledger below shop in the existing console (simple: %s)', async simple => {
+    state.auth.isAdmin = true
+    state.auth.isSimpleMode = simple
+    const { wrapper, router } = await mountSidebar()
+    const ledger = wrapper.get('nav a[href="/admin/ledger"]')
+    expect(ledger.element.previousElementSibling?.getAttribute('href')).toBe('/admin/shop')
+    expect(ledger.attributes('target')).toBeUndefined()
+    await ledger.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/admin/ledger')
+  })
+  it('does not show the ledger to ordinary users', async () => {
+    const { wrapper } = await mountSidebar()
+    expect(wrapper.find('a[href="/admin/ledger"]').exists()).toBe(false)
+  })
   it.each([false, true])('hides the customer entry when closed without hiding admin management (admin: %s)', async isAdmin => {
     state.auth.isAdmin = isAdmin
     state.app.cachedPublicSettings.official_shop_enabled = false

@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/ledger"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/quality"
 	"github.com/Wei-Shaw/sub2api/internal/repository"
@@ -130,6 +131,7 @@ func provideCleanup(
 	promptAudit *securityaudit.PromptService,
 	pluginManager *service.PluginManager,
 	qualityHandler *quality.Handler,
+	ledgerHandler *ledger.Handler,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -343,6 +345,12 @@ func provideCleanup(
 			{"QualityMonitor", func() error {
 				if qualityHandler != nil {
 					qualityHandler.Stop()
+				}
+				return nil
+			}},
+			{"LedgerReminders", func() error {
+				if ledgerHandler != nil {
+					ledgerHandler.Stop()
 				}
 				return nil
 			}},

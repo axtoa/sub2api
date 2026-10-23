@@ -21,6 +21,11 @@ import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
  */
 const routes: RouteRecordRaw[] = [
   {
+    path: '/admin/ledger', name: 'AdminLedger',
+    component: () => import('@/features/ledger/LedgerPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'ledger.title' }
+  },
+  {
     path: '/admin/quality-monitor', name: 'QualityMonitor',
     component: () => import('@/features/quality/QualityMonitorPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'quality.title' }
