@@ -31,6 +31,18 @@ func RegisterAdminRoutes(
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
 	{
+		quality := admin.Group("/quality-monitor")
+		quality.GET("/snapshot", h.Quality.Snapshot)
+		quality.POST("/sync", h.Quality.SyncAccounts)
+		quality.PUT("/accounts/:id", h.Quality.SaveAccount)
+		quality.PUT("/settings", h.Quality.SaveSettings)
+		quality.GET("/accounts", h.Quality.Accounts)
+		quality.POST("/targets", h.Quality.CreateTargets)
+		quality.PUT("/targets/:id", h.Quality.SaveTarget)
+		quality.GET("/targets/:id/history", h.Quality.History)
+		quality.POST("/runs", h.Quality.Run)
+		quality.GET("/runs/:id", h.Quality.Detail)
+
 		shop := admin.Group("/shop")
 		shop.GET("/settings", h.Shop.Availability)
 		shop.PUT("/settings", h.Shop.SetAvailability)

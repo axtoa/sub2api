@@ -5,6 +5,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
+	"github.com/Wei-Shaw/sub2api/internal/quality"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/Wei-Shaw/sub2api/internal/shop"
@@ -176,7 +177,14 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	return h
 }
 
-// ProvideHandlers creates the Handlers struct
+// ProvideQualityHandler starts the independent observation-only monitor.
+func ProvideQualityHandler(db *sql.DB, accounts service.AccountRepository, tests *service.AccountTestService, slots *service.ConcurrencyService, cfg *config.Config) *quality.Handler {
+	runner := quality.NewRunner(db, accounts, tests, slots, cfg.Timezone)
+	runner.Start()
+	return &quality.Handler{Runner: runner}
+}
+
+// ProvideHandlers creates the Handlers struct.
 func ProvideHandlers(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
@@ -204,8 +212,10 @@ func ProvideHandlers(
 	_ *service.OpenAIQuotaAutoResetService,
 	db *sql.DB,
 	settingService *service.SettingService,
+	qualityHandler *quality.Handler,
 ) *Handlers {
 	return &Handlers{
+		Quality:          qualityHandler,
 		Shop:             shop.NewHandler(db, settingService),
 		Auth:             authHandler,
 		User:             userHandler,
@@ -254,6 +264,7 @@ var ProviderSet = wire.NewSet(
 	NewModelPlazaHandler,
 	NewAsyncImageHandler,
 	ProvideBatchImageHandler,
+	ProvideQualityHandler,
 
 	// Admin handlers
 	admin.NewDashboardHandler,

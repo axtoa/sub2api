@@ -316,6 +316,12 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Account not found")
 	}
+	// Recheck the actual routing snapshot: the account may have changed since
+	// RunQualityProbe validated it, including into a shadow or media route.
+	if isQualityProbe(ctx) && !QualityProbeSupported(account, modelID) {
+		qualityCapture(ctx).result.Reason = "unsupported"
+		return s.sendErrorAndEnd(c, "Account no longer supports quality probes")
+	}
 
 	// Synthetic UI load-test accounts exercise the real SSE parsing and modal
 	// interactions, but intentionally do not send their placeholder credentials
@@ -449,6 +455,7 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
+	applyQualityProbePayload(ctx, payload, "anthropic")
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event
@@ -493,13 +500,14 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
 	defer func() { _ = resp.Body.Close() }()
+	observeQualityProbeResponse(ctx, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		errMsg := fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(body))
 
 		// 403 表示账号被上游封禁，标记为 error 状态
-		if resp.StatusCode == http.StatusForbidden {
+		if resp.StatusCode == http.StatusForbidden && !isQualityProbe(ctx) {
 			_ = s.accountRepo.SetError(ctx, account.ID, errMsg)
 		}
 
@@ -776,6 +784,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		upstreamTestModelID = normalizeOpenAIModelForUpstream(credentialAccount, testModelID)
 	}
 	payload := createOpenAITestPayload(upstreamTestModelID, isOAuth)
+	applyQualityProbePayload(ctx, payload, "responses")
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event once. A task-invalid Agent Identity response may
@@ -841,8 +850,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Request failed: %s", err.Error()))
 	}
 	defer func() { _ = resp.Body.Close() }()
+	observeQualityProbeResponse(ctx, resp)
 
-	if isOAuth && s.accountRepo != nil {
+	if isOAuth && s.accountRepo != nil && !isQualityProbe(ctx) {
 		if updates, err := extractOpenAICodexProbeUpdates(resp); err == nil && len(updates) > 0 {
 			_ = s.accountRepo.UpdateExtra(ctx, account.ID, updates)
 			mergeAccountExtra(account, updates)
@@ -852,7 +862,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		body = redactAgentIdentitySensitiveBodyForAccount(ctx, s.accountRepo, credentialAccount, body)
-		if !agentIdentityTaskRecoveryWasTried(ctx) && credentialAccount.IsOpenAIAgentIdentity() && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, body) {
+		if !isQualityProbe(ctx) && !agentIdentityTaskRecoveryWasTried(ctx) && credentialAccount.IsOpenAIAgentIdentity() && isAgentIdentityTaskInvalidHTTPResponse(resp.StatusCode, body) {
 			expectedTaskID := credentialAccount.GetCredential("task_id")
 			if err := ensureAgentIdentityTaskForAccount(ctx, s.accountRepo, s.agentIdentityWS, &s.agentIdentityTaskMu, credentialAccount, expectedTaskID); err != nil {
 				return s.sendErrorAndEnd(c, fmt.Sprintf("Agent Identity task recovery failed: %s", err.Error()))
@@ -860,11 +870,11 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 			c.Request = c.Request.WithContext(markAgentIdentityTaskRecoveryTried(ctx))
 			return s.testOpenAIAccountConnection(c, account, modelID, prompt, mode)
 		}
-		if resp.StatusCode == http.StatusTooManyRequests {
+		if resp.StatusCode == http.StatusTooManyRequests && !isQualityProbe(ctx) {
 			s.reconcileOpenAI429State(ctx, account, resp.Header, body)
 		}
 		// 401 Unauthorized: 标记账号为永久错误
-		if resp.StatusCode == http.StatusUnauthorized && s.accountRepo != nil {
+		if resp.StatusCode == http.StatusUnauthorized && s.accountRepo != nil && !isQualityProbe(ctx) {
 			errMsg := fmt.Sprintf("Authentication failed (401): %s", string(body))
 			_ = s.accountRepo.SetError(ctx, account.ID, errMsg)
 		}
@@ -2018,6 +2028,7 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	applyQualityProbePayload(ctx, payload, "chat")
 	payloadBytes, _ := json.Marshal(payload)
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
@@ -2045,13 +2056,14 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Chat Completions API (/v1/chat/completions) request failed: %s", err.Error()))
 	}
 	defer func() { _ = resp.Body.Close() }()
+	observeQualityProbeResponse(ctx, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusTooManyRequests {
+		if resp.StatusCode == http.StatusTooManyRequests && !isQualityProbe(ctx) {
 			s.reconcileOpenAI429State(ctx, account, resp.Header, body)
 		}
-		if resp.StatusCode == http.StatusUnauthorized && s.accountRepo != nil {
+		if resp.StatusCode == http.StatusUnauthorized && s.accountRepo != nil && !isQualityProbe(ctx) {
 			errMsg := fmt.Sprintf("Chat Completions authentication failed (401): %s", string(body))
 			_ = s.accountRepo.SetError(ctx, account.ID, errMsg)
 		}
@@ -3141,6 +3153,11 @@ func (s *AccountTestService) sendEvent(c *gin.Context, event TestEvent) {
 
 // sendErrorAndEnd sends an error event and ends the stream
 func (s *AccountTestService) sendErrorAndEnd(c *gin.Context, errorMsg string) error {
+	if c.Request != nil {
+		if err := qualityProbeError(c.Request.Context()); err != nil {
+			return err
+		}
+	}
 	log.Printf("Account test error: %s", errorMsg)
 	s.sendEvent(c, TestEvent{Type: "error", Error: errorMsg})
 	return fmt.Errorf("%s", errorMsg)
