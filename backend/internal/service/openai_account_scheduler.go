@@ -146,6 +146,7 @@ type openAIAccountLoadPlan struct {
 }
 
 type openAIAccountLoadSelectionAttempt struct {
+	priorityAttempted   bool
 	result              *AccountSelectionResult
 	selectionOrder      []openAIAccountCandidateScore
 	candidateCount      int
@@ -375,7 +376,8 @@ func newDefaultOpenAIAccountScheduler(service *OpenAIGatewayService, stats *open
 func (s *defaultOpenAIAccountScheduler) Select(
 	ctx context.Context,
 	req OpenAIAccountScheduleRequest,
-) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+) (selected *AccountSelectionResult, scheduleDecision OpenAIAccountScheduleDecision, selectErr error) {
+	defer func() { normalAccountSelectionReason(selected) }()
 	if s != nil && s.service != nil && s.service.openAIGroupRequiresPrivacySet(ctx, req.GroupID) {
 		req.RequirePrivacySet = true
 	}
@@ -1495,6 +1497,10 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			}
 			if len(regularAccounts) > 0 {
 				regularAttempt := s.trySelectByLoadBalancePool(ctx, req, regularAccounts, loadMap, budget)
+				regularAttempt.priorityAttempted = regularAttempt.priorityAttempted || attempt.priorityAttempted
+				if regularAttempt.result != nil && attempt.priorityAttempted && regularAttempt.result.AccountSelectionReason != AccountSelectionPriority {
+					regularAttempt.result.AccountSelectionReason = AccountSelectionFallback
+				}
 				if regularAttempt.err != nil && !regularAttempt.noCompactCandidates {
 					return nil, regularAttempt.candidateCount, regularAttempt.topK, regularAttempt.loadSkew, regularAttempt.err
 				}
@@ -1513,6 +1519,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				// 常规池既无法获取也无法排队（含仅剩不支持 compact 的候选）时，
 				// 回退到订阅池的等待计划：busy-but-waitable 的订阅账号不应因常规池存在
 				// 而被丢弃，否则开启订阅优先反而让本可排队成功的请求硬失败。
+				attempt.priorityAttempted = regularAttempt.priorityAttempted
 				subResult, subCandidateCount, subTopK, subLoadSkew, subErr := s.finishLoadBalanceSelectionFallback(ctx, req, attempt, budget, filterStats)
 				if subErr == nil && subResult != nil {
 					return subResult, subCandidateCount, subTopK, subLoadSkew, nil
@@ -1578,7 +1585,8 @@ func (s *defaultOpenAIAccountScheduler) trySelectByLoadBalancePool(
 		return attempt
 	}
 
-	result, compactBlocked, acquireErr := s.tryAcquireOpenAISelectionOrderWithBudget(ctx, req, attempt.selectionOrder, budget)
+	result, compactBlocked, priorityAttempted, acquireErr := s.tryAcquireWithConsumePriority(ctx, req, plan, budget)
+	attempt.priorityAttempted = priorityAttempted
 	attempt.compactBlocked = compactBlocked
 	if acquireErr != nil {
 		attempt.err = acquireErr
@@ -1597,7 +1605,11 @@ func (s *defaultOpenAIAccountScheduler) trySelectByLoadBalancePool(
 				budget.enableLimit()
 			}
 			if len(freshPlan.selectionOrder) > 0 {
-				freshResult, freshCompactBlocked, freshAcquireErr := s.tryAcquireOpenAISelectionOrderWithBudget(ctx, req, freshPlan.selectionOrder, budget)
+				freshResult, freshCompactBlocked, freshPriorityAttempted, freshAcquireErr := s.tryAcquireWithConsumePriority(ctx, req, freshPlan, budget)
+				attempt.priorityAttempted = attempt.priorityAttempted || freshPriorityAttempted
+				if freshResult != nil && attempt.priorityAttempted && freshResult.AccountSelectionReason == "" {
+					freshResult.AccountSelectionReason = AccountSelectionFallback
+				}
 				if freshAcquireErr != nil {
 					attempt.err = freshAcquireErr
 					return attempt
@@ -1661,7 +1673,12 @@ func (s *defaultOpenAIAccountScheduler) finishLoadBalanceSelectionFallback(
 	attempt openAIAccountLoadSelectionAttempt,
 	budget *openAISelectionProbeBudget,
 	filterStats openAISelectionFilterStats,
-) (*AccountSelectionResult, int, int, float64, error) {
+) (selected *AccountSelectionResult, count int, k int, skew float64, selectErr error) {
+	defer func() {
+		if selected != nil && attempt.priorityAttempted {
+			selected.AccountSelectionReason = AccountSelectionFallback
+		}
+	}()
 	candidateCount := attempt.candidateCount
 	topK := attempt.topK
 	loadSkew := attempt.loadSkew
@@ -2224,7 +2241,8 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	platform string,
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
-) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+) (selected *AccountSelectionResult, scheduleDecision OpenAIAccountScheduleDecision, selectErr error) {
+	defer func() { normalAccountSelectionReason(selected) }()
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	ctx = s.withOpenAIGroupPrivacyRequirement(ctx, groupID)
 	// 分组利润控制：唯一文本调度入口的防御性装门。handler 文本

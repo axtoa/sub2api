@@ -153,6 +153,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	switchCount := 0
 	profitVetoCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	priorSelectionReason := ""
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -215,6 +216,8 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			return
 		}
 		account := selection.Account
+		selection.AccountSelectionReason = service.AccountSelectionReasonAfterRetry(priorSelectionReason, selection.AccountSelectionReason)
+		priorSelectionReason = selection.AccountSelectionReason
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
 		reqLog.Debug("openai_chat_completions.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
 		_ = scheduleDecision
@@ -281,21 +284,22 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
 			h.submitOpenAIUsageRecordTask(c.Request.Context(), res, func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-					Result:             res,
-					APIKey:             apiKey,
-					User:               apiKey.User,
-					Account:            account,
-					Subscription:       subscription,
-					InboundEndpoint:    inboundEndpoint,
-					UpstreamEndpoint:   upstreamEndpoint,
-					UserAgent:          userAgent,
-					IPAddress:          clientIP,
-					APIKeyService:      h.apiKeyService,
-					QuotaPlatform:      quotaPlatform,
-					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
-					PricingAt:          pricingAt,
-					CyberBlocked:       cyberBlocked,
+					AccountSelectionReason: selection.AccountSelectionReason,
+					Result:                 res,
+					APIKey:                 apiKey,
+					User:                   apiKey.User,
+					Account:                account,
+					Subscription:           subscription,
+					InboundEndpoint:        inboundEndpoint,
+					UpstreamEndpoint:       upstreamEndpoint,
+					UserAgent:              userAgent,
+					IPAddress:              clientIP,
+					APIKeyService:          h.apiKeyService,
+					QuotaPlatform:          quotaPlatform,
+					SessionID:              sessionID,
+					ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
+					PricingAt:              pricingAt,
+					CyberBlocked:           cyberBlocked,
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.openai_gateway.chat_completions"),

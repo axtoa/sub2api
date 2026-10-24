@@ -973,6 +973,7 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 	}
 	keys := []string{
 		"quota_limit",
+		service.ConsumePriorityExtraKey,
 		"quota_used",
 		"quota_daily_limit",
 		"quota_daily_used",

@@ -628,6 +628,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	firstOutputTimeoutSwitchCount := 0
 	profitVetoCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	priorSelectionReason := ""
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -722,6 +723,8 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			zap.Float64("load_skew", scheduleDecision.LoadSkew),
 		)
 		account := selection.Account
+		selection.AccountSelectionReason = service.AccountSelectionReasonAfterRetry(priorSelectionReason, selection.AccountSelectionReason)
+		priorSelectionReason = selection.AccountSelectionReason
 		if previousResponseID != "" && requestPlatform == service.PlatformOpenAI && !account.IsOpenAIApiKey() {
 			// The public Responses HTTP API supports previous_response_id on API-key
 			// accounts. OAuth/SetupToken upstreams do not, so keep searching instead
@@ -813,23 +816,24 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
 			h.submitOpenAIUsageRecordTask(c.Request.Context(), res, func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-					Result:             res,
-					APIKey:             apiKey,
-					User:               apiKey.User,
-					Account:            account,
-					Subscription:       subscription,
-					InboundEndpoint:    inboundEndpoint,
-					UpstreamEndpoint:   upstreamEndpoint,
-					UserAgent:          userAgent,
-					IPAddress:          clientIP,
-					RequestPayloadHash: requestPayloadHash,
-					APIKeyService:      h.apiKeyService,
-					QuotaPlatform:      quotaPlatform,
-					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
-					PricingAt:          pricingAt,
-					CyberBlocked:       cyberBlocked,
-					NativeCompactionV2: nativeV2,
+					AccountSelectionReason: selection.AccountSelectionReason,
+					Result:                 res,
+					APIKey:                 apiKey,
+					User:                   apiKey.User,
+					Account:                account,
+					Subscription:           subscription,
+					InboundEndpoint:        inboundEndpoint,
+					UpstreamEndpoint:       upstreamEndpoint,
+					UserAgent:              userAgent,
+					IPAddress:              clientIP,
+					RequestPayloadHash:     requestPayloadHash,
+					APIKeyService:          h.apiKeyService,
+					QuotaPlatform:          quotaPlatform,
+					SessionID:              sessionID,
+					ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
+					PricingAt:              pricingAt,
+					CyberBlocked:           cyberBlocked,
+					NativeCompactionV2:     nativeV2,
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.openai_gateway.responses"),
@@ -1244,6 +1248,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	switchCount := 0
 	profitVetoCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	priorSelectionReason := ""
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -1312,6 +1317,8 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			return
 		}
 		account := selection.Account
+		selection.AccountSelectionReason = service.AccountSelectionReasonAfterRetry(priorSelectionReason, selection.AccountSelectionReason)
+		priorSelectionReason = selection.AccountSelectionReason
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
 		reqLog.Debug("openai_messages.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
 		_ = scheduleDecision
@@ -1379,22 +1386,23 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
 			h.submitOpenAIUsageRecordTask(c.Request.Context(), res, func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-					Result:             res,
-					APIKey:             apiKey,
-					User:               apiKey.User,
-					Account:            account,
-					Subscription:       subscription,
-					InboundEndpoint:    inboundEndpoint,
-					UpstreamEndpoint:   upstreamEndpoint,
-					UserAgent:          userAgent,
-					IPAddress:          clientIP,
-					RequestPayloadHash: requestPayloadHash,
-					APIKeyService:      h.apiKeyService,
-					QuotaPlatform:      quotaPlatform,
-					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMappingMsg, reqModel, res.UpstreamModel),
-					PricingAt:          pricingAt,
-					CyberBlocked:       cyberBlocked,
+					AccountSelectionReason: selection.AccountSelectionReason,
+					Result:                 res,
+					APIKey:                 apiKey,
+					User:                   apiKey.User,
+					Account:                account,
+					Subscription:           subscription,
+					InboundEndpoint:        inboundEndpoint,
+					UpstreamEndpoint:       upstreamEndpoint,
+					UserAgent:              userAgent,
+					IPAddress:              clientIP,
+					RequestPayloadHash:     requestPayloadHash,
+					APIKeyService:          h.apiKeyService,
+					QuotaPlatform:          quotaPlatform,
+					SessionID:              sessionID,
+					ChannelUsageFields:     clientRequestedUsageFields(c, channelMappingMsg, reqModel, res.UpstreamModel),
+					PricingAt:              pricingAt,
+					CyberBlocked:           cyberBlocked,
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.openai_gateway.messages"),
@@ -2503,6 +2511,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	switchCount := 0
 	profitVetoCount := 0
 	failedAccountIDs := make(map[int64]struct{})
+	priorSelectionReason := ""
 	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	var oauth429FailoverState service.OpenAIOAuth429FailoverState
@@ -2626,6 +2635,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 
 		account := selection.Account
+		selection.AccountSelectionReason = service.AccountSelectionReasonAfterRetry(priorSelectionReason, selection.AccountSelectionReason)
+		priorSelectionReason = selection.AccountSelectionReason
 		accountMaxConcurrency := account.Concurrency
 		if selection.WaitPlan != nil && selection.WaitPlan.MaxConcurrency > 0 {
 			accountMaxConcurrency = selection.WaitPlan.MaxConcurrency
@@ -2942,22 +2953,23 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
 				h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
 					if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
-						Result:             result,
-						APIKey:             apiKey,
-						User:               apiKey.User,
-						Account:            account,
-						Subscription:       subscription,
-						InboundEndpoint:    inboundEndpoint,
-						UpstreamEndpoint:   upstreamEndpoint,
-						UserAgent:          userAgent,
-						IPAddress:          clientIP,
-						RequestPayloadHash: requestPayloadHash,
-						APIKeyService:      h.apiKeyService,
-						QuotaPlatform:      quotaPlatform,
-						SessionID:          sessionID,
-						ChannelUsageFields: turnUsageFields,
-						PricingAt:          turnRecordPricingAt,
-						CyberBlocked:       cyberBlocked,
+						AccountSelectionReason: service.AccountSelectionReasonForTurn(selection.AccountSelectionReason, turn),
+						Result:                 result,
+						APIKey:                 apiKey,
+						User:                   apiKey.User,
+						Account:                account,
+						Subscription:           subscription,
+						InboundEndpoint:        inboundEndpoint,
+						UpstreamEndpoint:       upstreamEndpoint,
+						UserAgent:              userAgent,
+						IPAddress:              clientIP,
+						RequestPayloadHash:     requestPayloadHash,
+						APIKeyService:          h.apiKeyService,
+						QuotaPlatform:          quotaPlatform,
+						SessionID:              sessionID,
+						ChannelUsageFields:     turnUsageFields,
+						PricingAt:              turnRecordPricingAt,
+						CyberBlocked:           cyberBlocked,
 					}); err != nil {
 						reqLog.Error("openai.websocket_record_usage_failed",
 							zap.Int64("account_id", account.ID),

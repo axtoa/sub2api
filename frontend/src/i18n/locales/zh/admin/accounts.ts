@@ -1,5 +1,12 @@
 export default {
     accounts: {
+      consumePriority: '优先消耗',
+      consumePriorityEnabled: '优先消耗已开启：优先承接可自由分配的文本请求。已有会话、特殊接口和限流保护仍按原规则处理。',
+      consumePriorityDisabled: '优先消耗已关闭：沿用原有调度。点击开启。',
+      consumePrioritySaveFailed: '优先消耗设置保存失败，请重试',
+      selectionPriority: '优先消耗命中：本次优先选择了已开启的账号。',
+      selectionNormal: '原有规则命中：本次按原有调度或会话绑定选择账号。',
+      selectionFallback: '优先消耗回退：优先尝试未承接本次请求，已按原有规则回退。',
       title: '账号管理',
       description: '管理 AI 平台账号和 Cookie',
       createAccount: '添加账号',

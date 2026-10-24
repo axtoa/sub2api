@@ -88,6 +88,7 @@ const DataTableStub = {
   template: `
     <div>
       <div v-for="row in data" :key="row.request_id">
+        <slot name="cell-account" :row="row" />
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-reasoning_effort" :row="row" :value="row.reasoning_effort" />
         <slot name="cell-billing_mode" :row="row" />
@@ -129,6 +130,24 @@ const baseImageRow = {
 }
 
 describe('admin UsageTable tooltip', () => {
+  it('uses the recorded selection reason, never the current account preference', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [
+          { ...baseImageRow, request_id: 'priority', account: { id: 1, name: 'Account A', extra: { consume_priority_enabled: false } }, account_selection_reason: 'priority' },
+          { ...baseImageRow, request_id: 'history', account: { id: 2, name: 'Account B', extra: { consume_priority_enabled: true } } }
+        ],
+        loading: false,
+        columns: []
+      },
+      global: { stubs: { DataTable: DataTableStub } }
+    })
+    expect(wrapper.findAll('[data-selection-reason]')).toHaveLength(1)
+    expect(wrapper.get('[data-selection-reason]').attributes('data-selection-reason')).toBe('priority')
+    expect(wrapper.text()).toContain('Account A')
+    expect(wrapper.text()).toContain('Account B')
+  })
+
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       x: 0,

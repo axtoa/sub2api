@@ -319,6 +319,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	if platform == service.PlatformGemini {
 		fs := NewFailoverState(h.maxAccountSwitchesGemini, hasBoundSession)
+		priorSelectionReason := ""
 
 		// 单账号分组提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 		// 避免单账号分组收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
@@ -368,6 +369,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 			}
 			account := selection.Account
+			selection.AccountSelectionReason = service.AccountSelectionReasonAfterRetry(priorSelectionReason, selection.AccountSelectionReason)
+			priorSelectionReason = selection.AccountSelectionReason
 			setOpsSelectedAccount(c, account.ID, account.Platform)
 
 			// 检查请求拦截（预热请求、SUGGESTION MODE等）
@@ -577,22 +580,23 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			sessionID := service.ExtractClientSessionID(c)
 			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-					Result:             result,
-					QuotaPlatform:      quotaPlatform,
-					APIKey:             apiKey,
-					User:               apiKey.User,
-					Account:            account,
-					Subscription:       subscription,
-					PricingAt:          pricingAt,
-					InboundEndpoint:    inboundEndpoint,
-					UpstreamEndpoint:   upstreamEndpoint,
-					UserAgent:          userAgent,
-					IPAddress:          clientIP,
-					SessionID:          sessionID,
-					RequestPayloadHash: requestPayloadHash,
-					ForceCacheBilling:  forceCacheBilling,
-					APIKeyService:      h.apiKeyService,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+					AccountSelectionReason: selection.AccountSelectionReason,
+					Result:                 result,
+					QuotaPlatform:          quotaPlatform,
+					APIKey:                 apiKey,
+					User:                   apiKey.User,
+					Account:                account,
+					Subscription:           subscription,
+					PricingAt:              pricingAt,
+					InboundEndpoint:        inboundEndpoint,
+					UpstreamEndpoint:       upstreamEndpoint,
+					UserAgent:              userAgent,
+					IPAddress:              clientIP,
+					SessionID:              sessionID,
+					RequestPayloadHash:     requestPayloadHash,
+					ForceCacheBilling:      forceCacheBilling,
+					APIKeyService:          h.apiKeyService,
+					ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
 				}); err != nil {
 					logger.L().With(
 						zap.String("component", "handler.gateway.messages"),
@@ -642,6 +646,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	for {
 		fs := NewFailoverState(h.maxAccountSwitches, hasBoundSession)
+		priorSelectionReason := ""
 		retryWithFallback := false
 
 		for {
@@ -699,6 +704,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 			}
 			account := selection.Account
+			selection.AccountSelectionReason = service.AccountSelectionReasonAfterRetry(priorSelectionReason, selection.AccountSelectionReason)
+			priorSelectionReason = selection.AccountSelectionReason
 			setOpsSelectedAccount(c, account.ID, account.Platform)
 
 			// [DEBUG-STICKY] 打印账号选择结果
@@ -939,22 +946,23 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				sessionID := service.ExtractClientSessionID(c)
 				h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 					if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-						Result:             result,
-						QuotaPlatform:      quotaPlatform,
-						APIKey:             currentAPIKey,
-						User:               currentAPIKey.User,
-						Account:            account,
-						Subscription:       currentSubscription,
-						PricingAt:          pricingAt,
-						InboundEndpoint:    inboundEndpoint,
-						UpstreamEndpoint:   upstreamEndpoint,
-						UserAgent:          userAgent,
-						IPAddress:          clientIP,
-						SessionID:          sessionID,
-						RequestPayloadHash: requestPayloadHash,
-						ForceCacheBilling:  forceCacheBilling,
-						APIKeyService:      h.apiKeyService,
-						ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+						AccountSelectionReason: selection.AccountSelectionReason,
+						Result:                 result,
+						QuotaPlatform:          quotaPlatform,
+						APIKey:                 currentAPIKey,
+						User:                   currentAPIKey.User,
+						Account:                account,
+						Subscription:           currentSubscription,
+						PricingAt:              pricingAt,
+						InboundEndpoint:        inboundEndpoint,
+						UpstreamEndpoint:       upstreamEndpoint,
+						UserAgent:              userAgent,
+						IPAddress:              clientIP,
+						SessionID:              sessionID,
+						RequestPayloadHash:     requestPayloadHash,
+						ForceCacheBilling:      forceCacheBilling,
+						APIKeyService:          h.apiKeyService,
+						ChannelUsageFields:     clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
 					}); err != nil {
 						logger.L().With(
 							zap.String("component", "handler.gateway.messages"),

@@ -8,6 +8,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestConsumePrioritySchedulerMetadataAndOutbox(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		updates := map[string]any{service.ConsumePriorityExtraKey: enabled}
+		metadata := buildSchedulerMetadataAccount(service.Account{Platform: service.PlatformOpenAI, Extra: updates})
+		require.Equal(t, enabled, metadata.Extra[service.ConsumePriorityExtraKey])
+		require.Equal(t, enabled, metadata.ConsumePriorityEnabled())
+		require.True(t, shouldEnqueueSchedulerOutboxForExtraUpdates(updates), "both enabling and disabling must reach scheduler caches")
+	}
+}
+
 func TestFilterSchedulerCredentialsKeepsSubscriptionPlanType(t *testing.T) {
 	filtered := filterSchedulerCredentials(map[string]any{
 		"plan_type":     "plus",

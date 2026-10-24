@@ -49,7 +49,10 @@
         </template>
 
         <template #cell-account="{ row }">
-          <span class="text-sm text-gray-900 dark:text-white">{{ row.account?.name || '-' }}</span>
+          <span class="inline-flex items-center gap-1 text-sm text-gray-900 dark:text-white">
+            <AccountSelectionMarker :reason="row.account_selection_reason" />
+            {{ row.account?.name || '-' }}
+          </span>
         </template>
 
         <template #cell-model="{ row }">
@@ -534,6 +537,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AccountSelectionMarker from './AccountSelectionMarker.vue'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatReasoningEffort, reasoningEffortValuesEqual } from '@/utils/format'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'

@@ -1,5 +1,12 @@
 export default {
     accounts: {
+      consumePriority: 'Prefer consumption',
+      consumePriorityEnabled: 'Enabled: prefer this account for freely scheduled text requests. Existing sessions, special endpoints and safety limits retain their original rules.',
+      consumePriorityDisabled: 'Disabled: use ordinary scheduling. Click to enable.',
+      consumePrioritySaveFailed: 'Failed to save consumption preference. Please retry.',
+      selectionPriority: 'Preferred consumption: this request selected the preferred account.',
+      selectionNormal: 'Ordinary selection: the existing scheduler or session binding selected this account.',
+      selectionFallback: 'Preference fallback: the preferred attempt could not handle this request; ordinary scheduling was used.',
       title: 'Account Management',
       description: 'Manage AI platform accounts and credentials',
       createAccount: 'Create Account',
