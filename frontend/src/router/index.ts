@@ -510,6 +510,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/user-insights',
+    name: 'AdminUserInsights',
+    component: () => import('@/features/userInsights/UserInsightsPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'userInsights.title' }
+  },
+  {
     path: '/admin/groups',
     name: 'AdminGroups',
     component: () => import('@/views/admin/GroupsView.vue'),

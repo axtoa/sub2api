@@ -9,6 +9,7 @@ import shop from './shop'
 import quality from './quality'
 import ledger from './ledger'
 import upstreamBalance from './upstreamBalance'
+import userInsights from './userInsights'
 
 export default {
   ...landing,
@@ -22,4 +23,5 @@ export default {
   ...quality,
   ...ledger,
   ...upstreamBalance,
+  ...userInsights,
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/Wei-Shaw/sub2api/internal/shop"
 	"github.com/Wei-Shaw/sub2api/internal/upstreambalance"
+	"github.com/Wei-Shaw/sub2api/internal/userinsights"
 
 	"github.com/google/wire"
 )
@@ -237,6 +238,7 @@ func ProvideHandlers(
 ) *Handlers {
 	return &Handlers{
 		UpstreamBalance:  upstreamBalanceHandler,
+		UserInsights:     userinsights.NewHandler(db),
 		Ledger:           ledgerHandler,
 		Quality:          qualityHandler,
 		Shop:             shop.NewHandler(db, settingService),

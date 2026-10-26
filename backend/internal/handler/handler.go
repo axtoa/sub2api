@@ -7,6 +7,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	"github.com/Wei-Shaw/sub2api/internal/shop"
 	"github.com/Wei-Shaw/sub2api/internal/upstreambalance"
+	"github.com/Wei-Shaw/sub2api/internal/userinsights"
 )
 
 // AdminHandlers contains all admin-related HTTP handlers
@@ -53,6 +54,7 @@ type AdminHandlers struct {
 type Handlers struct {
 	Ledger           *ledger.Handler
 	UpstreamBalance  *upstreambalance.Handler
+	UserInsights     *userinsights.Handler
 	Quality          *quality.Handler
 	Shop             *shop.Handler
 	Auth             *AuthHandler

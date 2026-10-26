@@ -88,6 +88,10 @@ func RegisterAdminRoutes(
 
 		// 用户管理
 		registerUserManagementRoutes(admin, h)
+		insights := admin.Group("/user-insights")
+		insights.Use(func(c *gin.Context) { c.Header("Cache-Control", "no-store"); c.Next() })
+		insights.GET("", h.UserInsights.List)
+		insights.GET("/:id", h.UserInsights.Detail)
 
 		// 分组管理
 		registerGroupRoutes(admin, h)

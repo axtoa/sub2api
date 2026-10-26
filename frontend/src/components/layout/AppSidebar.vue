@@ -781,6 +781,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/quality-monitor', label: t('quality.title'), icon: SignalIcon },
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
+    { path: '/admin/user-insights', label: t('userInsights.title'), icon: ChartIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon },
     {
       path: '/admin/channels',
