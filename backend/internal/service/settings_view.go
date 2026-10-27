@@ -317,7 +317,8 @@ type DefaultSubscriptionSetting struct {
 }
 
 type PublicSettings struct {
-	OfficialShopEnabled                 bool `json:"official_shop_enabled"`
+	OfficialShopEnabled                 bool   `json:"official_shop_enabled"`
+	OfficialShopName                    string `json:"official_shop_name"`
 	RegistrationEnabled                 bool
 	EmailVerifyEnabled                  bool
 	ForceEmailOnThirdPartySignup        bool
@@ -351,6 +352,7 @@ type PublicSettings struct {
 	CardShopURL                         string
 	ExternalShopEnabled                 bool
 	ExternalShopURL                     string
+	ExternalShopName                    string
 	HomeContent                         string
 	CompactHomeEnabled                  bool
 	HideCcsImportButton                 bool

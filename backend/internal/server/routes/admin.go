@@ -75,6 +75,8 @@ func RegisterAdminRoutes(
 		shop.PUT("/settings", h.Shop.SetAvailability)
 		shop.GET("/settings/external", h.Shop.ExternalSettings)
 		shop.PUT("/settings/external", h.Shop.SetExternalSettings)
+		shop.GET("/settings/labels", h.Shop.Labels)
+		shop.PUT("/settings/labels/:channel", h.Shop.SetLabel)
 		shop.GET("/products", h.Shop.Products)
 		shop.POST("/products", h.Shop.SaveProduct)
 		shop.PUT("/products/:id", h.Shop.SaveProduct)

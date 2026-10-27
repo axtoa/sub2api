@@ -41,6 +41,19 @@ export function useShopAvailability() {
     }
   }
 
+  function applyLabel(channel: 'official' | 'external', name: string, notify = false) {
+    const key = channel === 'official' ? 'official_shop_name' : 'external_shop_name'
+    if (app.cachedPublicSettings) {
+      app.cachedPublicSettings = { ...app.cachedPublicSettings, [key]: name }
+    }
+    if (window.__APP_CONFIG__) {
+      window.__APP_CONFIG__ = { ...window.__APP_CONFIG__, [key]: name }
+    }
+    if (notify) {
+      try { localStorage.setItem(changeKey, crypto.randomUUID()) } catch { /* Focus still refreshes settings when storage is unavailable. */ }
+    }
+  }
+
   onMounted(() => {
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', refresh)
@@ -49,7 +62,7 @@ export function useShopAvailability() {
     window.removeEventListener('storage', onStorage)
     window.removeEventListener('focus', refresh)
   })
-  return { enabled, apply, applyExternal }
+  return { enabled, apply, applyExternal, applyLabel }
 }
 
 export function isShopDisabled(error: unknown): boolean {

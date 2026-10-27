@@ -99,6 +99,46 @@ func TestExternalPurchaseLinksAreIndependentFromOnSiteShop(t *testing.T) {
 	require.Equal(t, "true", repo.values[SettingKeyExternalShopEnabled])
 }
 
+func TestShopLabelsAreIndependentAndVisibleInPublicSettings(t *testing.T) {
+	repo := &panelRateLimitSettingRepo{values: map[string]string{
+		SettingKeyOfficialShopEnabled: "false",
+		SettingKeyExternalShopEnabled: "true",
+		SettingKeyExternalShopURL:     "https://example.com/shop",
+	}}
+	s := NewSettingService(repo, &config.Config{})
+	updates := 0
+	s.SetOnUpdateCallback(func() { updates++ })
+	labels, err := s.GetShopLabels(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, ShopLabels{}, labels)
+	_, err = s.SetShopLabel(context.Background(), "official", "  站内精选  ")
+	require.NoError(t, err)
+	_, err = s.SetShopLabel(context.Background(), "external", "外部商城")
+	require.NoError(t, err)
+	require.Equal(t, 2, updates)
+	public, err := s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "站内精选", public.OfficialShopName)
+	require.Equal(t, "外部商城", public.ExternalShopName)
+	require.False(t, public.OfficialShopEnabled)
+	require.True(t, public.ExternalShopEnabled)
+	require.Equal(t, "https://example.com/shop", public.ExternalShopURL)
+	payload, err := s.GetPublicSettingsForInjection(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, public.OfficialShopName, payload.(*PublicSettingsInjectionPayload).OfficialShopName)
+	require.Equal(t, public.ExternalShopName, payload.(*PublicSettingsInjectionPayload).ExternalShopName)
+
+	_, err = s.SetShopLabel(context.Background(), "external", "")
+	require.NoError(t, err)
+	public, err = s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, public.ExternalShopName)
+	require.Equal(t, "https://example.com/shop", public.ExternalShopURL)
+	_, err = s.SetShopLabel(context.Background(), "official", "bad\u202e")
+	require.Error(t, err)
+	require.Equal(t, 3, updates)
+}
+
 func TestEmptyExternalPurchaseLinksHideOnlyTheirOwnEntries(t *testing.T) {
 	s := NewSettingService(&panelRateLimitSettingRepo{values: map[string]string{
 		SettingKeyCardShopURL:         "",

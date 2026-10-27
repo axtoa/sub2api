@@ -521,8 +521,10 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 	SettingKeyOfficialShopEnabled      = "official_shop_enabled"
+	SettingKeyOfficialShopName         = "official_shop_name"
 	SettingKeyExternalShopEnabled      = "external_shop_enabled"
 	SettingKeyExternalShopURL          = "external_shop_url"
+	SettingKeyExternalShopName         = "external_shop_name"
 
 	// SettingKeyModelPlazaEnabled is a DB-backed soft switch for the Model Plaza page
 	// (public group/model pricing showcase). When false: the plaza endpoint returns 404

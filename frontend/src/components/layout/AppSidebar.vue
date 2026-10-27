@@ -161,16 +161,14 @@
         <router-link
           v-if="officialShopEnabled"
           to="/shop"
-          target="_blank"
-          rel="noopener noreferrer"
           class="sidebar-link"
           :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-          :title="t('shop.entry') + ' · ' + t('shop.openInNewTab')"
-          :aria-label="t('shop.entry') + ' · ' + t('shop.openInNewTab')"
+          :title="sidebarCollapsed ? officialShopName : undefined"
+          :aria-label="officialShopName"
           @click="handleMenuItemClick('/shop')"
         >
           <OpenAIIcon class="h-5 w-5 flex-shrink-0" />
-          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('shop.entry') }}</span>
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ officialShopName }}</span>
         </router-link>
         <a v-if="externalShopURL"
           :href="externalShopURL"
@@ -178,12 +176,12 @@
           rel="noopener noreferrer"
           class="sidebar-link"
           :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-          :title="t('shop.externalEntry') + ' · ' + t('shop.openInNewTab')"
-          :aria-label="t('shop.externalEntry') + ' · ' + t('shop.openInNewTab')"
+          :title="externalShopName + ' · ' + t('shop.openInNewTab')"
+          :aria-label="externalShopName + ' · ' + t('shop.openInNewTab')"
           @click="handleMenuItemClick(externalShopURL)"
         >
           <OpenAIIcon class="h-5 w-5 flex-shrink-0" />
-          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('shop.externalEntry') }}</span>
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ externalShopName }}</span>
         </a>
       </div>
 
@@ -295,6 +293,8 @@ const { isDark, toggleTheme } = useTheme()
 const { enabled: officialShopEnabled } = useShopAvailability()
 const cardShopURL = computed(() => cardShopLink(appStore.cachedPublicSettings))
 const externalShopURL = computed(() => externalShopLink(appStore.cachedPublicSettings))
+const officialShopName = computed(() => appStore.cachedPublicSettings?.official_shop_name?.trim() || t('shop.entry'))
+const externalShopName = computed(() => appStore.cachedPublicSettings?.external_shop_name?.trim() || t('shop.externalEntry'))
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -866,7 +866,7 @@ const adminNavItems = computed((): NavItem[] => {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
     filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
-    filtered.push({ path: '/admin/shop', label: t('shop.adminEntry'), icon: OpenAIIcon, openInNewTab: true })
+    filtered.push({ path: '/admin/shop', label: t('shop.adminEntry'), icon: OpenAIIcon })
     filtered.push({ path: '/admin/ledger', label: t('ledger.title'), icon: OrderIcon })
     filtered.push({ path: '/admin/upstream-balances', label: t('upstreamBalance.title'), icon: DollarIcon })
     for (const cm of customMenuItemsForAdmin.value) {
@@ -876,7 +876,7 @@ const adminNavItems = computed((): NavItem[] => {
   }
 
   visible.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
-  visible.push({ path: '/admin/shop', label: t('shop.adminEntry'), icon: OpenAIIcon, openInNewTab: true })
+  visible.push({ path: '/admin/shop', label: t('shop.adminEntry'), icon: OpenAIIcon })
   visible.push({ path: '/admin/ledger', label: t('ledger.title'), icon: OrderIcon })
   visible.push({ path: '/admin/upstream-balances', label: t('upstreamBalance.title'), icon: DollarIcon })
   for (const cm of customMenuItemsForAdmin.value) {

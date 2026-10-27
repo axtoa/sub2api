@@ -43,6 +43,7 @@ type testSettingsWriter struct {
 	values   []bool
 	err      error
 	external service.ExternalShopSettings
+	labels   service.ShopLabels
 }
 
 func (s *testSettingsWriter) SetOfficialShopEnabled(_ context.Context, enabled bool) error {
@@ -60,6 +61,68 @@ func (s *testSettingsWriter) SetExternalShopSettings(_ context.Context, enabled 
 	}
 	s.external = service.ExternalShopSettings{Enabled: enabled, URL: link}
 	return nil
+}
+
+func (s *testSettingsWriter) GetShopLabels(context.Context) (service.ShopLabels, error) {
+	return s.labels, s.err
+}
+
+func (s *testSettingsWriter) SetShopLabel(_ context.Context, channel, name string) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	if channel == "official" {
+		s.labels.OfficialName = name
+	} else {
+		s.labels.ExternalName = name
+	}
+	return name, nil
+}
+
+func TestShopLabelsUpdateOnlyOneName(t *testing.T) {
+	writer := &testSettingsWriter{
+		external: service.ExternalShopSettings{Enabled: true, URL: "https://example.com/shop"},
+		labels:   service.ShopLabels{OfficialName: "原名称", ExternalName: "外部商城"},
+	}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUserRole), "admin"); c.Next() })
+	r.GET("/api/v1/admin/shop/settings/labels", h.Labels)
+	r.PUT("/api/v1/admin/shop/settings/labels/:channel", h.SetLabel)
+	for _, tc := range []struct {
+		path, body string
+		status     int
+	}{
+		{"official", `{"name":"新名称"}`, 200},
+		{"external", `{"name":""}`, 200},
+		{"unknown", `{"name":"错"}`, 400},
+		{"official", `{}`, 400},
+		{"official", `{"name":"` + strings.Repeat("a", 25) + `"}`, 400},
+		{"official", `{"name":"bad\u202e"}`, 400},
+	} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/labels/"+tc.path, strings.NewReader(tc.body)))
+		require.Equal(t, tc.status, w.Code, tc.path, tc.body)
+	}
+	require.Equal(t, service.ShopLabels{OfficialName: "新名称", ExternalName: ""}, writer.labels)
+	require.Equal(t, service.ExternalShopSettings{Enabled: true, URL: "https://example.com/shop"}, writer.external)
+	require.Empty(t, writer.values)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/shop/settings/labels", nil))
+	require.Equal(t, 200, w.Code)
+	require.Contains(t, w.Body.String(), `"official_name":"新名称"`)
+}
+
+func TestShopLabelUpdateRequiresAdmin(t *testing.T) {
+	writer := &testSettingsWriter{}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUserRole), "user"); c.Next() })
+	r.PUT("/api/v1/admin/shop/settings/labels/:channel", h.SetLabel)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/labels/official", strings.NewReader(`{"name":"new"}`)))
+	require.Equal(t, http.StatusForbidden, w.Code)
+	require.Empty(t, writer.labels.OfficialName)
 }
 
 func TestAvailabilityUpdateRequiresAdminAndABoolean(t *testing.T) {

@@ -353,8 +353,10 @@ type DefaultSubscriptionSetting struct {
 
 type PublicSettings struct {
 	OfficialShopEnabled                 bool                     `json:"official_shop_enabled"`
+	OfficialShopName                    string                   `json:"official_shop_name"`
 	ExternalShopEnabled                 bool                     `json:"external_shop_enabled"`
 	ExternalShopURL                     string                   `json:"external_shop_url"`
+	ExternalShopName                    string                   `json:"external_shop_name"`
 	CardShopURL                         string                   `json:"card_shop_url"`
 	RegistrationEnabled                 bool                     `json:"registration_enabled"`
 	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`

@@ -17,6 +17,8 @@ type settingsWriter interface {
 	SetOfficialShopEnabled(context.Context, bool) error
 	GetExternalShopSettings(context.Context) (service.ExternalShopSettings, error)
 	SetExternalShopSettings(context.Context, bool, string) error
+	GetShopLabels(context.Context) (service.ShopLabels, error)
+	SetShopLabel(context.Context, string, string) (string, error)
 }
 
 type Handler struct {
@@ -76,6 +78,37 @@ func (h *Handler) SetExternalSettings(c *gin.Context) {
 	}
 	if !response.ErrorFrom(c, h.settings.SetExternalShopSettings(c.Request.Context(), *req.Enabled, req.URL)) {
 		response.Success(c, service.ExternalShopSettings{Enabled: *req.Enabled, URL: req.URL})
+	}
+}
+
+func (h *Handler) Labels(c *gin.Context) {
+	labels, err := h.settings.GetShopLabels(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, labels)
+	}
+}
+
+func (h *Handler) SetLabel(c *gin.Context) {
+	if role, ok := middleware.GetUserRoleFromContext(c); !ok || role != "admin" {
+		response.Forbidden(c, "需要管理员权限")
+		return
+	}
+	channel := c.Param("channel")
+	if channel != "official" && channel != "external" {
+		response.BadRequest(c, "代购渠道无效")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024)
+	var req struct {
+		Name *string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Name == nil || !service.IsValidShopLabel(*req.Name) {
+		response.BadRequest(c, "名称不能超过 24 个字符或包含控制字符")
+		return
+	}
+	name, err := h.settings.SetShopLabel(c.Request.Context(), channel, *req.Name)
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"name": name})
 	}
 }
 

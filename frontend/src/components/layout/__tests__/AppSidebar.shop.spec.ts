@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import { reactive } from 'vue'
 import AppSidebar from '../AppSidebar.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import zhShop from '@/i18n/locales/zh/shop'
@@ -11,7 +12,7 @@ const state = vi.hoisted(() => ({
   app: {
     sidebarCollapsed: false, mobileOpen: false, backendModeEnabled: false,
     sidebarScrollTop: 0, siteName: 'Best AI', siteLogo: '', siteVersion: '1.0.0',
-    publicSettingsLoaded: true, cachedPublicSettings: { custom_menu_items: [], official_shop_enabled: true, external_shop_enabled: false, external_shop_url: 'https://wzyp.cn/shop/best-ai', card_shop_url: 'https://catfk.com/shop/DFMROLGS' },
+    publicSettingsLoaded: true, cachedPublicSettings: { custom_menu_items: [], official_shop_enabled: true, official_shop_name: '', external_shop_enabled: false, external_shop_url: 'https://wzyp.cn/shop/best-ai', external_shop_name: '', card_shop_url: 'https://catfk.com/shop/DFMROLGS' },
     toggleSidebar: vi.fn(), setMobileOpen: vi.fn(),
   },
   admin: { customMenuItems: [], fetch: vi.fn() },
@@ -61,9 +62,12 @@ beforeEach(() => {
   state.app.mobileOpen = false
   state.app.backendModeEnabled = false
   state.app.cachedPublicSettings.official_shop_enabled = true
+  state.app.cachedPublicSettings.official_shop_name = ''
   state.app.cachedPublicSettings.external_shop_enabled = false
   state.app.cachedPublicSettings.external_shop_url = 'https://wzyp.cn/shop/best-ai'
+  state.app.cachedPublicSettings.external_shop_name = ''
   state.app.cachedPublicSettings.card_shop_url = 'https://catfk.com/shop/DFMROLGS'
+  state.app.cachedPublicSettings = reactive({ ...state.app.cachedPublicSettings })
 })
 afterEach(() => {
   wrappers.splice(0).forEach(wrapper => wrapper.unmount())
@@ -131,6 +135,18 @@ describe('AppSidebar official product purchasing', () => {
     expect(external.text()).toBe('shop.externalEntry')
   })
 
+  it('uses configured customer menu names and updates them without changing links', async () => {
+    state.app.cachedPublicSettings.external_shop_enabled = true
+    state.app.cachedPublicSettings.official_shop_name = '站内精选'
+    state.app.cachedPublicSettings.external_shop_name = '合作商城'
+    const { wrapper } = await mountSidebar()
+    expect(wrapper.get('.sidebar-shop-entry a[href="/shop"]').text()).toBe('站内精选')
+    expect(wrapper.get('.sidebar-shop-entry a[href="https://wzyp.cn/shop/best-ai"]').text()).toBe('合作商城')
+    state.app.cachedPublicSettings.official_shop_name = '新的名称'
+    await flushPromises()
+    expect(wrapper.get('.sidebar-shop-entry a[href="/shop"]').text()).toBe('新的名称')
+  })
+
   it('uses configured links and hides an explicitly empty card-shop link', async () => {
     state.app.cachedPublicSettings.external_shop_enabled = true
     state.app.cachedPublicSettings.external_shop_url = 'https://example.com/purchase'
@@ -151,9 +167,8 @@ describe('AppSidebar official product purchasing', () => {
     expect(controls?.classList.contains('border-t')).toBe(true)
     expect(controls?.querySelector('button[aria-label="nav.darkMode"]')).not.toBeNull()
     const link = shop.get('a')
-    expect(link.attributes('target')).toBe('_blank')
-    expect(link.attributes('rel')).toBe('noopener noreferrer')
-    expect(link.attributes('title')).toContain('shop.openInNewTab')
+    expect(link.attributes('target')).toBeUndefined()
+    expect(link.attributes('rel')).toBeUndefined()
     expect(link.find('icon-stub[name="externalLink"]').exists()).toBe(false)
     const icon = link.getComponent(PlatformIcon)
     expect(icon.props()).toMatchObject({ platform: 'openai', size: 'md' })
@@ -162,14 +177,14 @@ describe('AppSidebar official product purchasing', () => {
     expect(icon.get('svg').element.parentElement?.className).toContain('h-5 w-5')
   })
 
-  it.each([false, true])('keeps admin management below settings and opens it in a new tab (simple: %s)', async simple => {
+  it.each([false, true])('keeps admin management below settings and opens it in the console (simple: %s)', async simple => {
     state.auth.isAdmin = true
     state.auth.isSimpleMode = simple
     const { wrapper, router } = await mountSidebar()
     const management = wrapper.get('nav a[href="/admin/shop"]')
     expect(management.element.previousElementSibling?.getAttribute('href')).toBe('/admin/settings')
-    expect(management.attributes('target')).toBe('_blank')
-    expect(management.attributes('rel')).toBe('noopener noreferrer')
+    expect(management.attributes('target')).toBeUndefined()
+    expect(management.attributes('rel')).toBeUndefined()
     expect(management.find('icon-stub[name="externalLink"]').exists()).toBe(false)
     const icon = management.getComponent(PlatformIcon)
     expect(icon.props()).toMatchObject({ platform: 'openai', size: 'md' })
@@ -177,15 +192,15 @@ describe('AppSidebar official product purchasing', () => {
     expect(icon.get('svg').element.parentElement?.className).toContain('h-5 w-5')
     await management.trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/admin/dashboard')
+    expect(router.currentRoute.value.path).toBe('/admin/shop')
     expect(wrapper.find('.sidebar-shop-entry').exists()).toBe(true)
   })
 
-  it('preserves the current console on shop clicks and keeps other console links in the same tab', async () => {
+  it('opens the on-site shop and other console links in the same tab', async () => {
     const { wrapper, router } = await mountSidebar()
     await wrapper.get('.sidebar-shop-entry a').trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(router.currentRoute.value.path).toBe('/shop')
     expect(wrapper.get('a[href="/profile"]').attributes('target')).toBeUndefined()
     expect(wrapper.get('a[href="/profile"]').findComponent(PlatformIcon).exists()).toBe(false)
     await wrapper.get('a[href="/profile"]').trigger('click')
@@ -202,19 +217,19 @@ describe('AppSidebar official product purchasing', () => {
     expect(link.classes()).toContain('sidebar-link-collapsed')
     expect(link.attributes('aria-label')).toContain('shop.entry')
     expect(link.get('.sidebar-label').attributes('aria-hidden')).toBe('true')
-    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('target')).toBeUndefined()
     expect(link.getComponent(PlatformIcon).props('platform')).toBe('openai')
     expect(link.getComponent(PlatformIcon).props('size')).toBe('md')
   })
 
-  it('closes the mobile menu without replacing the console route', async () => {
+  it('closes the mobile menu after navigating to the on-site shop', async () => {
     vi.useFakeTimers()
     state.app.mobileOpen = true
     const { wrapper, router } = await mountSidebar()
     await wrapper.get('.sidebar-shop-entry a').trigger('click')
     await vi.advanceTimersByTimeAsync(150)
     expect(state.app.setMobileOpen).toHaveBeenCalledWith(false)
-    expect(router.currentRoute.value.path).toBe('/dashboard')
+    expect(router.currentRoute.value.path).toBe('/shop')
   })
 
   it('does not expose a customer entry when regular-user routes are disabled', async () => {

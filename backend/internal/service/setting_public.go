@@ -189,6 +189,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyCardShopURL,
 		SettingKeyExternalShopEnabled,
 		SettingKeyExternalShopURL,
+		SettingKeyOfficialShopName,
+		SettingKeyExternalShopName,
 		SettingKeyHomeContent,
 		SettingKeyCompactHomeEnabled,
 		SettingKeyHideCcsImportButton,
@@ -335,6 +337,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		CardShopURL:                         externalLinkSetting(settings, SettingKeyCardShopURL, DefaultCardShopURL),
 		ExternalShopEnabled:                 externalShopSettingsFromValues(settings).Enabled,
 		ExternalShopURL:                     externalShopSettingsFromValues(settings).URL,
+		OfficialShopName:                    shopLabelsFromValues(settings).OfficialName,
+		ExternalShopName:                    shopLabelsFromValues(settings).ExternalName,
 		HomeContent:                         settings[SettingKeyHomeContent],
 		CompactHomeEnabled:                  settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:                 settings[SettingKeyHideCcsImportButton] == "true",
@@ -559,8 +563,10 @@ func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
 // drift automatically (see setting_service_injection_test.go).
 type PublicSettingsInjectionPayload struct {
 	OfficialShopEnabled                 bool                     `json:"official_shop_enabled"`
+	OfficialShopName                    string                   `json:"official_shop_name"`
 	ExternalShopEnabled                 bool                     `json:"external_shop_enabled"`
 	ExternalShopURL                     string                   `json:"external_shop_url"`
+	ExternalShopName                    string                   `json:"external_shop_name"`
 	CardShopURL                         string                   `json:"card_shop_url"`
 	RegistrationEnabled                 bool                     `json:"registration_enabled"`
 	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`
@@ -653,8 +659,10 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 	return &PublicSettingsInjectionPayload{
 		OfficialShopEnabled:                 settings.OfficialShopEnabled,
+		OfficialShopName:                    settings.OfficialShopName,
 		ExternalShopEnabled:                 settings.ExternalShopEnabled,
 		ExternalShopURL:                     settings.ExternalShopURL,
+		ExternalShopName:                    settings.ExternalShopName,
 		CardShopURL:                         settings.CardShopURL,
 		RegistrationEnabled:                 settings.RegistrationEnabled,
 		EmailVerifyEnabled:                  settings.EmailVerifyEnabled,

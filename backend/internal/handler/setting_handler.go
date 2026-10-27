@@ -77,6 +77,8 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		CardShopURL:                         settings.CardShopURL,
 		ExternalShopEnabled:                 settings.ExternalShopEnabled,
 		ExternalShopURL:                     settings.ExternalShopURL,
+		OfficialShopName:                    settings.OfficialShopName,
+		ExternalShopName:                    settings.ExternalShopName,
 		HomeContent:                         settings.HomeContent,
 		CompactHomeEnabled:                  settings.CompactHomeEnabled,
 		HideCcsImportButton:                 settings.HideCcsImportButton,

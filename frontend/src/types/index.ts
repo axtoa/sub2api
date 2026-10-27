@@ -242,8 +242,10 @@ export interface PublicSettings {
   hide_ccs_import_button: boolean
   payment_enabled: boolean
   official_shop_enabled?: boolean
+  official_shop_name?: string
   external_shop_enabled?: boolean
   external_shop_url?: string
+  external_shop_name?: string
   card_shop_url?: string
   risk_control_enabled: boolean
   table_default_page_size: number
