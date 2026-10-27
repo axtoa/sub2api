@@ -154,6 +154,7 @@ type SystemSettings struct {
 	APIBaseURL                  string           `json:"api_base_url"`
 	ContactInfo                 string           `json:"contact_info"`
 	DocURL                      string           `json:"doc_url"`
+	CardShopURL                 string           `json:"card_shop_url"`
 	HomeContent                 string           `json:"home_content"`
 	CompactHomeEnabled          bool             `json:"compact_home_enabled"`
 	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
@@ -352,6 +353,9 @@ type DefaultSubscriptionSetting struct {
 
 type PublicSettings struct {
 	OfficialShopEnabled                 bool                     `json:"official_shop_enabled"`
+	ExternalShopEnabled                 bool                     `json:"external_shop_enabled"`
+	ExternalShopURL                     string                   `json:"external_shop_url"`
+	CardShopURL                         string                   `json:"card_shop_url"`
 	RegistrationEnabled                 bool                     `json:"registration_enabled"`
 	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`
 	ForceEmailOnThirdPartySignup        bool                     `json:"force_email_on_third_party_signup"`

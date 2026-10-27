@@ -22,6 +22,7 @@ export interface ShopAction {
   action: string; version: number; note?: string; external_reference?: string; target_email?: string; valid_until?: string
 }
 export interface ShopSettings { enabled: boolean }
+export interface ExternalShopSettings { enabled: boolean; url: string }
 export const shopMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 export const shopDate = (date?: string) => date ? new Date(date).toLocaleString() : '—'
 export function checkoutLink(value: string): string {
@@ -44,6 +45,12 @@ export const shopAPI = {
   async settings(): Promise<ShopSettings> { return (await apiClient.get<ShopSettings>('/admin/shop/settings')).data },
   async saveSettings(enabled: boolean): Promise<ShopSettings> {
     return (await apiClient.put<ShopSettings>('/admin/shop/settings', { enabled })).data
+  },
+  async externalSettings(): Promise<ExternalShopSettings> {
+    return (await apiClient.get<ExternalShopSettings>('/admin/shop/settings/external')).data
+  },
+  async saveExternalSettings(settings: ExternalShopSettings): Promise<ExternalShopSettings> {
+    return (await apiClient.put<ExternalShopSettings>('/admin/shop/settings/external', settings)).data
   },
   async products(admin = false): Promise<ShopProduct[]> {
     return (await apiClient.get<{ items: ShopProduct[] }>(`${base(admin)}/products`)).data.items

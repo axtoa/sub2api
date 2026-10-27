@@ -159,6 +159,7 @@ type UpdateSettingsRequest struct {
 	APIBaseURL                  string                `json:"api_base_url"`
 	ContactInfo                 string                `json:"contact_info"`
 	DocURL                      string                `json:"doc_url"`
+	CardShopURL                 string                `json:"card_shop_url"`
 	HomeContent                 string                `json:"home_content"`
 	CompactHomeEnabled          bool                  `json:"compact_home_enabled"`
 	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
@@ -488,6 +489,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	var req UpdateSettingsRequest
 	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if _, sent := sentFields["card_shop_url"]; sent && strings.TrimSpace(req.CardShopURL) != "" && !service.IsValidExternalPurchaseURL(req.CardShopURL) {
+		response.BadRequest(c, "Card shop URL must be an HTTPS address")
 		return
 	}
 	auditReq := settingsAuditRequest(req)
@@ -1619,6 +1624,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		APIBaseURL:                             req.APIBaseURL,
 		ContactInfo:                            req.ContactInfo,
 		DocURL:                                 req.DocURL,
+		CardShopURL:                            req.CardShopURL,
 		HomeContent:                            req.HomeContent,
 		CompactHomeEnabled:                     req.CompactHomeEnabled,
 		HideCcsImportButton:                    req.HideCcsImportButton,
@@ -2247,6 +2253,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		APIBaseURL:                                             updatedSettings.APIBaseURL,
 		ContactInfo:                                            updatedSettings.ContactInfo,
 		DocURL:                                                 updatedSettings.DocURL,
+		CardShopURL:                                            updatedSettings.CardShopURL,
 		HomeContent:                                            updatedSettings.HomeContent,
 		CompactHomeEnabled:                                     updatedSettings.CompactHomeEnabled,
 		HideCcsImportButton:                                    updatedSettings.HideCcsImportButton,

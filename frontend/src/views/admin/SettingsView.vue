@@ -6546,6 +6546,13 @@
                 </p>
               </div>
 
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.settings.site.externalLinksTitle') }}</h3>
+                <label for="card-shop-url" class="mb-2 mt-4 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.settings.site.cardShopURL') }}</label>
+                <input id="card-shop-url" v-model="form.card_shop_url" type="url" maxlength="2000" class="input font-mono text-sm" placeholder="https://" />
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.site.cardShopURLHint') }}</p>
+              </div>
+
               <!-- Site Logo Upload -->
               <div>
                 <label
@@ -8983,6 +8990,7 @@ import {
 import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import { affiliatesAPI, type AffiliateAdminEntry, type SimpleUser as AffiliateSimpleUser } from "@/api/admin/affiliates";
 import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
+import { safeExternalLink } from "@/utils/externalLinks";
 import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
 import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
@@ -9740,6 +9748,7 @@ const form = reactive<SettingsForm>({
   api_base_url: "",
   contact_info: "",
   doc_url: "",
+  card_shop_url: "",
   home_content: "",
   compact_home_enabled: false,
   backend_mode_enabled: false,
@@ -11314,6 +11323,10 @@ async function saveSettings() {
     // Optional URL fields: auto-clear invalid values so they don't cause backend 400 errors
     if (!isValidHttpUrl(form.frontend_url)) form.frontend_url = "";
     if (!isValidHttpUrl(form.doc_url)) form.doc_url = "";
+    if (form.card_shop_url && !safeExternalLink(form.card_shop_url, "")) {
+      appStore.showError(t('admin.settings.site.cardShopURLInvalid'));
+      return;
+    }
     syncWeChatConnectMode();
     const wechatStoredMode = deriveWeChatConnectStoredMode(
       form.wechat_connect_open_enabled,
@@ -11372,6 +11385,7 @@ async function saveSettings() {
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
       doc_url: form.doc_url,
+      card_shop_url: form.card_shop_url,
       home_content: form.home_content,
       compact_home_enabled: form.compact_home_enabled,
       backend_mode_enabled: form.backend_mode_enabled,

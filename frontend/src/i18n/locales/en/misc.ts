@@ -296,6 +296,8 @@ export default {
     fee: 'Fee',
     actualPay: 'Actual Payment',
     createOrder: 'Confirm Payment',
+    cardShopRecharge: 'Recharge via card shop',
+    cardShopNoFee: 'No service fee',
     methods: {
       easypay: 'EasyPay',
       alipay: 'Alipay',

@@ -7,7 +7,7 @@ import { shopAPI } from '../api'
 import { useShopAvailability } from '../availability'
 
 vi.mock('vue-i18n', async original => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('../api', () => ({ shopAPI: { settings: vi.fn(), saveSettings: vi.fn() } }))
+vi.mock('../api', () => ({ shopAPI: { settings: vi.fn(), saveSettings: vi.fn(), externalSettings: vi.fn(), saveExternalSettings: vi.fn() } }))
 
 let wrapper: VueWrapper | undefined
 beforeEach(() => {
@@ -16,6 +16,8 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(shopAPI.settings).mockResolvedValue({ enabled: true })
   vi.mocked(shopAPI.saveSettings).mockImplementation(async enabled => ({ enabled }))
+  vi.mocked(shopAPI.externalSettings).mockResolvedValue({ enabled: false, url: 'https://wzyp.cn/shop/best-ai' })
+  vi.mocked(shopAPI.saveExternalSettings).mockImplementation(async settings => settings)
 })
 afterEach(() => wrapper?.unmount())
 
@@ -101,5 +103,26 @@ describe('official purchasing availability', () => {
     app.cachedPublicSettings = { official_shop_enabled: true } as NonNullable<typeof app.cachedPublicSettings>
     await flushPromises()
     expect(probe.text()).toBe('true')
+  })
+
+  it('keeps the external marketplace switch independent from the on-site shop', async () => {
+    const app = useAppStore()
+    vi.mocked(shopAPI.settings).mockResolvedValueOnce({ enabled: false })
+    app.cachedPublicSettings = { official_shop_enabled: false } as NonNullable<typeof app.cachedPublicSettings>
+    wrapper = mount(ShopAvailabilityControl); await flushPromises()
+    await wrapper.get('[aria-label="shop.externalAvailability"][role="switch"]').trigger('click')
+    await flushPromises()
+    expect(shopAPI.saveExternalSettings).toHaveBeenCalledWith({ enabled: true, url: 'https://wzyp.cn/shop/best-ai' })
+    expect(shopAPI.saveSettings).not.toHaveBeenCalled()
+    expect(app.cachedPublicSettings.official_shop_enabled).toBe(false)
+    expect(app.cachedPublicSettings.external_shop_enabled).toBe(true)
+  })
+
+  it('does not publish an invalid external URL', async () => {
+    wrapper = mount(ShopAvailabilityControl); await flushPromises()
+    await wrapper.get('#external-shop-url').setValue('javascript:alert(1)')
+    await wrapper.get('button.shop-secondary').trigger('click')
+    expect(shopAPI.saveExternalSettings).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('shop.externalInvalidURL')
   })
 })

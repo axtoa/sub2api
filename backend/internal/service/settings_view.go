@@ -155,6 +155,7 @@ type SystemSettings struct {
 	APIBaseURL                  string
 	ContactInfo                 string
 	DocURL                      string
+	CardShopURL                 string
 	HomeContent                 string
 	CompactHomeEnabled          bool
 	HideCcsImportButton         bool
@@ -347,6 +348,9 @@ type PublicSettings struct {
 	APIBaseURL                          string
 	ContactInfo                         string
 	DocURL                              string
+	CardShopURL                         string
+	ExternalShopEnabled                 bool
+	ExternalShopURL                     string
 	HomeContent                         string
 	CompactHomeEnabled                  bool
 	HideCcsImportButton                 bool

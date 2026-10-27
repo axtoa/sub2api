@@ -320,6 +320,8 @@ export default {
     fee: '手续费',
     actualPay: '实付金额',
     createOrder: '确认支付',
+    cardShopRecharge: '卡网充值',
+    cardShopNoFee: '无手续费',
     methods: {
       easypay: '易支付',
       alipay: '支付宝',

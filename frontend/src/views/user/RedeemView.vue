@@ -77,7 +77,8 @@
               </button>
 
               <a
-                href="https://catfk.com/shop/DFMROLGS"
+                v-if="cardShopURL"
+                :href="cardShopURL"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="btn btn-warning w-full flex-1 py-3 hover:-translate-y-0.5 active:translate-y-0"
@@ -359,6 +360,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { cardShopLink } from '@/utils/externalLinks'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -368,6 +370,7 @@ import { formatDateTime } from '@/utils/format'
 const { t } = useI18n()
 const authStore = useAuthStore()
 const appStore = useAppStore()
+const cardShopURL = computed(() => cardShopLink(appStore.cachedPublicSettings))
 const subscriptionStore = useSubscriptionStore()
 
 const user = computed(() => authStore.user)

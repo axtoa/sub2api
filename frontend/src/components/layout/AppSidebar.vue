@@ -157,8 +157,9 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto shrink-0">
-      <div v-if="officialShopEnabled && (isAdmin || !appStore.backendModeEnabled)" class="sidebar-shop-entry p-3">
+      <div v-if="(officialShopEnabled || externalShopURL) && (isAdmin || !appStore.backendModeEnabled)" class="sidebar-shop-entry p-3">
         <router-link
+          v-if="officialShopEnabled"
           to="/shop"
           target="_blank"
           rel="noopener noreferrer"
@@ -171,6 +172,19 @@
           <OpenAIIcon class="h-5 w-5 flex-shrink-0" />
           <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('shop.entry') }}</span>
         </router-link>
+        <a v-if="externalShopURL"
+          :href="externalShopURL"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="sidebar-link"
+          :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+          :title="t('shop.externalEntry') + ' · ' + t('shop.openInNewTab')"
+          :aria-label="t('shop.externalEntry') + ' · ' + t('shop.openInNewTab')"
+          @click="handleMenuItemClick(externalShopURL)"
+        >
+          <OpenAIIcon class="h-5 w-5 flex-shrink-0" />
+          <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('shop.externalEntry') }}</span>
+        </a>
       </div>
 
       <div class="border-t border-gray-100 p-3 dark:border-dark-800">
@@ -228,6 +242,7 @@ import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useTheme } from '@/composables/useTheme'
 import { useShopAvailability } from '@/features/shop/availability'
+import { cardShopLink, externalShopLink } from '@/utils/externalLinks'
 
 interface NavItem {
   path: string
@@ -278,6 +293,8 @@ const adminSettingsStore = useAdminSettingsStore()
 const { canUseCreativeStudio, refreshBatchImageAccess } = useBatchImageAccess()
 const { isDark, toggleTheme } = useTheme()
 const { enabled: officialShopEnabled } = useShopAvailability()
+const cardShopURL = computed(() => cardShopLink(appStore.cachedPublicSettings))
+const externalShopURL = computed(() => externalShopLink(appStore.cachedPublicSettings))
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -733,7 +750,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
-    { path: 'https://catfk.com/shop/DFMROLGS', label: t('nav.balanceTopUp'), icon: DollarIcon, external: true, openInNewTab: true, hideInSimpleMode: true },
+    ...(cardShopURL.value ? [{ path: cardShopURL.value, label: t('nav.balanceTopUp'), icon: DollarIcon, external: true, openInNewTab: true, hideInSimpleMode: true }] : []),
     { path: '/affiliate', label: t('nav.affiliate'), icon: UsersIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
     ...customMenuItemsForUser.value.map((item): NavItem => ({

@@ -225,6 +225,20 @@
             <p v-if="checkout.help_text" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ checkout.help_text }}</p>
           </div>
         </div>
+        <a v-if="paymentPhase === 'select' && !selectedPlan && cardShopURL"
+          :href="cardShopURL"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex min-h-12 flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm transition-colors hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/30">
+          <span class="flex min-w-0 flex-wrap items-center gap-x-2 font-medium text-emerald-900 dark:text-emerald-100">
+            <span>{{ t('payment.cardShopRecharge') }}</span>
+            <span class="break-all text-emerald-700 underline underline-offset-2 dark:text-emerald-300">{{ cardShopURL }}</span>
+          </span>
+          <span class="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-300">
+            {{ t('payment.cardShopNoFee') }}
+            <Icon name="externalLink" size="sm" />
+          </span>
+        </a>
       </template>
     </div>
     <!-- Renewal Plan Selection Modal -->
@@ -263,6 +277,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
+import { cardShopLink } from '@/utils/externalLinks'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
@@ -301,6 +316,7 @@ const authStore = useAuthStore()
 const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
 const appStore = useAppStore()
+const cardShopURL = computed(() => cardShopLink(appStore.cachedPublicSettings))
 
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)

@@ -296,6 +296,21 @@ describe('PaymentView subscription plan grid', () => {
   })
 })
 
+describe('PaymentView card shop notice', () => {
+  it('shows the same external recharge link below both tabs', async () => {
+    const wrapper = await mountSubscriptionPlanList(0)
+    const notice = () => wrapper.get('a[href="https://catfk.com/shop/DFMROLGS"]')
+
+    expect(notice().attributes('target')).toBe('_blank')
+    expect(notice().attributes('rel')).toBe('noopener noreferrer')
+    expect(notice().text()).toContain('https://catfk.com/shop/DFMROLGS')
+    expect(notice().text()).toContain('payment.cardShopNoFee')
+
+    await wrapper.get('button').trigger('click')
+    expect(notice().text()).toContain('payment.cardShopRecharge')
+  })
+})
+
 describe('PaymentView recharge rate preview', () => {
   it('uses the selected payment method currency in both locale templates', async () => {
     translate.mockClear()

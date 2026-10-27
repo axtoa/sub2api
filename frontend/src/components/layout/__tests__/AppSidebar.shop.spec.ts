@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
   app: {
     sidebarCollapsed: false, mobileOpen: false, backendModeEnabled: false,
     sidebarScrollTop: 0, siteName: 'Best AI', siteLogo: '', siteVersion: '1.0.0',
-    publicSettingsLoaded: true, cachedPublicSettings: { custom_menu_items: [], official_shop_enabled: true },
+    publicSettingsLoaded: true, cachedPublicSettings: { custom_menu_items: [], official_shop_enabled: true, external_shop_enabled: false, external_shop_url: 'https://wzyp.cn/shop/best-ai', card_shop_url: 'https://catfk.com/shop/DFMROLGS' },
     toggleSidebar: vi.fn(), setMobileOpen: vi.fn(),
   },
   admin: { customMenuItems: [], fetch: vi.fn() },
@@ -61,6 +61,9 @@ beforeEach(() => {
   state.app.mobileOpen = false
   state.app.backendModeEnabled = false
   state.app.cachedPublicSettings.official_shop_enabled = true
+  state.app.cachedPublicSettings.external_shop_enabled = false
+  state.app.cachedPublicSettings.external_shop_url = 'https://wzyp.cn/shop/best-ai'
+  state.app.cachedPublicSettings.card_shop_url = 'https://catfk.com/shop/DFMROLGS'
 })
 afterEach(() => {
   wrappers.splice(0).forEach(wrapper => wrapper.unmount())
@@ -107,12 +110,34 @@ describe('AppSidebar official product purchasing', () => {
     expect(wrapper.find('a[href="https://catfk.com/shop/DFMROLGS"]').exists()).toBe(true)
   })
   it('uses short menu names while keeping the full page headings', () => {
-    expect(zhShop.shop.entry).toBe('官方代购')
+    expect(zhShop.shop.entry).toBe('站内官方代购')
+    expect(zhShop.shop.externalEntry).toBe('外部代购商城')
     expect(zhShop.shop.adminEntry).toBe('代购管理')
     expect(zhShop.shop.title).toBe('官方产品代购')
     expect(zhShop.shop.homepageTitle).toBe(zhShop.shop.title)
     expect(zhShop.shop.adminTitle).toBe('官方产品代购管理')
-    expect(enShop.shop.entry).toBe('Official Products')
+    expect(enShop.shop.entry).toBe('On-site Official Purchasing')
+  })
+
+  it('shows the external marketplace alone when the on-site shop is closed', async () => {
+    state.app.cachedPublicSettings.official_shop_enabled = false
+    state.app.cachedPublicSettings.external_shop_enabled = true
+    const { wrapper } = await mountSidebar()
+    const entry = wrapper.get('.sidebar-shop-entry')
+    expect(entry.find('a[href="/shop"]').exists()).toBe(false)
+    const external = entry.get('a[href="https://wzyp.cn/shop/best-ai"]')
+    expect(external.attributes('target')).toBe('_blank')
+    expect(external.attributes('rel')).toBe('noopener noreferrer')
+    expect(external.text()).toBe('shop.externalEntry')
+  })
+
+  it('uses configured links and hides an explicitly empty card-shop link', async () => {
+    state.app.cachedPublicSettings.external_shop_enabled = true
+    state.app.cachedPublicSettings.external_shop_url = 'https://example.com/purchase'
+    state.app.cachedPublicSettings.card_shop_url = ''
+    const { wrapper } = await mountSidebar()
+    expect(wrapper.find('a[href="https://catfk.com/shop/DFMROLGS"]').exists()).toBe(false)
+    expect(wrapper.get('.sidebar-shop-entry a[href="https://example.com/purchase"]').exists()).toBe(true)
   })
 
   it.each([false, true])('pins one customer entry above the theme divider (admin: %s)', async isAdmin => {

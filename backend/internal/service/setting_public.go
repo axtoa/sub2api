@@ -186,6 +186,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAPIBaseURL,
 		SettingKeyContactInfo,
 		SettingKeyDocURL,
+		SettingKeyCardShopURL,
+		SettingKeyExternalShopEnabled,
+		SettingKeyExternalShopURL,
 		SettingKeyHomeContent,
 		SettingKeyCompactHomeEnabled,
 		SettingKeyHideCcsImportButton,
@@ -329,6 +332,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		APIBaseURL:                          settings[SettingKeyAPIBaseURL],
 		ContactInfo:                         settings[SettingKeyContactInfo],
 		DocURL:                              settings[SettingKeyDocURL],
+		CardShopURL:                         externalLinkSetting(settings, SettingKeyCardShopURL, DefaultCardShopURL),
+		ExternalShopEnabled:                 externalShopSettingsFromValues(settings).Enabled,
+		ExternalShopURL:                     externalShopSettingsFromValues(settings).URL,
 		HomeContent:                         settings[SettingKeyHomeContent],
 		CompactHomeEnabled:                  settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:                 settings[SettingKeyHideCcsImportButton] == "true",
@@ -553,6 +559,9 @@ func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
 // drift automatically (see setting_service_injection_test.go).
 type PublicSettingsInjectionPayload struct {
 	OfficialShopEnabled                 bool                     `json:"official_shop_enabled"`
+	ExternalShopEnabled                 bool                     `json:"external_shop_enabled"`
+	ExternalShopURL                     string                   `json:"external_shop_url"`
+	CardShopURL                         string                   `json:"card_shop_url"`
 	RegistrationEnabled                 bool                     `json:"registration_enabled"`
 	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist    []string                 `json:"registration_email_suffix_whitelist"`
@@ -644,6 +653,9 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 	return &PublicSettingsInjectionPayload{
 		OfficialShopEnabled:                 settings.OfficialShopEnabled,
+		ExternalShopEnabled:                 settings.ExternalShopEnabled,
+		ExternalShopURL:                     settings.ExternalShopURL,
+		CardShopURL:                         settings.CardShopURL,
 		RegistrationEnabled:                 settings.RegistrationEnabled,
 		EmailVerifyEnabled:                  settings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:    settings.RegistrationEmailSuffixWhitelist,

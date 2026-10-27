@@ -736,6 +736,23 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("saves the card-shop URL and rejects unsafe schemes", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    const input = wrapper.get('#card-shop-url');
+    await input.setValue('https://example.com/recharge');
+    await wrapper.find('form').trigger('submit.prevent');
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ card_shop_url: 'https://example.com/recharge' }));
+
+    updateSettings.mockClear();
+    await input.setValue('javascript:alert(1)');
+    await wrapper.find('form').trigger('submit.prevent');
+    await flushPromises();
+    expect(updateSettings).not.toHaveBeenCalled();
+    expect(showError).toHaveBeenCalled();
+  });
+
   it("renders panel rate limit card and saves settings", async () => {
     getPanelRateLimitSettings.mockClear();
     updatePanelRateLimitSettings.mockClear();

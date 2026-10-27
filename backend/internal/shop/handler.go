@@ -9,11 +9,14 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 type settingsWriter interface {
 	SetOfficialShopEnabled(context.Context, bool) error
+	GetExternalShopSettings(context.Context) (service.ExternalShopSettings, error)
+	SetExternalShopSettings(context.Context, bool, string) error
 }
 
 type Handler struct {
@@ -47,6 +50,32 @@ func (h *Handler) SetAvailability(c *gin.Context) {
 	}
 	if !response.ErrorFrom(c, h.settings.SetOfficialShopEnabled(c.Request.Context(), *req.Enabled)) {
 		response.Success(c, gin.H{"enabled": *req.Enabled})
+	}
+}
+
+func (h *Handler) ExternalSettings(c *gin.Context) {
+	settings, err := h.settings.GetExternalShopSettings(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, settings)
+	}
+}
+
+func (h *Handler) SetExternalSettings(c *gin.Context) {
+	if role, ok := middleware.GetUserRoleFromContext(c); !ok || role != "admin" {
+		response.Forbidden(c, "需要管理员权限")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	var req struct {
+		Enabled *bool  `json:"enabled"`
+		URL     string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil || (req.URL != "" && !service.IsValidExternalPurchaseURL(req.URL)) || (*req.Enabled && req.URL == "") {
+		response.BadRequest(c, "请提供有效的 HTTPS 代购商城链接和启用状态")
+		return
+	}
+	if !response.ErrorFrom(c, h.settings.SetExternalShopSettings(c.Request.Context(), *req.Enabled, req.URL)) {
+		response.Success(c, service.ExternalShopSettings{Enabled: *req.Enabled, URL: req.URL})
 	}
 }
 

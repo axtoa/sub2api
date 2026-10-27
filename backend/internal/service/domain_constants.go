@@ -370,6 +370,7 @@ const (
 	SettingKeyAPIBaseURL                  = "api_base_url"                  // API端点地址（用于客户端配置和导入）
 	SettingKeyContactInfo                 = "contact_info"                  // 客服联系方式
 	SettingKeyDocURL                      = "doc_url"                       // 文档链接
+	SettingKeyCardShopURL                 = "card_shop_url"                 // 外部卡网充值链接
 	SettingKeyHomeContent                 = "home_content"                  // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
 	SettingKeyCompactHomeEnabled          = "compact_home_enabled"          // 是否启用内置简洁首页
 	SettingKeyHideCcsImportButton         = "hide_ccs_import_button"        // 是否隐藏 API Keys 页面的导入 CCS 按钮
@@ -520,6 +521,8 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 	SettingKeyOfficialShopEnabled      = "official_shop_enabled"
+	SettingKeyExternalShopEnabled      = "external_shop_enabled"
+	SettingKeyExternalShopURL          = "external_shop_url"
 
 	// SettingKeyModelPlazaEnabled is a DB-backed soft switch for the Model Plaza page
 	// (public group/model pricing showcase). When false: the plaza endpoint returns 404

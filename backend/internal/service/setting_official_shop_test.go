@@ -75,3 +75,40 @@ func TestOfficialShopFailedSaveDoesNotInvalidateCacheOrChangeState(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, "true", value)
 }
+
+func TestExternalPurchaseLinksAreIndependentFromOnSiteShop(t *testing.T) {
+	repo := &panelRateLimitSettingRepo{values: map[string]string{SettingKeyOfficialShopEnabled: "false"}}
+	s := NewSettingService(repo, &config.Config{})
+	public, err := s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DefaultCardShopURL, public.CardShopURL)
+	require.False(t, public.ExternalShopEnabled)
+	require.Equal(t, DefaultExternalShopURL, public.ExternalShopURL)
+
+	require.NoError(t, s.SetExternalShopSettings(context.Background(), true, "https://example.com/shop"))
+	public, err = s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, public.ExternalShopEnabled)
+	require.Equal(t, "https://example.com/shop", public.ExternalShopURL)
+	require.False(t, public.OfficialShopEnabled)
+
+	settings, err := s.GetExternalShopSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, ExternalShopSettings{Enabled: true, URL: "https://example.com/shop"}, settings)
+	require.Error(t, s.SetExternalShopSettings(context.Background(), true, "javascript:alert(1)"))
+	require.Equal(t, "true", repo.values[SettingKeyExternalShopEnabled])
+}
+
+func TestEmptyExternalPurchaseLinksHideOnlyTheirOwnEntries(t *testing.T) {
+	s := NewSettingService(&panelRateLimitSettingRepo{values: map[string]string{
+		SettingKeyCardShopURL:         "",
+		SettingKeyExternalShopEnabled: "true",
+		SettingKeyExternalShopURL:     "",
+	}}, &config.Config{})
+	public, err := s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, public.CardShopURL)
+	require.False(t, public.ExternalShopEnabled)
+	require.Empty(t, public.ExternalShopURL)
+	require.True(t, public.OfficialShopEnabled)
+}

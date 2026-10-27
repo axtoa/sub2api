@@ -40,13 +40,26 @@ func TestCreateFailsClosedWhenShopIsDisabledOrSettingsCannotBeRead(t *testing.T)
 }
 
 type testSettingsWriter struct {
-	values []bool
-	err    error
+	values   []bool
+	err      error
+	external service.ExternalShopSettings
 }
 
 func (s *testSettingsWriter) SetOfficialShopEnabled(_ context.Context, enabled bool) error {
 	s.values = append(s.values, enabled)
 	return s.err
+}
+
+func (s *testSettingsWriter) GetExternalShopSettings(context.Context) (service.ExternalShopSettings, error) {
+	return s.external, s.err
+}
+
+func (s *testSettingsWriter) SetExternalShopSettings(_ context.Context, enabled bool, link string) error {
+	if s.err != nil {
+		return s.err
+	}
+	s.external = service.ExternalShopSettings{Enabled: enabled, URL: link}
+	return nil
 }
 
 func TestAvailabilityUpdateRequiresAdminAndABoolean(t *testing.T) {
@@ -92,6 +105,43 @@ func TestAvailabilityUpdateReportsPersistenceFailures(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest("PUT", "/api/v1/admin/shop/settings", strings.NewReader(`{"enabled":false}`)))
 	require.Equal(t, 500, w.Code)
+}
+
+func TestExternalShopSettingsUpdateIsIndependent(t *testing.T) {
+	writer := &testSettingsWriter{external: service.ExternalShopSettings{URL: "https://wzyp.cn/shop/best-ai"}}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUserRole), "admin"); c.Next() })
+	r.GET("/api/v1/admin/shop/settings/external", h.ExternalSettings)
+	r.PUT("/api/v1/admin/shop/settings/external", h.SetExternalSettings)
+
+	for _, body := range []string{`{"enabled":true,"url":"javascript:alert(1)"}`, `{"enabled":true,"url":""}`} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/external", strings.NewReader(body)))
+		require.Equal(t, 400, w.Code)
+	}
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/external", strings.NewReader(`{"enabled":true,"url":"https://example.com/shop"}`)))
+	require.Equal(t, 200, w.Code)
+	require.Empty(t, writer.values)
+	require.Equal(t, service.ExternalShopSettings{Enabled: true, URL: "https://example.com/shop"}, writer.external)
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/shop/settings/external", nil))
+	require.Equal(t, 200, w.Code)
+	require.Contains(t, w.Body.String(), `"url":"https://example.com/shop"`)
+}
+
+func TestExternalShopSettingsUpdateRequiresAdmin(t *testing.T) {
+	writer := &testSettingsWriter{}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUserRole), "user"); c.Next() })
+	r.PUT("/api/v1/admin/shop/settings/external", h.SetExternalSettings)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/external", strings.NewReader(`{"enabled":true,"url":"https://example.com/shop"}`)))
+	require.Equal(t, 403, w.Code)
+	require.Equal(t, service.ExternalShopSettings{}, writer.external)
 }
 
 func TestCatalogueClosedToUsersButStillAvailableToAdministrators(t *testing.T) {
