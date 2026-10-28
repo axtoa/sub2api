@@ -15,6 +15,10 @@ import (
 
 type settingsWriter interface {
 	SetOfficialShopEnabled(context.Context, bool) error
+	GetShopHomepageEnabled(context.Context) (bool, error)
+	SetShopHomepageEnabled(context.Context, bool) error
+	GetShopHomepageContent(context.Context) (*service.ShopHomepageContent, error)
+	SetShopHomepageContent(context.Context, service.ShopHomepageContent) error
 	GetExternalShopSettings(context.Context) (service.ExternalShopSettings, error)
 	SetExternalShopSettings(context.Context, bool, string) error
 	GetShopLabels(context.Context) (service.ShopLabels, error)
@@ -52,6 +56,54 @@ func (h *Handler) SetAvailability(c *gin.Context) {
 	}
 	if !response.ErrorFrom(c, h.settings.SetOfficialShopEnabled(c.Request.Context(), *req.Enabled)) {
 		response.Success(c, gin.H{"enabled": *req.Enabled})
+	}
+}
+
+func (h *Handler) HomepageSettings(c *gin.Context) {
+	enabled, err := h.settings.GetShopHomepageEnabled(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"enabled": enabled})
+	}
+}
+
+func (h *Handler) SetHomepageSettings(c *gin.Context) {
+	if role, ok := middleware.GetUserRoleFromContext(c); !ok || role != "admin" {
+		response.Forbidden(c, "需要管理员权限")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024)
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		response.BadRequest(c, "请提供有效的启用状态")
+		return
+	}
+	if !response.ErrorFrom(c, h.settings.SetShopHomepageEnabled(c.Request.Context(), *req.Enabled)) {
+		response.Success(c, gin.H{"enabled": *req.Enabled})
+	}
+}
+
+func (h *Handler) HomepageContent(c *gin.Context) {
+	content, err := h.settings.GetShopHomepageContent(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, content)
+	}
+}
+
+func (h *Handler) SetHomepageContent(c *gin.Context) {
+	if role, ok := middleware.GetUserRoleFromContext(c); !ok || role != "admin" {
+		response.Forbidden(c, "需要管理员权限")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 16<<10)
+	var content service.ShopHomepageContent
+	if err := c.ShouldBindJSON(&content); err != nil || !service.IsValidShopHomepageContent(content) {
+		response.BadRequest(c, "首页展示内容无效")
+		return
+	}
+	if !response.ErrorFrom(c, h.settings.SetShopHomepageContent(c.Request.Context(), content)) {
+		response.Success(c, content)
 	}
 }
 

@@ -1,7 +1,8 @@
 <template>
   <ShopLayout admin>
     <ShopAvailabilityControl />
-    <ShopOrders v-if="!route.path.endsWith('/products')" admin />
+    <ShopHomepageAdmin v-if="route.path.endsWith('/homepage')" />
+    <ShopOrders v-else-if="!route.path.endsWith('/products')" admin />
     <section v-else>
       <div class="shop-section-heading"><h2>{{ t('shop.products') }}</h2><div class="shop-toolbar"><button type="button" class="shop-icon-button" :disabled="loading || busy" :title="t('shop.refresh')" :aria-label="t('shop.refresh')" @click="load"><Icon name="refresh" size="sm" /></button><button type="button" class="shop-secondary" :disabled="busy" @click="edit()"><Icon name="plus" size="sm" />{{ t('shop.addProduct') }}</button></div></div>
       <p class="shop-caption">{{ t('shop.productHint') }}</p><p v-if="error" class="shop-error" role="alert">{{ error }}</p>
@@ -36,6 +37,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import ShopLayout from './ShopLayout.vue'
 import ShopAvailabilityControl from './ShopAvailabilityControl.vue'
+import ShopHomepageAdmin from './ShopHomepageAdmin.vue'
 import ShopOrders from './ShopOrders.vue'
 import ProductCard from './ProductCard.vue'
 import { checkoutLink, priceToCents, shopAPI, type ShopProduct } from './api'

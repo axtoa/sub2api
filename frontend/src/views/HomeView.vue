@@ -175,7 +175,7 @@ client = <b>OpenAI</b>(
         <span>{{ t('home.invoiceAvailable') }}</span>
       </section>
 
-      <HomeShopSection v-if="officialShopEnabled" />
+      <HomeShopSection v-if="showShopPromotion" />
       <section v-if="docUrl" class="home-secondary">
         <div v-if="docUrl" class="home-next-step">
           <span>{{ t('home.nextStep') }}</span>
@@ -203,12 +203,16 @@ import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { useTheme } from '@/composables/useTheme'
 import HomeShopSection from '@/features/shop/HomeShopSection.vue'
 import { useShopAvailability } from '@/features/shop/availability'
+import { externalShopLink } from '@/utils/externalLinks'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 const { isDark, toggleTheme } = useTheme()
-const { enabled: officialShopEnabled } = useShopAvailability()
+const { enabled: officialShopEnabled, homepageEnabled } = useShopAvailability()
+const showShopPromotion = computed(() => homepageEnabled.value && (
+  officialShopEnabled.value || !!externalShopLink(appStore.cachedPublicSettings)
+))
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Best AI')
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))

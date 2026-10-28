@@ -7,8 +7,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const enabledSQL = `SELECT COALESCE((SELECT value = 'true' FROM settings WHERE key = $1), true)`
-const enabledForShareSQL = `SELECT COALESCE((SELECT value = 'true' FROM settings WHERE key = $1 FOR SHARE), true)`
+const enabledSQL = `SELECT COALESCE((SELECT value = 'true' FROM settings WHERE key = $1), false)`
+const enabledForShareSQL = `SELECT COALESCE((SELECT value = 'true' FROM settings WHERE key = $1 FOR SHARE), false)`
 
 func (s *Store) Enabled(ctx context.Context) (bool, error) {
 	var enabled bool

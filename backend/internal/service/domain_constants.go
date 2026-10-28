@@ -521,6 +521,8 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 	SettingKeyOfficialShopEnabled      = "official_shop_enabled"
+	SettingKeyShopHomepageEnabled      = "shop_homepage_enabled"
+	SettingKeyShopHomepageContent      = "shop_homepage_content"
 	SettingKeyOfficialShopName         = "official_shop_name"
 	SettingKeyExternalShopEnabled      = "external_shop_enabled"
 	SettingKeyExternalShopURL          = "external_shop_url"

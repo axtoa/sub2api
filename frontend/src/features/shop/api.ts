@@ -1,5 +1,5 @@
 import { apiClient } from '@/api/client'
-import type { BasePaginationResponse } from '@/types'
+import type { BasePaginationResponse, ShopHomepageContent } from '@/types'
 
 export interface ShopProduct {
   id: string; brand: 'ChatGPT' | 'Anthropic'; name: string; spec: string
@@ -47,6 +47,18 @@ export const shopAPI = {
   async settings(): Promise<ShopSettings> { return (await apiClient.get<ShopSettings>('/admin/shop/settings')).data },
   async saveSettings(enabled: boolean): Promise<ShopSettings> {
     return (await apiClient.put<ShopSettings>('/admin/shop/settings', { enabled })).data
+  },
+  async homepageSettings(): Promise<ShopSettings> {
+    return (await apiClient.get<ShopSettings>('/admin/shop/settings/homepage')).data
+  },
+  async saveHomepageSettings(enabled: boolean): Promise<ShopSettings> {
+    return (await apiClient.put<ShopSettings>('/admin/shop/settings/homepage', { enabled })).data
+  },
+  async homepageContent(): Promise<ShopHomepageContent | null> {
+    return (await apiClient.get<ShopHomepageContent | null>('/admin/shop/settings/homepage/content')).data
+  },
+  async saveHomepageContent(content: ShopHomepageContent): Promise<ShopHomepageContent> {
+    return (await apiClient.put<ShopHomepageContent>('/admin/shop/settings/homepage/content', content)).data
   },
   async externalSettings(): Promise<ExternalShopSettings> {
     return (await apiClient.get<ExternalShopSettings>('/admin/shop/settings/external')).data

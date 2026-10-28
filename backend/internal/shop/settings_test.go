@@ -41,6 +41,8 @@ func TestCreateFailsClosedWhenShopIsDisabledOrSettingsCannotBeRead(t *testing.T)
 
 type testSettingsWriter struct {
 	values   []bool
+	homepage []bool
+	content  *service.ShopHomepageContent
 	err      error
 	external service.ExternalShopSettings
 	labels   service.ShopLabels
@@ -49,6 +51,100 @@ type testSettingsWriter struct {
 func (s *testSettingsWriter) SetOfficialShopEnabled(_ context.Context, enabled bool) error {
 	s.values = append(s.values, enabled)
 	return s.err
+}
+
+func (s *testSettingsWriter) GetShopHomepageEnabled(context.Context) (bool, error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	if len(s.homepage) == 0 {
+		return false, nil
+	}
+	return s.homepage[len(s.homepage)-1], nil
+}
+
+func (s *testSettingsWriter) SetShopHomepageEnabled(_ context.Context, enabled bool) error {
+	if s.err != nil {
+		return s.err
+	}
+	s.homepage = append(s.homepage, enabled)
+	return nil
+}
+
+func (s *testSettingsWriter) GetShopHomepageContent(context.Context) (*service.ShopHomepageContent, error) {
+	return s.content, s.err
+}
+
+func (s *testSettingsWriter) SetShopHomepageContent(_ context.Context, content service.ShopHomepageContent) error {
+	if s.err != nil {
+		return s.err
+	}
+	s.content = &content
+	return nil
+}
+
+func TestHomepageContentIsValidatedAndIndependent(t *testing.T) {
+	writer := &testSettingsWriter{external: service.ExternalShopSettings{Enabled: true, URL: "https://example.com/shop"}}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUserRole), c.GetHeader("X-Test-Role"))
+		c.Next()
+	})
+	r.GET("/api/v1/admin/shop/settings/homepage/content", h.HomepageContent)
+	r.PUT("/api/v1/admin/shop/settings/homepage/content", h.SetHomepageContent)
+	for _, tc := range []struct {
+		role, body string
+		status     int
+	}{
+		{"user", `{"title":"代购","lead":"看看","cards":[]}`, 403},
+		{"admin", `{"title":"","lead":"看看","cards":[]}`, 400},
+		{"admin", `{"title":"代购","lead":"看看","cards":[{"title":"Plus","summary":"简介","bonus_cents":-1}]}`, 400},
+		{"admin", `{"title":"代购","lead":"看看","cards":[{"title":"Plus","summary":"简介","price_hint":"约 ¥200/月","bonus_cents":500}]}`, 200},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/homepage/content", strings.NewReader(tc.body))
+		req.Header.Set("X-Test-Role", tc.role)
+		r.ServeHTTP(w, req)
+		require.Equal(t, tc.status, w.Code)
+	}
+	require.Equal(t, int64(500), writer.content.Cards[0].BonusCents)
+	require.Empty(t, writer.values)
+	require.Empty(t, writer.homepage)
+	require.True(t, writer.external.Enabled)
+}
+
+func TestHomepageSwitchIsIndependentAndAdminOnly(t *testing.T) {
+	writer := &testSettingsWriter{external: service.ExternalShopSettings{Enabled: true, URL: "https://example.com/shop"}}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUserRole), c.GetHeader("X-Test-Role"))
+		c.Next()
+	})
+	r.GET("/api/v1/admin/shop/settings/homepage", h.HomepageSettings)
+	r.PUT("/api/v1/admin/shop/settings/homepage", h.SetHomepageSettings)
+	for _, tc := range []struct {
+		role, body string
+		status     int
+	}{
+		{"user", `{"enabled":false}`, 403},
+		{"admin", `{}`, 400},
+		{"admin", `{"enabled":false}`, 200},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/homepage", strings.NewReader(tc.body))
+		req.Header.Set("X-Test-Role", tc.role)
+		r.ServeHTTP(w, req)
+		require.Equal(t, tc.status, w.Code)
+	}
+	require.Equal(t, []bool{false}, writer.homepage)
+	require.Empty(t, writer.values)
+	require.True(t, writer.external.Enabled)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/shop/settings/homepage", nil))
+	require.Equal(t, 200, w.Code)
+	require.Contains(t, w.Body.String(), `"enabled":false`)
 }
 
 func (s *testSettingsWriter) GetExternalShopSettings(context.Context) (service.ExternalShopSettings, error) {

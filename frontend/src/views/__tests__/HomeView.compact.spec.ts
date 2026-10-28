@@ -122,7 +122,7 @@ describe('HomeView compact mode', () => {
     expect(wrapper.find('.hero-visual').exists()).toBe(true)
     expect(wrapper.text()).toContain('ChatGPT')
     expect(wrapper.text()).toContain('Anthropic')
-    expect(wrapper.text()).toContain('home.subscriptionTeaser')
+    expect(wrapper.text()).not.toContain('shop.homepageTitle')
     expect(wrapper.text()).not.toContain('Gemini')
     expect(wrapper.text()).not.toContain('Antigravity')
     expect(wrapper.text()).not.toContain('subscriptionToApi')
@@ -142,13 +142,29 @@ describe('HomeView compact mode', () => {
       'ChatGPT', 'Anthropic', 'home.simpleBilling', 'home.invoiceAvailable',
     ])
   })
-  it('hides the complete purchasing section without loading products when closed', () => {
-    const wrapper = mountHome({ official_shop_enabled: false })
+  it('hides the promotion when both channels are closed', () => {
+    const wrapper = mountHome({ official_shop_enabled: false, shop_homepage_enabled: true })
     expect(wrapper.find('.home-shop').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('home.subscriptionTeaser')
+    expect(wrapper.text()).not.toContain('shop.homepageTitle')
     expect(shopAPI.products).not.toHaveBeenCalled()
     expect(wrapper.findAllComponents(RouterLinkStub).some(link => link.props('to') === '/login')).toBe(true)
     wrapper.unmount()
+  })
+
+  it('keeps the homepage promotion closed until its own switch is enabled', () => {
+    const wrapper = mountHome({ official_shop_enabled: true })
+    expect(wrapper.find('.home-shop').exists()).toBe(false)
+  })
+
+  it('shows the same promotion with either channel and hides it with the independent switch', () => {
+    const externalOnly = mountHome({ official_shop_enabled: false, external_shop_enabled: true, external_shop_url: 'https://example.com/shop', shop_homepage_enabled: true })
+    expect(externalOnly.find('.home-shop').exists()).toBe(true)
+    expect(externalOnly.get('.home-shop-cta').findComponent(RouterLinkStub).props('to')).toBe('/shop/options')
+    externalOnly.unmount()
+
+    const hidden = mountHome({ official_shop_enabled: true, shop_homepage_enabled: false })
+    expect(hidden.find('.home-shop').exists()).toBe(false)
+    expect(shopAPI.products).not.toHaveBeenCalled()
   })
 
   it('links unauthenticated visitors to login', () => {

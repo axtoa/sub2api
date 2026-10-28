@@ -242,6 +242,8 @@ export interface PublicSettings {
   hide_ccs_import_button: boolean
   payment_enabled: boolean
   official_shop_enabled?: boolean
+  shop_homepage_enabled?: boolean
+  shop_homepage_content?: ShopHomepageContent | null
   official_shop_name?: string
   external_shop_enabled?: boolean
   external_shop_url?: string
@@ -288,6 +290,19 @@ export interface PublicSettings {
   service_quota_enabled: boolean
   affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
+}
+
+export interface ShopHomepageCard {
+  title: string
+  summary: string
+  price_hint: string
+  bonus_cents: number
+}
+
+export interface ShopHomepageContent {
+  title: string
+  lead: string
+  cards: ShopHomepageCard[]
 }
 
 export interface AuthResponse {

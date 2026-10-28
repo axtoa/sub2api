@@ -239,6 +239,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyOfficialShopEnabled,
+		SettingKeyShopHomepageEnabled,
+		SettingKeyShopHomepageContent,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
 		SettingKeyPluginManagementEnabled,
@@ -251,6 +253,14 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("get public settings: %w", err)
+	}
+	var shopHomepageContent *ShopHomepageContent
+	if raw := settings[SettingKeyShopHomepageContent]; raw != "" {
+		var parsed ShopHomepageContent
+		if json.Unmarshal([]byte(raw), &parsed) == nil && IsValidShopHomepageContent(parsed) {
+			normalized := normalizeShopHomepageContent(parsed)
+			shopHomepageContent = &normalized
+		}
 	}
 
 	linuxDoEnabled := false
@@ -373,6 +383,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 		OfficialShopEnabled:      officialShopEnabledFromSettings(settings),
+		ShopHomepageEnabled:      shopHomepageEnabledFromSettings(settings),
+		ShopHomepageContent:      shopHomepageContent,
 
 		ModelPlazaEnabled:        settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth:    settings[SettingKeyModelPlazaRequireAuth] == "true",
@@ -563,6 +575,8 @@ func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
 // drift automatically (see setting_service_injection_test.go).
 type PublicSettingsInjectionPayload struct {
 	OfficialShopEnabled                 bool                     `json:"official_shop_enabled"`
+	ShopHomepageEnabled                 bool                     `json:"shop_homepage_enabled"`
+	ShopHomepageContent                 *ShopHomepageContent     `json:"shop_homepage_content"`
 	OfficialShopName                    string                   `json:"official_shop_name"`
 	ExternalShopEnabled                 bool                     `json:"external_shop_enabled"`
 	ExternalShopURL                     string                   `json:"external_shop_url"`
@@ -659,6 +673,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 	return &PublicSettingsInjectionPayload{
 		OfficialShopEnabled:                 settings.OfficialShopEnabled,
+		ShopHomepageEnabled:                 settings.ShopHomepageEnabled,
+		ShopHomepageContent:                 settings.ShopHomepageContent,
 		OfficialShopName:                    settings.OfficialShopName,
 		ExternalShopEnabled:                 settings.ExternalShopEnabled,
 		ExternalShopURL:                     settings.ExternalShopURL,

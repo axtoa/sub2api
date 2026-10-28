@@ -22,6 +22,7 @@ describe('shop purchase form', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.clearAllMocks(); auth.isAuthenticated = true; route.path = '/shop'; route.query = {}; app.cachedPublicSettings.official_shop_enabled = true
+    Object.assign(app.cachedPublicSettings, { shop_homepage_content: null, shop_homepage_enabled: true })
     vi.mocked(shopAPI.products).mockResolvedValue([productFixture()])
     vi.mocked(shopAPI.create).mockResolvedValue(orderFixture())
   })
@@ -151,18 +152,21 @@ describe('shop purchase form', () => {
     expect((wrapper.get('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(false)
     wrapper.unmount()
   })
-  it('shows compact homepage products linking directly to the selected plan', async () => {
+  it('shows independent homepage cards and opens the channel selector in the same tab', async () => {
+    Object.assign(app.cachedPublicSettings, { shop_homepage_content: {
+      title: '官方订阅', lead: '选择合适的方案', cards: [{ title: 'Plus', summary: '月度方案', price_hint: '约 ¥200 / 月', bonus_cents: 500 }],
+    } })
     const wrapper = mount(HomeShopSection, { global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
-    expect(wrapper.text()).toContain('home.subscriptionTeaser')
-    expect(wrapper.get('.home-shop-link').findComponent(RouterLinkStub).exists()).toBe(true)
-    expect(wrapper.get('.home-shop-link').attributes('target')).toBe('_blank')
-    expect(wrapper.get('.home-shop-link').attributes('rel')).toBe('noopener noreferrer')
-    expect(wrapper.get('.shop-section-heading').findComponent(RouterLinkStub).attributes('target')).toBe('_blank')
-    expect(wrapper.findAllComponents(RouterLinkStub).some(link => JSON.stringify(link.props('to')).includes(productFixture().id))).toBe(true)
+    expect(wrapper.text()).toContain('官方订阅')
+    expect(wrapper.text()).toContain('Plus')
+    expect(wrapper.text()).toContain('shop.homepageBonusLabel')
+    expect(wrapper.text()).toContain('shop.homepageManualBonus')
+    expect(wrapper.get('.home-shop-cta').findComponent(RouterLinkStub).props('to')).toBe('/shop/options')
+    expect(wrapper.get('.home-shop-cta').attributes('target')).toBeUndefined()
+    expect(shopAPI.products).not.toHaveBeenCalled()
   })
-  it('synchronizes a stale homepage flag when the server rejects its catalogue as closed', async () => {
-    vi.mocked(shopAPI.products).mockRejectedValue({ status: 403, reason: 'SHOP_DISABLED' })
-    mount(HomeShopSection, { global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
-    expect(app.cachedPublicSettings.official_shop_enabled).toBe(false)
+  it('does not promise a bonus when none is configured', async () => {
+    const wrapper = mount(HomeShopSection, { global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
+    expect(wrapper.text()).not.toContain('shop.homepageManualBonus')
   })
 })

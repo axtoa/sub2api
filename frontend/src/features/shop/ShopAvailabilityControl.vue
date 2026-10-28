@@ -49,6 +49,14 @@
     <Toggle :model-value="externalConfirmed === true" :disabled="externalPending || externalConfirmed === null || urlEditing" :aria-label="t('shop.externalAvailability')" @update:model-value="enabled => saveExternal(enabled, confirmedExternalURL)" />
   </section>
   </div>
+  <section class="shop-homepage-setting" :aria-label="t('shop.homepageSetting')" :aria-busy="homepagePending">
+    <div>
+      <h2>{{ t('shop.homepageSetting') }}</h2>
+      <p>{{ t('shop.homepageSettingHint') }}</p>
+      <p v-if="homepageError" class="shop-error" role="alert">{{ homepageError }} <button v-if="homepageConfirmed === null" type="button" @click="loadHomepage">{{ t('shop.retry') }}</button></p>
+    </div>
+    <Toggle :model-value="homepageConfirmed === true" :disabled="homepagePending || homepageConfirmed === null" :aria-label="t('shop.homepageSetting')" @update:model-value="saveHomepage" />
+  </section>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -60,7 +68,7 @@ import { useShopAvailability } from './availability'
 import { safeExternalLink } from '@/utils/externalLinks'
 
 const { t } = useI18n()
-const { enabled: publicEnabled, apply, applyExternal, applyLabel } = useShopAvailability()
+const { enabled: publicEnabled, homepageEnabled, apply, applyExternal, applyHomepage, applyLabel } = useShopAvailability()
 const confirmed = ref<boolean | null>(null)
 const pending = ref(true)
 const error = ref('')
@@ -69,6 +77,9 @@ const externalPending = ref(true)
 const externalURL = ref('')
 const confirmedExternalURL = ref('')
 const externalError = ref('')
+const homepageConfirmed = ref<boolean | null>(null)
+const homepagePending = ref(true)
+const homepageError = ref('')
 const urlEditing = ref(false)
 const labelsPending = ref(true)
 const labelsError = ref('')
@@ -171,6 +182,29 @@ async function loadExternal() {
   finally { externalPending.value = false }
 }
 
+async function loadHomepage() {
+  homepagePending.value = true
+  homepageError.value = ''
+  try {
+    const settings = await shopAPI.homepageSettings()
+    homepageConfirmed.value = settings.enabled
+    applyHomepage(settings.enabled)
+  } catch (e) { homepageError.value = (e as Error).message || t('shop.loadError') }
+  finally { homepagePending.value = false }
+}
+
+async function saveHomepage(enabled: boolean) {
+  if (homepagePending.value || homepageConfirmed.value === null) return
+  homepagePending.value = true
+  homepageError.value = ''
+  try {
+    const settings = await shopAPI.saveHomepageSettings(enabled)
+    homepageConfirmed.value = settings.enabled
+    applyHomepage(settings.enabled, true)
+  } catch (e) { homepageError.value = (e as Error).message || t('shop.availabilitySaveError') }
+  finally { homepagePending.value = false }
+}
+
 async function saveExternal(enabled: boolean, url: string) {
   if (externalPending.value || externalConfirmed.value === null) return
   const link = url.trim()
@@ -191,8 +225,11 @@ async function saveExternal(enabled: boolean, url: string) {
   finally { externalPending.value = false }
 }
 
-onMounted(() => { void load(); void loadExternal(); void loadLabels() })
+onMounted(() => { void load(); void loadExternal(); void loadHomepage(); void loadLabels() })
 watch(publicEnabled, enabled => {
   if (!pending.value && confirmed.value !== null) confirmed.value = enabled
+})
+watch(homepageEnabled, enabled => {
+  if (!homepagePending.value && homepageConfirmed.value !== null) homepageConfirmed.value = enabled
 })
 </script>

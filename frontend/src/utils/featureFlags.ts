@@ -96,7 +96,7 @@ function defineFlag<K extends keyof PublicSettings>(
 export const FeatureFlags = {
   officialShop: defineFlag({
     key: 'official_shop_enabled',
-    mode: 'opt-out',
+    mode: 'opt-in',
     label: 'Official Product Purchasing',
   }),
   channelMonitor: defineFlag({

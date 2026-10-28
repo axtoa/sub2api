@@ -5,8 +5,9 @@
         <div class="shop-heading"><h1>{{ t(admin ? 'shop.adminTitle' : 'shop.title') }}</h1><p>{{ t(admin ? 'shop.adminIntro' : 'shop.intro') }}</p></div>
         <nav class="shop-tabs" :aria-label="t('shop.entry')">
           <template v-if="admin">
-            <router-link to="/admin/shop" :class="{ active: !route.path.includes('/products') }">{{ t('shop.allOrders') }}</router-link>
+            <router-link to="/admin/shop" :class="{ active: route.path === '/admin/shop' || route.path.includes('/orders/') }">{{ t('shop.allOrders') }}</router-link>
             <router-link to="/admin/shop/products" :class="{ active: route.path.includes('/products') }">{{ t('shop.products') }}</router-link>
+            <router-link to="/admin/shop/homepage" :class="{ active: route.path.includes('/homepage') }">{{ t('shop.homepageTab') }}</router-link>
           </template>
           <template v-else>
             <router-link to="/shop" :class="{ active: !route.path.includes('/orders') }">{{ t('shop.catalog') }}</router-link>

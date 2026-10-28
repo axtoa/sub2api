@@ -49,10 +49,13 @@ the product, price, terms and external checkout URL from the time of ordering.
 Product edits or hiding a product do not alter previous orders.
 
 The switch at the top of shop management persists `official_shop_enabled` in
-the existing `settings` table. Migration `243_official_shop_enabled.sql` defaults
-it to enabled without overwriting a saved value. Admin-only GET/PUT
-`/api/v1/admin/shop/settings` reads/changes it. Disabling hides the homepage
-section and customer sidebar entry and blocks public catalogue/new order requests.
+the existing `settings` table. Migration `250_shop_entries_default_closed.sql`
+closes the on-site, external, and homepage shop entries on upgrade. Missing
+settings also resolve to disabled. Admin-only GET/PUT
+`/api/v1/admin/shop/settings` reads/changes it. Disabling hides the on-site
+customer sidebar entry and blocks public catalogue/new order requests. The
+homepage promotion has its own switch and appears only when at least one shop
+channel is enabled.
 Existing orders, payment references, manual fulfillment and idempotent order
 retries remain available; administrator management stays accessible to reopen.
 New-order transactions hold a shared lock on the switch until commit, so closing

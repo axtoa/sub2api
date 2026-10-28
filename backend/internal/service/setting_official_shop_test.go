@@ -27,7 +27,7 @@ func TestOfficialShopPublicSettingsAndInjection(t *testing.T) {
 		values map[string]string
 		want   bool
 	}{
-		{"missing preserves enabled state", nil, true},
+		{"missing defaults closed", nil, false},
 		{"enabled", map[string]string{SettingKeyOfficialShopEnabled: "true"}, true},
 		{"disabled", map[string]string{SettingKeyOfficialShopEnabled: "false"}, false},
 		{"invalid fails closed", map[string]string{SettingKeyOfficialShopEnabled: "invalid"}, false},
@@ -74,6 +74,56 @@ func TestOfficialShopFailedSaveDoesNotInvalidateCacheOrChangeState(t *testing.T)
 	value, err := repo.GetValue(context.Background(), SettingKeyOfficialShopEnabled)
 	require.NoError(t, err)
 	require.Equal(t, "true", value)
+}
+
+func TestShopHomepageSwitchDefaultsOffAndDoesNotChangeChannels(t *testing.T) {
+	repo := &panelRateLimitSettingRepo{values: map[string]string{
+		SettingKeyOfficialShopEnabled: "false",
+		SettingKeyExternalShopEnabled: "true",
+		SettingKeyExternalShopURL:     "https://example.com/shop",
+	}}
+	s := NewSettingService(repo, &config.Config{})
+	public, err := s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, public.ShopHomepageEnabled)
+	require.False(t, public.OfficialShopEnabled)
+	require.True(t, public.ExternalShopEnabled)
+	require.NoError(t, s.SetShopHomepageEnabled(context.Background(), true))
+	public, err = s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, public.ShopHomepageEnabled)
+	require.False(t, public.OfficialShopEnabled)
+	require.True(t, public.ExternalShopEnabled)
+	require.NoError(t, s.SetShopHomepageEnabled(context.Background(), false))
+	public, err = s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, public.ShopHomepageEnabled)
+	require.False(t, public.OfficialShopEnabled)
+	require.True(t, public.ExternalShopEnabled)
+	value, err := s.GetShopHomepageEnabled(context.Background())
+	require.NoError(t, err)
+	require.False(t, value)
+}
+
+func TestShopHomepageContentIsIndependentAndPublic(t *testing.T) {
+	repo := &panelRateLimitSettingRepo{values: map[string]string{SettingKeyOfficialShopEnabled: "false"}}
+	s := NewSettingService(repo, &config.Config{})
+	content := ShopHomepageContent{
+		Title: "官方订阅", Lead: "登录后查看", Cards: []ShopHomepageCard{{Title: "Plus", Summary: "适合日常使用", PriceHint: "约 ¥200/月", BonusCents: 500}},
+	}
+	require.NoError(t, s.SetShopHomepageContent(context.Background(), content))
+	saved, err := s.GetShopHomepageContent(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, &content, saved)
+	public, err := s.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, &content, public.ShopHomepageContent)
+	require.False(t, public.OfficialShopEnabled)
+	payload, err := s.GetPublicSettingsForInjection(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, &content, payload.(*PublicSettingsInjectionPayload).ShopHomepageContent)
+	require.Error(t, s.SetShopHomepageContent(context.Background(), ShopHomepageContent{Title: "", Lead: "x"}))
+	require.Equal(t, &content, public.ShopHomepageContent)
 }
 
 func TestExternalPurchaseLinksAreIndependentFromOnSiteShop(t *testing.T) {
@@ -150,5 +200,5 @@ func TestEmptyExternalPurchaseLinksHideOnlyTheirOwnEntries(t *testing.T) {
 	require.Empty(t, public.CardShopURL)
 	require.False(t, public.ExternalShopEnabled)
 	require.Empty(t, public.ExternalShopURL)
-	require.True(t, public.OfficialShopEnabled)
+	require.False(t, public.OfficialShopEnabled)
 }

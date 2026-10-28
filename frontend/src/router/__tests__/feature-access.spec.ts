@@ -130,14 +130,15 @@ describe('feature route guard', () => {
   })
 
   it('requires login for the shop catalogue and all orders, with administration restricted to admins', () => {
+    expect(routerHarness.routes.find(route => route.path === '/shop/options')?.meta?.requiresAuth).toBe(true)
     expect(routerHarness.routes.find(route => route.path === '/shop')?.meta?.requiresAuth).toBe(true)
     expect(routerHarness.routes.find(route => route.path === '/shop/orders/:id?')?.meta?.requiresAuth).toBe(true)
-    for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id']) {
+    for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/orders/:id']) {
       expect(routerHarness.routes.find(route => route.path === path)?.meta).toMatchObject({ requiresAuth: true, requiresAdmin: true })
     }
   })
 
-  it.each(['/shop', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {
+  it.each(['/shop/options', '/shop', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {
     authStore.isAuthenticated = false
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)
@@ -145,7 +146,7 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: path } })
   })
 
-  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('denies ordinary users access to %s', async path => {
+  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('denies ordinary users access to %s', async path => {
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)
     await navigation

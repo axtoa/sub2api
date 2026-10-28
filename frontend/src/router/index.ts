@@ -36,6 +36,11 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'quality.title' }
   },
   {
+    path: '/shop/options', name: 'ShopOptions',
+    component: () => import('@/features/shop/ShopOptionsPage.vue'),
+    meta: { requiresAuth: true, titleKey: 'shop.optionsTitle' }
+  },
+  {
     path: '/shop', name: 'Shop',
     component: () => import('@/features/shop/ShopPage.vue'),
     meta: { requiresAuth: true, titleKey: 'shop.entry' }
@@ -54,6 +59,11 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/shop/products', name: 'ShopProductsAdmin',
     component: () => import('@/features/shop/ShopAdminPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.products' }
+  },
+  {
+    path: '/admin/shop/homepage', name: 'ShopHomepageAdmin',
+    component: () => import('@/features/shop/ShopAdminPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.homepageTab' }
   },
   {
     path: '/admin/shop/orders/:id', name: 'ShopOrderAdmin',

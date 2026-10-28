@@ -7,7 +7,7 @@ import { shopAPI } from '../api'
 import { useShopAvailability } from '../availability'
 
 vi.mock('vue-i18n', async original => ({ ...await original<typeof import('vue-i18n')>(), useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('../api', () => ({ shopAPI: { settings: vi.fn(), saveSettings: vi.fn(), externalSettings: vi.fn(), saveExternalSettings: vi.fn(), labels: vi.fn(), saveLabel: vi.fn() } }))
+vi.mock('../api', () => ({ shopAPI: { settings: vi.fn(), saveSettings: vi.fn(), homepageSettings: vi.fn(), saveHomepageSettings: vi.fn(), externalSettings: vi.fn(), saveExternalSettings: vi.fn(), labels: vi.fn(), saveLabel: vi.fn() } }))
 
 let wrapper: VueWrapper | undefined
 beforeEach(() => {
@@ -16,6 +16,8 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(shopAPI.settings).mockResolvedValue({ enabled: true })
   vi.mocked(shopAPI.saveSettings).mockImplementation(async enabled => ({ enabled }))
+  vi.mocked(shopAPI.homepageSettings).mockResolvedValue({ enabled: true })
+  vi.mocked(shopAPI.saveHomepageSettings).mockImplementation(async enabled => ({ enabled }))
   vi.mocked(shopAPI.externalSettings).mockResolvedValue({ enabled: false, url: 'https://wzyp.cn/shop/best-ai' })
   vi.mocked(shopAPI.saveExternalSettings).mockImplementation(async settings => settings)
   vi.mocked(shopAPI.labels).mockResolvedValue({ official_name: '', external_name: '' })
@@ -24,6 +26,12 @@ beforeEach(() => {
 afterEach(() => wrapper?.unmount())
 
 describe('official purchasing availability', () => {
+  it('keeps all entries closed while public settings are missing', () => {
+    const probe = mount({ setup: useShopAvailability, template: '<span>{{ enabled }} / {{ homepageEnabled }}</span>' })
+    wrapper = probe
+    expect(probe.text()).toBe('false / false')
+  })
+
   it('waits for the server state and disables input during loading', async () => {
     let resolve!: (value: { enabled: boolean }) => void
     vi.mocked(shopAPI.settings).mockReturnValueOnce(new Promise(done => { resolve = done }))
@@ -193,7 +201,7 @@ describe('official purchasing availability', () => {
     await wrapper.get('#official-shop-name').element.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flushPromises()
     expect(app.cachedPublicSettings.official_shop_name).toBe('')
-    expect(wrapper.get('section').get('h2').text()).toBe('shop.entry')
+    expect(wrapper.get('.shop-availability:not(.shop-availability-external) h2').text()).toBe('shop.entry')
     expect(shopAPI.saveSettings).not.toHaveBeenCalled()
     expect(shopAPI.saveExternalSettings).not.toHaveBeenCalled()
   })
@@ -206,10 +214,25 @@ describe('official purchasing availability', () => {
     await wrapper.get('#external-shop-name').element.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
     await flushPromises()
     expect(wrapper.find('#external-shop-name').exists()).toBe(true)
-    expect(wrapper.findAll('section')[1].get('h2').text()).toBe('shop.externalEntry')
+    expect(wrapper.get('.shop-availability-external h2').text()).toBe('shop.externalEntry')
     expect(wrapper.text()).toContain('offline')
     await wrapper.get('#external-shop-name').element.closest('form')!.querySelector('button[type="button"]')!.dispatchEvent(new Event('click', { bubbles: true }))
     await flushPromises()
     expect(wrapper.find('#external-shop-name').exists()).toBe(false)
+  })
+  it('keeps the homepage switch independent from both purchasing channels', async () => {
+    const app = useAppStore()
+    vi.mocked(shopAPI.settings).mockResolvedValueOnce({ enabled: false })
+    vi.mocked(shopAPI.externalSettings).mockResolvedValueOnce({ enabled: true, url: 'https://wzyp.cn/shop/best-ai' })
+    app.cachedPublicSettings = { official_shop_enabled: false, external_shop_enabled: true, external_shop_url: 'https://wzyp.cn/shop/best-ai' } as NonNullable<typeof app.cachedPublicSettings>
+    wrapper = mount(ShopAvailabilityControl); await flushPromises()
+    await wrapper.get('[aria-label="shop.homepageSetting"][role="switch"]').trigger('click')
+    await flushPromises()
+    expect(shopAPI.saveHomepageSettings).toHaveBeenCalledWith(false)
+    expect(shopAPI.saveSettings).not.toHaveBeenCalled()
+    expect(shopAPI.saveExternalSettings).not.toHaveBeenCalled()
+    expect(app.cachedPublicSettings.shop_homepage_enabled).toBe(false)
+    expect(app.cachedPublicSettings.official_shop_enabled).toBe(false)
+    expect(app.cachedPublicSettings.external_shop_enabled).toBe(true)
   })
 })

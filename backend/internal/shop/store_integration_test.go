@@ -55,6 +55,19 @@ func TestPostgresShopMigrationAndConcurrentOrders(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, string(switchMigration))
 	require.NoError(t, err)
+	closedMigration, err := migrations.FS.ReadFile("250_shop_entries_default_closed.sql")
+	require.NoError(t, err)
+	for range 2 {
+		_, err = db.ExecContext(ctx, string(closedMigration))
+		require.NoError(t, err, "closing shop entries must be repeatable")
+	}
+	for _, key := range []string{"official_shop_enabled", "external_shop_enabled", "shop_homepage_enabled"} {
+		var value string
+		require.NoError(t, db.QueryRowContext(ctx, `SELECT value FROM settings WHERE key=$1`, key).Scan(&value))
+		require.Equal(t, "false", value, key)
+	}
+	_, err = db.ExecContext(ctx, `UPDATE settings SET value='true' WHERE key='official_shop_enabled'`)
+	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO users(id,email,password_hash,balance) VALUES(42,'member@example.com','unused',88),(43,'other@example.com','unused',99)`)
 	require.NoError(t, err)
 	poolURL, err := url.Parse(dsn)

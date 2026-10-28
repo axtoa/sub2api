@@ -317,8 +317,10 @@ type DefaultSubscriptionSetting struct {
 }
 
 type PublicSettings struct {
-	OfficialShopEnabled                 bool   `json:"official_shop_enabled"`
-	OfficialShopName                    string `json:"official_shop_name"`
+	OfficialShopEnabled                 bool                 `json:"official_shop_enabled"`
+	ShopHomepageEnabled                 bool                 `json:"shop_homepage_enabled"`
+	ShopHomepageContent                 *ShopHomepageContent `json:"shop_homepage_content"`
+	OfficialShopName                    string               `json:"official_shop_name"`
 	RegistrationEnabled                 bool
 	EmailVerifyEnabled                  bool
 	ForceEmailOnThirdPartySignup        bool

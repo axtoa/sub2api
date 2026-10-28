@@ -62,6 +62,8 @@ func TestShopAndExistingPanelRoutesUseRealAuthentication(t *testing.T) {
 		{"PUT", "/api/v1/admin/quality-monitor/targets/target"}, {"GET", "/api/v1/admin/quality-monitor/targets/target/history"},
 		{"POST", "/api/v1/admin/quality-monitor/runs"}, {"GET", "/api/v1/admin/quality-monitor/runs/run"},
 		{"GET", "/api/v1/admin/shop/settings"}, {"PUT", "/api/v1/admin/shop/settings"},
+		{"GET", "/api/v1/admin/shop/settings/homepage"}, {"PUT", "/api/v1/admin/shop/settings/homepage"},
+		{"GET", "/api/v1/admin/shop/settings/homepage/content"}, {"PUT", "/api/v1/admin/shop/settings/homepage/content"},
 		{"GET", "/api/v1/admin/shop/settings/external"}, {"PUT", "/api/v1/admin/shop/settings/external"},
 		{"GET", "/api/v1/admin/shop/settings/labels"}, {"PUT", "/api/v1/admin/shop/settings/labels/official"}, {"PUT", "/api/v1/admin/shop/settings/labels/external"},
 		{"GET", "/api/v1/admin/shop/products"}, {"POST", "/api/v1/admin/shop/products"}, {"PUT", "/api/v1/admin/shop/products/product"},
