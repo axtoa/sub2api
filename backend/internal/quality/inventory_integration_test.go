@@ -164,3 +164,125 @@ func TestQualityManualQueueIndependentAndBudgetExempt(t *testing.T) {
 	require.False(t, after.AccountEnabled)
 	require.NoError(t, r.Store.Enrich(ctx, []Target{after}, time.Now().Add(-time.Hour)))
 }
+
+func TestQualityClaimsSerializeAccountAcrossModels(t *testing.T) {
+	db := qualityTestDB(t)
+	s := &Store{DB: db}
+	ctx := context.Background()
+	cfg, err := s.Settings(ctx)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO accounts(id,name,platform,type) VALUES(2,'second account','openai','apikey')`)
+	require.NoError(t, err)
+	first, err := s.SaveTarget(ctx, Target{AccountID: 1, Model: "first", Enabled: true}, cfg)
+	require.NoError(t, err)
+	same, err := s.SaveTarget(ctx, Target{AccountID: 1, Model: "second", Enabled: true}, cfg)
+	require.NoError(t, err)
+	other, err := s.SaveTarget(ctx, Target{AccountID: 2, Model: "first", Enabled: true}, cfg)
+	require.NoError(t, err)
+	for _, target := range []Target{first, same, other} {
+		_, err = s.Queue(ctx, target.ID, "availability", true)
+		require.NoError(t, err)
+	}
+	results := make(chan *Run, 3)
+	var wg sync.WaitGroup
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); job, e := s.Claim(ctx); require.NoError(t, e); results <- job }()
+	}
+	wg.Wait()
+	close(results)
+	ids := map[int64]bool{}
+	var claimed *Run
+	for job := range results {
+		if job == nil {
+			continue
+		}
+		target, e := s.Target(ctx, job.TargetID)
+		require.NoError(t, e)
+		require.False(t, ids[target.AccountID])
+		ids[target.AccountID] = true
+		if target.AccountID == 1 {
+			claimed = job
+		}
+	}
+	require.Len(t, ids, 2, "different accounts may run together, models of the same account must not")
+	require.NotNil(t, claimed)
+	claimed.Result = &Result{}
+	claimed.Verdict = "passed"
+	require.NoError(t, s.Finish(ctx, *claimed, time.Now(), 0, 1, cfg.Version))
+	next, err := s.Claim(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, next)
+	target, err := s.Target(ctx, next.TargetID)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, target.AccountID)
+}
+
+type blockingQualityProbe struct {
+	started chan int64
+	release chan struct{}
+}
+
+func (p *blockingQualityProbe) RunQualityProbe(ctx context.Context, id int64, _ string, _ service.QualityProbeOptions) (*service.QualityProbeResult, error) {
+	p.started <- id
+	select {
+	case <-p.release:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return &service.QualityProbeResult{Text: "hello", Complete: true, UsageReported: true, InputTokens: 2, OutputTokens: 1}, nil
+}
+
+type concurrentQualityAccounts struct{}
+
+func (concurrentQualityAccounts) GetByID(_ context.Context, id int64) (*service.Account, error) {
+	return &service.Account{ID: id, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Status: "active", Schedulable: true, Concurrency: 1}, nil
+}
+
+type concurrentQualitySlots struct{}
+
+func (concurrentQualitySlots) AcquireAccountSlot(context.Context, int64, int) (*service.AcquireResult, error) {
+	return &service.AcquireResult{Acquired: true, ReleaseFunc: func() {}}, nil
+}
+func TestQualityWorkersBoundedAndDrain(t *testing.T) {
+	db := qualityTestDB(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	probe := &blockingQualityProbe{started: make(chan int64, 3), release: make(chan struct{})}
+	r := NewRunner(db, concurrentQualityAccounts{}, probe, concurrentQualitySlots{}, "UTC")
+	cfg, err := r.Store.Settings(ctx)
+	require.NoError(t, err)
+	cfg.AutoEnabled = false
+	cfg, err = r.Store.SaveSettings(ctx, cfg)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO accounts(id,name,platform,type) VALUES(2,'two','openai','apikey'),(3,'three','openai','apikey')`)
+	require.NoError(t, err)
+	for _, id := range []int64{1, 2, 3} {
+		target, e := r.Store.SaveTarget(ctx, Target{AccountID: id, Model: "text", Enabled: true}, cfg)
+		require.NoError(t, e)
+		_, e = r.Store.Queue(ctx, target.ID, "availability", true)
+		require.NoError(t, e)
+	}
+	require.NoError(t, r.cycle(ctx))
+	for i := 0; i < 2; i++ {
+		select {
+		case <-probe.started:
+		case <-ctx.Done():
+			t.Fatal("workers did not start")
+		}
+	}
+	require.Equal(t, 2, len(r.active))
+	select {
+	case <-probe.started:
+		t.Fatal("exceeded two concurrent workers")
+	default:
+	}
+	close(probe.release)
+	r.workers.Wait()
+	require.NoError(t, r.cycle(ctx))
+	r.workers.Wait()
+	require.Equal(t, 1, len(probe.started))
+	var remaining int
+	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM quality_monitor_runs WHERE status<>'finished'`).Scan(&remaining))
+	require.Zero(t, remaining)
+}

@@ -70,15 +70,17 @@ func (s *Store) SyncAccounts(ctx context.Context, initial bool) (int, error) {
 	if initial && initialized {
 		return 0, nil
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id,platform,type,credentials,extra,parent_account_id FROM accounts WHERE deleted_at IS NULL ORDER BY id`)
+	rows, err := tx.QueryContext(ctx, `SELECT id,platform,type,credentials,extra,parent_account_id,COALESCE((SELECT COALESCE(NULLIF(u.requested_model,''),u.model) FROM usage_logs u WHERE u.account_id=accounts.id ORDER BY u.created_at DESC,u.id DESC LIMIT 1),'') FROM accounts WHERE deleted_at IS NULL ORDER BY id`)
 	if err != nil {
 		return 0, err
 	}
 	accounts := []*service.Account{}
+	recentModels := map[int64]string{}
 	for rows.Next() {
 		a := &service.Account{}
 		var credentials, extra []byte
-		if err = rows.Scan(&a.ID, &a.Platform, &a.Type, &credentials, &extra, &a.ParentAccountID); err != nil {
+		var recent string
+		if err = rows.Scan(&a.ID, &a.Platform, &a.Type, &credentials, &extra, &a.ParentAccountID, &recent); err != nil {
 			_ = rows.Close()
 			return 0, err
 		}
@@ -93,6 +95,7 @@ func (s *Store) SyncAccounts(ctx context.Context, initial bool) (int, error) {
 			}
 		}
 		accounts = append(accounts, a)
+		recentModels[a.ID] = recent
 	}
 	err = rows.Err()
 	_ = rows.Close()
@@ -111,8 +114,18 @@ func (s *Store) SyncAccounts(ctx context.Context, initial bool) (int, error) {
 			return 0, e
 		}
 		created += int(n)
-		for _, model := range monitorModels(a) {
-			_, e = tx.ExecContext(ctx, `INSERT INTO quality_monitor_targets(id,account_id,model) VALUES($1,$2,$3) ON CONFLICT(account_id,model) DO NOTHING`, uuid.NewString(), a.ID, model)
+		models := monitorModels(a)
+		recent := recentModels[a.ID]
+		if validateModel(recent) == nil && service.QualityProbeSupported(a, recent) {
+			models = append([]string{recent}, models...)
+		}
+		// New accounts get one representative model; existing choices and opt-outs
+		// are retained. Further models are explicitly added from account details.
+		if len(models) > 1 {
+			models = models[:1]
+		}
+		for _, model := range models {
+			_, e = tx.ExecContext(ctx, `INSERT INTO quality_monitor_targets(id,account_id,model) SELECT $1,$2,$3 WHERE NOT EXISTS(SELECT 1 FROM quality_monitor_targets WHERE account_id=$2) ON CONFLICT(account_id,model) DO NOTHING`, uuid.NewString(), a.ID, model)
 			if e != nil {
 				return 0, e
 			}

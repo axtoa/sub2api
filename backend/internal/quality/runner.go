@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"reflect"
 	"sync"
 	"time"
 
@@ -34,6 +35,8 @@ type Runner struct {
 	wake     chan struct{}
 	start    sync.Once
 	stop     sync.Once
+	workers  sync.WaitGroup
+	active   chan struct{}
 }
 
 func NewRunner(db *sql.DB, accounts Accounts, prober Prober, slots Slots, timezone string) *Runner {
@@ -41,7 +44,7 @@ func NewRunner(db *sql.DB, accounts Accounts, prober Prober, slots Slots, timezo
 	if err != nil {
 		loc = time.UTC
 	}
-	return &Runner{Store: &Store{DB: db}, Accounts: accounts, Prober: prober, Slots: slots, Location: loc, done: make(chan struct{}), wake: make(chan struct{}, 1)}
+	return &Runner{Store: &Store{DB: db}, Accounts: accounts, Prober: prober, Slots: slots, Location: loc, done: make(chan struct{}), wake: make(chan struct{}, 1), active: make(chan struct{}, 2)}
 }
 
 func (r *Runner) Start() {
@@ -73,6 +76,7 @@ func (r *Runner) Wake() {
 
 func (r *Runner) loop(ctx context.Context) {
 	defer close(r.done)
+	defer r.workers.Wait()
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	lastCleanup := time.Time{}
@@ -110,15 +114,24 @@ func (r *Runner) cycle(ctx context.Context) error {
 		cancel()
 		return err
 	}
-	job, err := r.Store.Claim(scheduleCtx)
 	cancel()
-	if err != nil || job == nil {
-		return err
+	for len(r.active) < cap(r.active) {
+		claimCtx, claimCancel := context.WithTimeout(ctx, 10*time.Second)
+		job, claimErr := r.Store.Claim(claimCtx)
+		claimCancel()
+		if claimErr != nil || job == nil {
+			return claimErr
+		}
+		r.active <- struct{}{}
+		r.workers.Add(1)
+		go func(job Run) {
+			defer r.workers.Done()
+			defer func() { <-r.active; r.Wake() }()
+			if err := r.execute(ctx, job, cfg); err != nil && ctx.Err() == nil {
+				slog.Warn("quality monitor job failed", "reason", safeReason(err))
+			}
+		}(*job)
 	}
-	if err := r.execute(ctx, *job, cfg); err != nil {
-		return err
-	}
-	r.Wake() // Drain the durable queue without waiting another 15 seconds.
 	return nil
 }
 
@@ -138,10 +151,10 @@ func (r *Runner) schedule(ctx context.Context, cfg Settings) error {
 		p, now := t.Effective(cfg), time.Now()
 		kind := ""
 		switch {
-		case p.QualityEnabled && !t.NextQualityAt.After(now):
-			kind = "quality"
 		case p.AvailabilityEnabled && !t.NextAvailabilityAt.After(now):
 			kind = "availability"
+		case p.QualityEnabled && !t.NextQualityAt.After(now):
+			kind = "quality"
 		case p.CacheEnabled && !t.NextCacheAt.After(now):
 			kind = "cache"
 		}
@@ -173,6 +186,16 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 	job.Verdict = "unknown"
 	next, retry := time.Now().Add(period(p, job.Kind)), 0
 	finish := func() error {
+		if !job.Manual {
+			switch job.Result.Reason {
+			case "capacity_unavailable", "account_paused", "configuration_changed", "budget_unavailable":
+				next = time.Now().Add(5 * time.Minute)
+			case "timeout", "transport_error", "upstream_error", "incomplete", "truncated", "answer_format":
+				if job.Kind == "quality" && t.RetryAttempt < p.RetryCount {
+					retry, next = t.RetryAttempt+1, time.Now().Add(time.Duration(p.RetryIntervalMinutes)*time.Minute)
+				}
+			}
+		}
 		finishCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return r.Store.Finish(finishCtx, job, next, retry, t.Version, cfg.Version)
@@ -194,7 +217,7 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		job.Result.Reason = "account_paused"
 		return finish()
 	}
-	job.ProfileHash = profileHash(a, t, p)
+	job.ProfileHash = profileHash(a, t, p, cfg.QuestionBank)
 	if err = r.Store.Renew(ctx, job, p, job.ProfileHash); err != nil {
 		return err
 	}
@@ -206,6 +229,13 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		if m.Successes > 0 && m.Errors == 0 {
 			job.Verdict, job.Result.Reason = "passed", "real_traffic"
 			return finish()
+		}
+		if m.Errors == 0 {
+			tested, testErr := r.Store.RecentScheduledSuccess(ctx, t, time.Now().Add(-15*time.Minute))
+			if testErr == nil && tested {
+				job.Verdict, job.Result.Reason = "passed", "scheduled_test"
+				return finish()
+			}
 		}
 	}
 	count := 1
@@ -231,7 +261,7 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 			break
 		}
 		currentAccount, accountErr := r.Accounts.GetByID(ctx, t.AccountID)
-		if accountErr != nil || !service.QualityProbeSupported(currentAccount, t.Model) || profileHash(currentAccount, t, p) != job.ProfileHash {
+		if accountErr != nil || !service.QualityProbeSupported(currentAccount, t.Model) || profileHash(currentAccount, t, p, cfg.QuestionBank) != job.ProfileHash {
 			job.Result.Reason = "configuration_changed"
 			break
 		}
@@ -243,7 +273,7 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		if err = r.Store.Renew(ctx, job, p, job.ProfileHash); err != nil {
 			return err
 		}
-		q, questionErr := newQuestion(i, job.Kind != "quality")
+		q, questionErr := questionForRun(job, t.Model, i, cfg.QuestionBank)
 		if questionErr != nil {
 			job.Result.Reason = "question_unavailable"
 			break
@@ -257,7 +287,7 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 			if probe != nil {
 				job.Result.Requests++
 				job.Result.BudgetTokens += used
-				job.Result.Items = append(job.Result.Items, Sample{QuestionID: q.ID, Family: q.Family, Prompt: q.Prompt, Expected: q.Expected, Explanation: q.Explanation, Probe: probe})
+				job.Result.Items = append(job.Result.Items, Sample{QuestionID: q.ID, Family: q.Family, Prompt: q.Prompt, Expected: q.Expected, Explanation: q.Explanation, Name: q.Name, Probe: probe})
 			}
 			job.Result.Reason = probeErr.Error()
 			if job.Result.Reason == "budget_limited" {
@@ -269,7 +299,7 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		job.Result.BudgetTokens += used
 		job.Result.DurationMs += probe.DurationMs
 		job.Result.FirstTokenMs = probe.FirstTokenMs
-		sample := Sample{QuestionID: q.ID, Family: q.Family, Prompt: q.Prompt, Expected: q.Expected, Explanation: q.Explanation, Probe: probe}
+		sample := Sample{QuestionID: q.ID, Family: q.Family, Prompt: q.Prompt, Expected: q.Expected, Explanation: q.Explanation, Name: q.Name, Probe: probe}
 		if job.Kind == "cache" && i > 0 && probe.Complete && probe.CacheReported {
 			job.Result.CacheReported = true
 			job.Result.CacheReadTokens += probe.CacheReadTokens
@@ -282,17 +312,24 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 				job.Result.Reason = "cache_usage_invalid"
 			}
 		}
-		if probe.Complete {
-			correct := grade(probe.Text, q)
-			sample.Correct = &correct
-			job.Result.Graded++
-			if correct {
-				job.Result.Correct++
+		if probe.Complete && job.Kind == "quality" {
+			sample.Correct, sample.GradeReason = gradeAnswer(probe.Text, q.Expected)
+			if sample.Correct != nil {
+				job.Result.Graded++
+				if *sample.Correct {
+					job.Result.Correct++
+				}
+			} else {
+				job.Result.Reason = sample.GradeReason
 			}
 		}
+
 		job.Result.Items = append(job.Result.Items, sample)
 		if !probe.Complete {
 			job.Result.Reason = probe.Reason
+			if job.Result.Reason == "" {
+				job.Result.Reason = "incomplete"
+			}
 			if job.Kind == "availability" {
 				job.Verdict = "unavailable"
 			}
@@ -317,7 +354,7 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		current, targetErr := r.Store.Target(ctx, t.ID)
 		settings, settingsErr := r.Store.Settings(ctx)
 		account, accountErr := r.Accounts.GetByID(ctx, t.AccountID)
-		if targetErr != nil || settingsErr != nil || accountErr != nil || configurationChanged(current, settings, t, cfg, p, job) || !service.QualityProbeSupported(account, t.Model) || profileHash(account, t, p) != job.ProfileHash {
+		if targetErr != nil || settingsErr != nil || accountErr != nil || configurationChanged(current, settings, t, cfg, p, job) || !service.QualityProbeSupported(account, t.Model) || profileHash(account, t, p, cfg.QuestionBank) != job.ProfileHash {
 			job.Result.Reason = "configuration_changed"
 		}
 	}
@@ -348,23 +385,16 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 				}
 			}
 		case "availability":
-			if job.Result.Correct == 1 {
-				job.Verdict = "passed"
-			} else {
-				job.Verdict, job.Result.Reason = "unavailable", "unexpected_response"
-			}
+			job.Verdict = "passed"
 		case "cache":
-			if job.Result.Graded != job.Result.Requests || job.Result.Correct != job.Result.Requests {
-				job.Result.Reason = "unexpected_response"
-			} else {
-				job.Verdict = "not_observed"
-				for i, sample := range job.Result.Items {
-					if i > 0 && sample.Probe.CacheReported && sample.Probe.CacheReadTokens > 0 {
-						job.Verdict = "cache_hit"
-					}
+			job.Verdict = "not_observed"
+			for i, sample := range job.Result.Items {
+				if i > 0 && sample.Probe.CacheReported && sample.Probe.CacheReadTokens > 0 {
+					job.Verdict = "cache_hit"
 				}
 			}
 		}
+
 	}
 	return finish()
 }
@@ -383,6 +413,9 @@ func kindEnabled(p Profile, kind string) bool {
 }
 
 func configurationChanged(current Target, settings Settings, original Target, cfg Settings, p Profile, job Run) bool {
+	if !reflect.DeepEqual(currentQuestionBank(settings), currentQuestionBank(cfg)) {
+		return true
+	}
 	if job.Manual {
 		effective := current.Effective(settings)
 		return effective.Questions != p.Questions || effective.PassPercent != p.PassPercent ||
@@ -425,6 +458,7 @@ func (r *Runner) probe(ctx context.Context, a *service.Account, model string, op
 	if slot.ReleaseFunc != nil {
 		defer slot.ReleaseFunc()
 	}
+	opts.NativeOutputLimit = a.Platform == service.PlatformOpenAI && a.Type == service.AccountTypeOAuth
 	reserved := service.QualityProbeReservation(a.Platform, opts)
 	day := time.Now().In(r.Location).Format("2006-01-02")
 	var ok bool
@@ -461,4 +495,11 @@ func (r *Runner) probe(ctx context.Context, a *service.Account, model string, op
 		result = &service.QualityProbeResult{Reason: "transport_error"}
 	}
 	return result, actual, nil
+}
+
+func currentQuestionBank(s Settings) []QuestionTemplate {
+	if len(s.QuestionBank) == 0 {
+		return nil
+	}
+	return s.QuestionBank
 }

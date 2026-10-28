@@ -211,9 +211,19 @@ func (s *Store) Queue(ctx context.Context, id, kind string, manual bool) (Run, e
 }
 
 func (s *Store) Claim(ctx context.Context) (*Run, error) {
+	// Serialize short claims across replicas; the lock is released before any
+	// network request. It only protects monitoring tables, never business accounts.
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(1377905997)`); err != nil {
+		return nil, err
+	}
 	// A crashed worker's budget remains reserved. Mark its result unknown;
 	// never replay requests which may already have consumed upstream tokens.
-	_, err := s.DB.ExecContext(ctx, `WITH interrupted AS (UPDATE quality_monitor_runs SET status='finished',verdict='unknown',
+	_, err = tx.ExecContext(ctx, `WITH interrupted AS (UPDATE quality_monitor_runs SET status='finished',verdict='unknown',
  result='{"reason":"interrupted","items":[]}'::jsonb,finished_at=NOW()
  WHERE status='running' AND lease_until<NOW() RETURNING target_id,kind,manual)
  UPDATE quality_monitor_targets t SET
@@ -225,15 +235,18 @@ func (s *Store) Claim(ctx context.Context) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := scanRun(s.DB.QueryRowContext(ctx, `UPDATE quality_monitor_runs SET status='running',started_at=NOW(),lease_until=NOW()+INTERVAL '3 minutes'
+	r, err := scanRun(tx.QueryRowContext(ctx, `UPDATE quality_monitor_runs SET status='running',started_at=NOW(),lease_until=NOW()+INTERVAL '3 minutes'
 	 WHERE status='queued' AND id=(SELECT q.id FROM quality_monitor_runs q JOIN quality_monitor_targets t ON t.id=q.target_id
- WHERE q.status='queued' AND NOT EXISTS(SELECT 1 FROM quality_monitor_runs active WHERE active.target_id=q.target_id AND active.status='running')
- ORDER BY q.manual DESC,q.created_at,q.id FOR UPDATE OF t,q SKIP LOCKED LIMIT 1)
+ WHERE q.status='queued' AND NOT EXISTS(SELECT 1 FROM quality_monitor_runs active JOIN quality_monitor_targets at ON at.id=active.target_id WHERE at.account_id=t.account_id AND active.status='running')
+ ORDER BY q.manual DESC,CASE WHEN q.kind='availability' THEN 0 ELSE 1 END,q.created_at,q.id FOR UPDATE OF t,q SKIP LOCKED LIMIT 1)
  RETURNING `+runColumns))
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, tx.Commit()
 	}
-	return &r, err
+	if err != nil {
+		return nil, err
+	}
+	return &r, tx.Commit()
 }
 
 func (s *Store) Renew(ctx context.Context, r Run, p Profile, hash string) error {
@@ -441,7 +454,7 @@ func (s *Store) Enrich(ctx context.Context, targets []Target, since time.Time) e
 	}
 	columns := strings.Replace(runColumns, "result,", "(result - 'items' - 'cache_prefix') AS result,", 1)
 	rows, err = s.DB.QueryContext(ctx, `SELECT `+columns+` FROM (
- SELECT r.*,ROW_NUMBER() OVER(PARTITION BY target_id,kind,status ORDER BY COALESCE(finished_at,created_at) DESC) AS n
+ SELECT r.*,ROW_NUMBER() OVER(PARTITION BY target_id,kind,status,(kind='quality' AND verdict IN ('passed','suspected','degraded')) ORDER BY COALESCE(finished_at,created_at) DESC) AS n
  FROM quality_monitor_runs r WHERE COALESCE(finished_at,created_at)>=NOW()-INTERVAL '30 days'
 ) h WHERE n<=CASE WHEN kind='availability' AND status='finished' THEN 180 ELSE 1 END ORDER BY COALESCE(finished_at,created_at) DESC`)
 	if err != nil {
@@ -460,17 +473,35 @@ func (s *Store) Enrich(ctx context.Context, targets []Target, since time.Time) e
 		t := &targets[i]
 		r.Profile = nil
 		if r.Status != "finished" {
-			t.Pending = &r
+			if t.Pending == nil || (r.Status == "running" && t.Pending.Status != "running") {
+				t.Pending = &r
+			}
 		} else {
 			switch r.Kind {
 			case "availability":
 				t.Recent = append(t.Recent, r)
 			case "quality":
-				t.LatestQuality = &r
+				if t.LatestQuality == nil {
+					t.LatestQuality = &r
+				}
+				if t.LastValidQuality == nil && (r.Verdict == "passed" || r.Verdict == "suspected" || r.Verdict == "degraded") {
+					t.LastValidQuality = &r
+				}
 			case "cache":
 				t.LatestCache = &r
 			}
 		}
 	}
 	return rows.Err()
+}
+
+// Reuse successful scheduled connection checks for the exact same model. The
+// legacy scheduler keeps its own behavior, including opt-in account recovery.
+func (s *Store) RecentScheduledSuccess(ctx context.Context, t Target, since time.Time) (bool, error) {
+	var found bool
+	err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM scheduled_test_plans p
+ JOIN scheduled_test_results r ON r.plan_id=p.id
+ WHERE p.account_id=$1 AND p.model_id=$2 AND p.enabled=TRUE AND r.status='success' AND r.finished_at>=$3
+ AND NOT EXISTS(SELECT 1 FROM scheduled_test_results newer WHERE newer.plan_id=p.id AND newer.finished_at>r.finished_at AND newer.status<>'success'))`, t.AccountID, t.Model, since).Scan(&found)
+	return found, err
 }

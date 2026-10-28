@@ -18,7 +18,10 @@ export interface QualityProfile {
   cache_prefix_kb: number
 }
 
+export interface QuestionTemplate { id: string; name: string; model: string; prompt: string; expected: string }
+
 export interface QualitySettings extends QualityProfile {
+  question_bank?: QuestionTemplate[]
   auto_enabled: boolean
   daily_requests: number
   daily_tokens: number
@@ -26,6 +29,8 @@ export interface QualitySettings extends QualityProfile {
 }
 
 export interface Probe {
+  error_param?: string
+  native_output_limit?: boolean
   text: string
   model: string
   http_status: number
@@ -61,6 +66,8 @@ export interface QualityRun {
     duration_ms: number
     items: Array<{
       question_id: string
+      name?: string
+      grade_reason?: string
       family: string
       prompt: string
       expected: string
@@ -105,6 +112,7 @@ export interface QualityTarget {
     last_success_at: string | null
   }
   recent: QualityRun[]
+  last_valid_quality?: QualityRun | null
   latest_quality: QualityRun | null
   latest_cache: QualityRun | null
   pending: QualityRun | null
@@ -169,6 +177,10 @@ export const qualityAPI = {
     const { data } = await apiClient.post<{ queued: number; skipped: number; jobs: QualityRun[] }>(`${base}/runs`, { target_ids, kind })
     return data
   },
+  async statuses(ids: string[]) {
+    const { data } = await apiClient.post<{ items: QualityRun[] }>(`${base}/runs/status`, { ids })
+    return data.items
+  },
   async history(id: string) {
     const { data } = await apiClient.get<{ items: QualityRun[] }>(`${base}/targets/${id}/history`)
     return data.items
@@ -195,5 +207,5 @@ export function profileOf(settings: QualitySettings): QualityProfile {
 }
 
 export function attention(target: QualityTarget): boolean {
-  return ['suspected', 'degraded'].includes(target.latest_quality?.verdict ?? '') || target.recent[0]?.verdict === 'unavailable'
+  return [target.latest_quality, target.last_valid_quality, target.recent[0]].some(run => run && run.status === 'finished' && (['suspected','degraded','unavailable'].includes(run.verdict) || ['timeout','authentication','rate_limited','request_rejected','upstream_error','transport_error','incomplete','truncated','answer_format','interrupted','empty_response','response_too_large','content_filtered'].includes(run.result?.reason ?? '')))
 }

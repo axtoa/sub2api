@@ -29,7 +29,7 @@ function update(key: keyof QualityProfile, value: boolean | number | string) {
   emit('update:modelValue', { ...props.modelValue, [key]: value })
 }
 const numericFields: Array<{ key: keyof QualityProfile; label: string; min: number; max: number }> = [
-  { key: 'questions', label: 'questions', min: 3, max: 8 },
+  { key: 'questions', label: 'questions', min: 1, max: 8 },
   { key: 'pass_percent', label: 'passPercent', min: 50, max: 100 },
   { key: 'retry_count', label: 'retryCount', min: 0, max: 3 },
   { key: 'retry_interval_minutes', label: 'retryInterval', min: 1, max: 1440 },

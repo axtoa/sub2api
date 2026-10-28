@@ -113,7 +113,7 @@ func TestQualityConfigurationAndFingerprint(t *testing.T) {
 	cfg := DefaultSettings()
 	require.NoError(t, cfg.Validate())
 	require.False(t, cfg.CacheEnabled)
-	require.Equal(t, 60, cfg.AvailabilityIntervalMinutes)
+	require.Equal(t, 30, cfg.AvailabilityIntervalMinutes)
 	require.Equal(t, 720, cfg.QualityIntervalMinutes)
 	mutations := []func(*Settings){
 		func(s *Settings) { s.Questions = 0 }, func(s *Settings) { s.MaxOutputTokens = 99999 }, func(s *Settings) { s.RetryCount = 4 },
@@ -149,4 +149,40 @@ func TestQualityConfigurationAndFingerprint(t *testing.T) {
 	require.Equal(t, cachePrefix("one", 32), cachePrefix("one", 32))
 	require.NotEqual(t, cachePrefix("one", 32), cachePrefix("two", 32))
 	require.GreaterOrEqual(t, len(cachePrefix("one", 32)), 32*1024)
+}
+
+func TestQualityNumericGradingAndCustomQuestions(t *testing.T) {
+	for _, value := range []string{"42", " 42\n", "+42", "```\n42\n```"} {
+		correct, reason := gradeAnswer(value, "42")
+		require.NotNil(t, correct)
+		require.True(t, *correct)
+		require.Empty(t, reason)
+	}
+	correct, reason := gradeAnswer("41", "42")
+	require.NotNil(t, correct)
+	require.False(t, *correct)
+	require.Empty(t, reason)
+	for _, value := range []string{"42 or 41", "The answer is 42", "", "42.0", "{\"answer\":42}", "999999999999999999999999999"} {
+		correct, reason = gradeAnswer(value, "42")
+		require.Nil(t, correct)
+		require.Equal(t, "answer_format", reason)
+	}
+	bank := []QuestionTemplate{{ID: "one", Name: "Arithmetic", Model: "test-model", Prompt: "Compute 6 * 7.", Expected: "42"}}
+	require.NoError(t, validateQuestionBank(bank))
+	q, err := questionForRun(Run{ID: "round", Kind: "quality"}, "test-model", 0, bank)
+	require.NoError(t, err)
+	require.Contains(t, q.Prompt, "6 * 7")
+	require.NotContains(t, q.Prompt, "42")
+	require.Equal(t, "42", q.Expected)
+	fallback, err := questionForRun(Run{ID: "round", Kind: "quality"}, "other-model", 0, bank)
+	require.NoError(t, err)
+	require.NotEqual(t, "custom", fallback.Family)
+	for _, kind := range []string{"availability", "cache"} {
+		q, err = questionForRun(Run{Kind: kind}, "test-model", 0, bank)
+		require.NoError(t, err)
+		require.Empty(t, q.Expected)
+		require.NotContains(t, q.Prompt, "JSON")
+	}
+	bank[0].Expected = "not a number"
+	require.Error(t, validateQuestionBank(bank))
 }

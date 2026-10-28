@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 type Handler struct{ Runner *Runner }
@@ -319,31 +320,76 @@ func (h *Handler) Run(c *gin.Context) {
 			return
 		}
 	}
+
 	queued, skipped := 0, 0
 	jobs := []Run{}
+	seen := map[string]bool{}
 	for _, id := range req.TargetIDs {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
 		t, err := h.Runner.Store.Target(c.Request.Context(), id)
-		if respondError(c, err) {
-			return
-		}
-		a, accountErr := h.Runner.Accounts.GetByID(c.Request.Context(), t.AccountID)
-		if accountErr != nil || !service.QualityProbeSupported(a, t.Model) {
-			response.BadRequest(c, "账号或模型不支持检测，请同步账号并检查配置")
-			return
-		}
-		var job Run
-		if job, err = h.Runner.Store.Queue(c.Request.Context(), id, req.Kind, true); err == nil {
-			queued++
-			jobs = append(jobs, job)
-		} else if isConflict(err) {
+		if err != nil {
 			skipped++
-		} else {
-			respondError(c, err)
-			return
+			continue
 		}
+		a, err := h.Runner.Accounts.GetByID(c.Request.Context(), t.AccountID)
+		if err != nil || !service.QualityProbeSupported(a, t.Model) {
+			skipped++
+			continue
+		}
+		job, err := h.Runner.Store.Queue(c.Request.Context(), id, req.Kind, true)
+		if err != nil {
+			skipped++
+			continue
+		}
+		queued++
+		jobs = append(jobs, job)
 	}
 	h.Runner.Wake()
 	response.Accepted(c, gin.H{"queued": queued, "skipped": skipped, "jobs": jobs})
+}
+
+// Batch status returns only summaries, never the potentially large question bodies.
+func (h *Handler) RunStatuses(c *gin.Context) {
+	if !authorized(c) {
+		return
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if !bind(c, &req) {
+		return
+	}
+	if len(req.IDs) == 0 || len(req.IDs) > 100 {
+		response.BadRequest(c, "每次最多查询 100 条检测进度")
+		return
+	}
+	for _, id := range req.IDs {
+		if _, err := uuid.Parse(id); err != nil {
+			response.BadRequest(c, "检测编号无效")
+			return
+		}
+	}
+	columns := strings.Replace(runColumns, "result,", "(result - 'items' - 'cache_prefix') AS result,", 1)
+	rows, err := h.Runner.Store.DB.QueryContext(c.Request.Context(), `SELECT `+columns+` FROM quality_monitor_runs WHERE id=ANY($1::uuid[])`, pq.Array(req.IDs))
+	if respondError(c, err) {
+		return
+	}
+	defer func() { _ = rows.Close() }()
+	items := []Run{}
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if respondError(c, err) {
+			return
+		}
+		r.Profile = nil
+		items = append(items, r)
+	}
+	if !respondError(c, rows.Err()) {
+		response.Success(c, gin.H{"items": items})
+	}
 }
 
 func (h *Handler) History(c *gin.Context) {

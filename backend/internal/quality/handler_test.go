@@ -37,7 +37,7 @@ func TestQualityMixedPlatformsRejectedBeforeWriting(t *testing.T) {
 func TestQualityAdminAuthorization(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := &Handler{}
-	methods := []gin.HandlerFunc{handler.Snapshot, handler.SyncAccounts, handler.SaveAccount, handler.SaveSettings, handler.Accounts, handler.CreateTargets, handler.SaveTarget, handler.Run, handler.History, handler.Detail}
+	methods := []gin.HandlerFunc{handler.Snapshot, handler.SyncAccounts, handler.SaveAccount, handler.SaveSettings, handler.Accounts, handler.CreateTargets, handler.SaveTarget, handler.Run, handler.RunStatuses, handler.History, handler.Detail}
 	for _, role := range []string{"", "user"} {
 		for _, method := range methods {
 			w := httptest.NewRecorder()

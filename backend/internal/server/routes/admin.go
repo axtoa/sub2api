@@ -68,6 +68,7 @@ func RegisterAdminRoutes(
 		quality.PUT("/targets/:id", h.Quality.SaveTarget)
 		quality.GET("/targets/:id/history", h.Quality.History)
 		quality.POST("/runs", h.Quality.Run)
+		quality.POST("/runs/status", h.Quality.RunStatuses)
 		quality.GET("/runs/:id", h.Quality.Detail)
 
 		shop := admin.Group("/shop")

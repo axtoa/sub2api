@@ -47,7 +47,7 @@ func qualityTestDB(t *testing.T) *sql.DB {
 	require.NoError(t, err)
 	pool.SetMaxOpenConns(10)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	for _, name := range []string{"001_init.sql", "033_ops_monitoring_vnext.sql", "077_add_usage_log_requested_model.sql", "079_ops_error_logs_add_endpoint_fields.sql", "244_quality_monitor.sql", "244_quality_monitor.sql", "245_quality_monitor_accounts.sql", "245_quality_monitor_accounts.sql"} {
+	for _, name := range []string{"001_init.sql", "033_ops_monitoring_vnext.sql", "066_add_scheduled_test_tables.sql", "077_add_usage_log_requested_model.sql", "079_ops_error_logs_add_endpoint_fields.sql", "244_quality_monitor.sql", "244_quality_monitor.sql", "245_quality_monitor_accounts.sql", "245_quality_monitor_accounts.sql"} {
 		migration, err := migrations.FS.ReadFile(name)
 		require.NoError(t, err)
 		// pg_trgm is already installed in public in the preview database; only
@@ -183,7 +183,7 @@ func TestQualityPostgresBudgetsQueueAndSchedules(t *testing.T) {
 	require.Equal(t, "interrupted", history[0].Result.Reason)
 	after, err = s.Target(ctx, target.ID)
 	require.NoError(t, err)
-	require.True(t, after.NextAvailabilityAt.After(time.Now().Add(59*time.Minute)), "expired jobs must not be rescheduled immediately")
+	require.True(t, after.NextAvailabilityAt.After(time.Now().Add(29*time.Minute)), "expired jobs must not be rescheduled immediately")
 	_, err = db.ExecContext(ctx, `INSERT INTO usage_logs(user_id,api_key_id,account_id,model,requested_model,input_tokens,cache_read_tokens,first_token_ms) VALUES(1,1,1,'upstream','test-model',100,50,125);
  INSERT INTO ops_error_logs(account_id,model,requested_model,error_phase,error_type,status_code,upstream_status_code) VALUES(1,'upstream','test-model','upstream','test',502,502);`)
 	require.NoError(t, err)
@@ -251,16 +251,10 @@ type testProber struct {
 
 func (p *testProber) RunQualityProbe(_ context.Context, _ int64, _ string, opts service.QualityProbeOptions) (*service.QualityProbeResult, error) {
 	p.calls++
-	// Return a valid but intentionally incorrect JSON for capability anomaly tests.
-	nonce := strings.Split(strings.Split(opts.Prompt, `"check":"`)[1], `"`)[0]
-	result := &service.QualityProbeResult{Text: fmt.Sprintf(`{"answer":-99999,"check":%q}`, nonce), Complete: true, UsageReported: true, InputTokens: 20, OutputTokens: 10, HTTPStatus: 200}
+	// Incorrect integer checks capability; arbitrary valid text checks connectivity.
+	result := &service.QualityProbeResult{Text: "-99999", Complete: true, UsageReported: true, InputTokens: 20, OutputTokens: 10, HTTPStatus: 200}
 	if strings.HasPrefix(p.mode, "cache_") || p.mode == "availability" {
-		var a, b int
-		_, err := fmt.Sscanf(opts.Prompt, "Compute %d + %d.", &a, &b)
-		if err != nil {
-			return nil, err
-		}
-		result.Text = fmt.Sprintf(`{"answer":%d,"check":%q}`, a+b, nonce)
+		result.Text = "Hello! How may I help you?"
 		result.CacheReported = p.mode != "cache_unreported"
 		if strings.HasPrefix(p.mode, "cache_") {
 			result.InputTokens = 5000
@@ -274,6 +268,9 @@ func (p *testProber) RunQualityProbe(_ context.Context, _ int64, _ string, opts 
 		if p.mode == "cache_invalid_read" {
 			result.CacheReadTokens = result.InputTokens + 1
 		}
+	}
+	if p.mode == "format" {
+		result.Text = "The answer is 42 or 41."
 	}
 	if p.mode == "incomplete" {
 		result.Complete = false
@@ -394,14 +391,14 @@ func TestQualityPostgresRunnerObservationAndGuards(t *testing.T) {
 	}
 	first := execute()
 	require.Equal(t, "suspected", first.Verdict)
-	require.Equal(t, 3, prober.calls)
-	require.Equal(t, 3, slots.releases)
+	require.Equal(t, 1, prober.calls)
+	require.Equal(t, 1, slots.releases)
 	current, err := r.Store.Target(ctx, target.ID)
 	require.NoError(t, err)
 	require.Equal(t, 1, current.RetryAttempt)
 	second := execute()
 	require.Equal(t, "degraded", second.Verdict)
-	require.Equal(t, 6, prober.calls)
+	require.Equal(t, 2, prober.calls)
 	current, err = r.Store.Target(ctx, target.ID)
 	require.NoError(t, err)
 	require.Zero(t, current.RetryAttempt)
@@ -430,17 +427,17 @@ func TestQualityPostgresRunnerObservationAndGuards(t *testing.T) {
 	require.Equal(t, "active", status)
 	budget, err := r.Store.Budget(ctx, cfg, time.Now(), r.Location)
 	require.NoError(t, err)
-	require.Equal(t, 8, budget.Requests)
+	require.Equal(t, 4, budget.Requests)
 	require.Greater(t, budget.UnconfirmedRequests, 0)
 	finalRoundCalls := 0
 	prober.after = func() {
 		finalRoundCalls++
-		if finalRoundCalls == 3 {
+		if finalRoundCalls == cfg.Questions {
 			account.Credentials["base_url"] = "https://edited-during-final-request.example.com"
 		}
 	}
 	lastChanged := execute()
-	require.Equal(t, 3, finalRoundCalls)
+	require.Equal(t, cfg.Questions, finalRoundCalls)
 	require.Equal(t, "unknown", lastChanged.Verdict)
 	require.Equal(t, "configuration_changed", lastChanged.Result.Reason)
 	// Snapshot JSON remains small: sample evidence is not included in the overview.
@@ -450,4 +447,43 @@ func TestQualityPostgresRunnerObservationAndGuards(t *testing.T) {
 	raw, err := json.Marshal(targets)
 	require.NoError(t, err)
 	require.NotContains(t, string(raw), "Return ONLY")
+}
+
+func TestQualityFormatFailuresAndLastValidResult(t *testing.T) {
+	db := qualityTestDB(t)
+	ctx := context.Background()
+	r := NewRunner(db, &testAccounts{&service.Account{ID: 1, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, Status: "active", Schedulable: true, Concurrency: 1}}, &testProber{mode: "format"}, &testSlots{acquired: true}, "UTC")
+	cfg, err := r.Store.Settings(ctx)
+	require.NoError(t, err)
+	target, err := r.Store.SaveTarget(ctx, Target{AccountID: 1, Model: "model", Enabled: true}, cfg)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO quality_monitor_runs(id,target_id,kind,status,verdict,result,created_at,finished_at) VALUES(gen_random_uuid(),$1,'quality','finished','passed','{"correct":1,"graded":1,"planned":1}',NOW()-INTERVAL '1 hour',NOW()-INTERVAL '1 hour')`, target.ID)
+	require.NoError(t, err)
+	_, err = r.Store.Queue(ctx, target.ID, "quality", false)
+	require.NoError(t, err)
+	job, err := r.Store.Claim(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+	require.NoError(t, r.execute(ctx, *job, cfg))
+	targets, err := r.Store.Targets(ctx)
+	require.NoError(t, err)
+	require.NoError(t, r.Store.Enrich(ctx, targets, time.Now().Add(-24*time.Hour)))
+	require.Equal(t, "unknown", targets[0].LatestQuality.Verdict)
+	require.Equal(t, "answer_format", targets[0].LatestQuality.Result.Reason)
+	require.Equal(t, "passed", targets[0].LastValidQuality.Verdict)
+	require.Less(t, time.Until(targets[0].NextQualityAt), 6*time.Minute)
+	require.Equal(t, 1, targets[0].RetryAttempt)
+	// Existing exact-model scheduled success avoids another paid probe.
+	_, err = db.Exec(`INSERT INTO scheduled_test_plans(id,account_id,model_id) VALUES(1,1,'model');INSERT INTO scheduled_test_results(plan_id,status) VALUES(1,'success')`)
+	require.NoError(t, err)
+	_, err = r.Store.Queue(ctx, target.ID, "availability", false)
+	require.NoError(t, err)
+	job, err = r.Store.Claim(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, job)
+	require.NoError(t, r.execute(ctx, *job, cfg))
+	history, err := r.Store.History(ctx, target.ID, 1)
+	require.NoError(t, err)
+	require.Equal(t, "scheduled_test", history[0].Result.Reason)
+	require.Zero(t, history[0].Result.Requests)
 }

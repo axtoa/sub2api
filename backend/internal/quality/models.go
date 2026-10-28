@@ -14,7 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const GeneratorVersion = "objective-v1"
+const GeneratorVersion = "objective-v2"
 
 type Profile struct {
 	AvailabilityEnabled         bool   `json:"availability_enabled"`
@@ -32,19 +32,28 @@ type Profile struct {
 	CachePrefixKB               int    `json:"cache_prefix_kb"`
 }
 
+type QuestionTemplate struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Model    string `json:"model"`
+	Prompt   string `json:"prompt"`
+	Expected string `json:"expected"`
+}
+
 type Settings struct {
 	Profile
-	AutoEnabled   bool  `json:"auto_enabled"`
-	DailyRequests int   `json:"daily_requests"`
-	DailyTokens   int64 `json:"daily_tokens"`
-	Version       int   `json:"version"`
+	QuestionBank  []QuestionTemplate `json:"question_bank,omitempty"`
+	AutoEnabled   bool               `json:"auto_enabled"`
+	DailyRequests int                `json:"daily_requests"`
+	DailyTokens   int64              `json:"daily_tokens"`
+	Version       int                `json:"version"`
 }
 
 func DefaultSettings() Settings {
 	return Settings{Profile: Profile{
-		AvailabilityEnabled: true, AvailabilityIntervalMinutes: 60,
+		AvailabilityEnabled: true, AvailabilityIntervalMinutes: 30,
 		QualityEnabled: true, QualityIntervalMinutes: 720,
-		CacheIntervalMinutes: 1440, Questions: 3, PassPercent: 80,
+		CacheIntervalMinutes: 1440, Questions: 1, PassPercent: 80,
 		RetryCount: 1, RetryIntervalMinutes: 5, MaxOutputTokens: 2048, CachePrefixKB: 32,
 	}, AutoEnabled: true, DailyRequests: 1000, DailyTokens: 2000000, Version: 1}
 }
@@ -56,7 +65,7 @@ func (p Profile) Validate() error {
 	if p.AvailabilityIntervalMinutes < 1 || p.AvailabilityIntervalMinutes > 10080 ||
 		p.QualityIntervalMinutes < 5 || p.QualityIntervalMinutes > 10080 ||
 		p.CacheIntervalMinutes < 5 || p.CacheIntervalMinutes > 10080 ||
-		p.Questions < 3 || p.Questions > 8 || p.PassPercent < 50 || p.PassPercent > 100 ||
+		p.Questions < 1 || p.Questions > 8 || p.PassPercent < 50 || p.PassPercent > 100 ||
 		p.RetryCount < 0 || p.RetryCount > 3 || p.RetryIntervalMinutes < 1 || p.RetryIntervalMinutes > 1440 ||
 		p.MaxOutputTokens < 256 || p.MaxOutputTokens > 8192 || p.CachePrefixKB < 8 || p.CachePrefixKB > 64 {
 		return invalid("检测间隔、题数、复测次数或输出上限超出允许范围")
@@ -70,6 +79,9 @@ func (p Profile) Validate() error {
 }
 
 func (s Settings) Validate() error {
+	if err := validateQuestionBank(s.QuestionBank); err != nil {
+		return err
+	}
 	if s.DailyRequests < 1 || s.DailyRequests > 100000 || s.DailyTokens < 1000 || s.DailyTokens > 1000000000 {
 		return invalid("请设置有效的每日请求与 token 预算")
 	}
@@ -95,6 +107,7 @@ type Target struct {
 	RetryAttempt       int        `json:"retry_attempt"`
 	Metrics            Metrics    `json:"metrics"`
 	Recent             []Run      `json:"recent"`
+	LastValidQuality   *Run       `json:"last_valid_quality"`
 	LatestQuality      *Run       `json:"latest_quality"`
 	LatestCache        *Run       `json:"latest_cache"`
 	Pending            *Run       `json:"pending"`
@@ -157,6 +170,8 @@ type Sample struct {
 	Prompt      string                      `json:"prompt"`
 	Expected    string                      `json:"expected"`
 	Explanation string                      `json:"explanation"`
+	Name        string                      `json:"name,omitempty"`
+	GradeReason string                      `json:"grade_reason,omitempty"`
 	Correct     *bool                       `json:"correct"`
 	Probe       *service.QualityProbeResult `json:"probe"`
 }
@@ -177,13 +192,17 @@ func validKind(kind string) bool {
 	return kind == "availability" || kind == "quality" || kind == "cache"
 }
 
-func profileHash(a *service.Account, t Target, p Profile) string {
+func profileHash(a *service.Account, t Target, p Profile, bank ...[]QuestionTemplate) string {
 	// A route/proxy/profile change invalidates comparison with old results.
 	proxyURL := ""
 	if a.Proxy != nil {
 		proxyURL = a.Proxy.URL()
 	}
-	data, _ := json.Marshal([]any{GeneratorVersion, a.ID, t.Model, a.GetMappedModel(t.Model), a.Platform, a.Type, a.ProxyID, proxyURL, a.GetBaseURL(), a.GetOpenAIBaseURL(), openai_compat.ShouldUseResponsesAPI(a.Extra), a.GetHeaderOverrides(), p})
+	var questionBank []QuestionTemplate
+	if len(bank) > 0 && len(bank[0]) > 0 {
+		questionBank = bank[0]
+	}
+	data, _ := json.Marshal([]any{GeneratorVersion, a.ID, t.Model, a.GetMappedModel(t.Model), a.Platform, a.Type, a.ProxyID, proxyURL, a.GetBaseURL(), a.GetOpenAIBaseURL(), openai_compat.ShouldUseResponsesAPI(a.Extra), a.GetHeaderOverrides(), p, questionBank})
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
 }

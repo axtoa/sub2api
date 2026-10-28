@@ -22,27 +22,30 @@ import (
 type qualityProbeContextKey struct{}
 
 type QualityProbeOptions struct {
-	Prompt          string
-	Prefix          string
-	CacheKey        string
-	ReasoningEffort string
-	MaxOutputTokens int
+	Prompt            string
+	Prefix            string
+	CacheKey          string
+	ReasoningEffort   string
+	MaxOutputTokens   int
+	NativeOutputLimit bool
 }
 
 type QualityProbeResult struct {
-	Text             string `json:"text"`
-	Model            string `json:"model"`
-	HTTPStatus       int    `json:"http_status"`
-	Complete         bool   `json:"complete"`
-	Reason           string `json:"reason"`
-	DurationMs       int64  `json:"duration_ms"`
-	FirstTokenMs     *int64 `json:"first_token_ms"`
-	InputTokens      int64  `json:"input_tokens"`
-	OutputTokens     int64  `json:"output_tokens"`
-	CacheReadTokens  int64  `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
-	UsageReported    bool   `json:"usage_reported"`
-	CacheReported    bool   `json:"cache_reported"`
+	Text              string `json:"text"`
+	Model             string `json:"model"`
+	HTTPStatus        int    `json:"http_status"`
+	Complete          bool   `json:"complete"`
+	Reason            string `json:"reason"`
+	ErrorParam        string `json:"error_param,omitempty"`
+	NativeOutputLimit bool   `json:"native_output_limit,omitempty"`
+	DurationMs        int64  `json:"duration_ms"`
+	FirstTokenMs      *int64 `json:"first_token_ms"`
+	InputTokens       int64  `json:"input_tokens"`
+	OutputTokens      int64  `json:"output_tokens"`
+	CacheReadTokens   int64  `json:"cache_read_tokens"`
+	CacheWriteTokens  int64  `json:"cache_write_tokens"`
+	UsageReported     bool   `json:"usage_reported"`
+	CacheReported     bool   `json:"cache_reported"`
 }
 
 type qualityProbeCapture struct {
@@ -71,7 +74,11 @@ func QualityProbeReservation(platform string, opts QualityProbeOptions) int64 {
 	if platform == PlatformAnthropic {
 		system = claudeCodeSystemPrompt
 	}
-	return int64(len(system) + len(opts.Prompt) + len(opts.Prefix) + opts.MaxOutputTokens + 1024)
+	outputReservation := opts.MaxOutputTokens
+	if opts.NativeOutputLimit {
+		outputReservation = max(outputReservation, 32768)
+	}
+	return int64(len(system) + len(opts.Prompt) + len(opts.Prefix) + outputReservation + 1024)
 }
 
 func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int64, model string, opts QualityProbeOptions) (*QualityProbeResult, error) {
@@ -85,7 +92,9 @@ func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int6
 	if !QualityProbeSupported(account, model) {
 		return &QualityProbeResult{Reason: "unsupported"}, nil
 	}
+	opts.NativeOutputLimit = account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth
 	capture := &qualityProbeCapture{options: opts, start: time.Now()}
+	capture.result.NativeOutputLimit = opts.NativeOutputLimit
 	ctx = context.WithValue(ctx, qualityProbeContextKey{}, capture)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -108,6 +117,10 @@ func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int6
 			r.Reason = "upstream_error"
 		case r.HTTPStatus == 0:
 			r.Reason = "transport_error"
+		case capture.limited:
+			r.Reason = "response_too_large"
+		case capture.ended && strings.TrimSpace(r.Text) == "":
+			r.Reason = "empty_response"
 		default:
 			r.Reason = "incomplete"
 		}
@@ -157,7 +170,11 @@ func applyQualityProbePayload(ctx context.Context, payload map[string]any, proto
 		// the native default; OpenAI-only effort values are never sent to Claude.
 	case "responses":
 		payload["input"] = []map[string]any{{"role": "user", "content": []map[string]any{{"type": "input_text", "text": o.Prefix + prompt}}}}
-		payload["max_output_tokens"] = o.MaxOutputTokens
+		// Codex OAuth uses the native response limit, like the existing connection test.
+		// Its backend rejects max_output_tokens; API-key upstreams retain the explicit cap.
+		if !o.NativeOutputLimit {
+			payload["max_output_tokens"] = o.MaxOutputTokens
+		}
 		if o.ReasoningEffort != "" {
 			payload["reasoning"] = map[string]string{"effort": o.ReasoningEffort}
 		}
@@ -185,9 +202,10 @@ func observeQualityProbeResponse(ctx context.Context, resp *http.Response) {
 
 type qualityProbeBody struct {
 	io.ReadCloser
-	capture *qualityProbeCapture
-	pending []byte
-	total   int
+	capture   *qualityProbeCapture
+	pending   []byte
+	errorBody []byte
+	total     int
 }
 
 func (b *qualityProbeBody) Read(dst []byte) (int, error) {
@@ -197,6 +215,10 @@ func (b *qualityProbeBody) Read(dst []byte) (int, error) {
 	}
 	n, err := b.ReadCloser.Read(dst)
 	b.total += n
+	if b.capture.result.HTTPStatus >= 400 && len(b.errorBody) < 16384 {
+		b.errorBody = append(b.errorBody, dst[:min(n, 16384-len(b.errorBody))]...)
+		b.capture.observeError(b.errorBody)
+	}
 	b.pending = append(b.pending, dst[:n]...)
 	for {
 		idx := bytes.IndexByte(b.pending, '\n')
@@ -222,6 +244,10 @@ func (p *qualityProbeCapture) observe(line string) {
 		return
 	}
 	raw := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+	if raw == "[DONE]" {
+		p.ended = true
+		return
+	}
 	if !gjson.Valid(raw) {
 		return
 	}
@@ -243,23 +269,49 @@ func (p *qualityProbeCapture) observe(line string) {
 		text = v.Get("delta").String()
 	case "message_stop", "response.completed", "response.done":
 		p.ended = true
+		if p.result.Text == "" {
+			for _, item := range v.Get("response.output").Array() {
+				for _, part := range item.Get("content").Array() {
+					if part.Get("type").String() == "output_text" {
+						text += part.Get("text").String()
+					}
+				}
+			}
+		}
 	case "response.incomplete", "response.failed", "error":
 		p.result.Reason = "incomplete"
+		if v.Get("response.incomplete_details.reason").String() == "max_output_tokens" {
+			p.result.Reason = "truncated"
+		}
+		p.observeError([]byte(raw))
 	}
 	for _, choice := range v.Get("choices").Array() {
-		text += choice.Get("delta.content").String()
+		delta := choice.Get("delta.content").String()
+		text += delta
+		if delta == "" && p.result.Text == "" {
+			text += choice.Get("message.content").String()
+		}
 		finish := choice.Get("finish_reason").String()
 		if finish != "" {
 			p.ended = true
 			if finish != "stop" {
 				p.result.Reason = "incomplete"
+				if finish == "length" {
+					p.result.Reason = "truncated"
+				}
+				if finish == "content_filter" {
+					p.result.Reason = "content_filtered"
+				}
 			}
 		}
 	}
 	if stop := v.Get("delta.stop_reason").String(); stop != "" && stop != "end_turn" && stop != "stop_sequence" {
 		p.result.Reason = "incomplete"
+		if stop == "max_tokens" {
+			p.result.Reason = "truncated"
+		}
 	}
-	if status := v.Get("response.status").String(); status != "" && status != "completed" && p.ended {
+	if status := v.Get("response.status").String(); status != "" && status != "completed" && p.ended && p.result.Reason == "" {
 		p.result.Reason = "incomplete"
 	}
 	if text != "" {
@@ -327,4 +379,19 @@ func qualityMaxTokens(a, b int64) int64 {
 		return b
 	}
 	return a
+}
+
+// Keep diagnostics actionable without storing upstream text, URLs or credentials.
+func (p *qualityProbeCapture) observeError(raw []byte) {
+	if !gjson.ValidBytes(raw) {
+		return
+	}
+	param := gjson.GetBytes(raw, "error.param").String()
+	if param == "" {
+		param = openAIResponsesRejectedParamFromMessage(strings.ToLower(gjson.GetBytes(raw, "error.message").String()))
+	}
+	switch param {
+	case "model", "max_output_tokens", "max_completion_tokens", "max_tokens", "stream_options", "stream_options.include_usage", "reasoning", "reasoning.effort", "reasoning_effort", "prompt_cache_key":
+		p.result.ErrorParam = param
+	}
 }

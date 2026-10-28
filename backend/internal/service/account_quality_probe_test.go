@@ -38,7 +38,7 @@ data: [DONE]
 `, true, "", 1200, 5, 1024, true},
 		{"length", `data: {"choices":[{"delta":{"content":"hello"},"finish_reason":"length"}]}
 data: [DONE]
-`, true, "incomplete", 0, 0, 0, false},
+`, true, "truncated", 0, 0, 0, false},
 		{"incomplete", `data: {"type":"response.output_text.delta","delta":"hello"}
 data: {"type":"response.incomplete","response":{"status":"incomplete"}}
 `, false, "incomplete", 0, 0, 0, false},
@@ -180,7 +180,8 @@ func TestQualityProbeOAuthAndPayloadLimits(t *testing.T) {
 	require.Nil(t, repo.updatedExtra)
 	raw, err := io.ReadAll(upstream.requests[0].Body)
 	require.NoError(t, err)
-	require.EqualValues(t, 256, gjson.GetBytes(raw, "max_output_tokens").Int())
+	require.False(t, gjson.GetBytes(raw, "max_output_tokens").Exists())
+	require.True(t, result.NativeOutputLimit)
 	require.Equal(t, "prefixcustom question", gjson.GetBytes(raw, "input.0.content.0.text").String())
 	require.Equal(t, "cache-key", gjson.GetBytes(raw, "prompt_cache_key").String())
 	require.Equal(t, "medium", gjson.GetBytes(raw, "reasoning.effort").String())
@@ -201,4 +202,24 @@ func TestQualityProbeOAuthAndPayloadLimits(t *testing.T) {
 	invalidUsage := &qualityProbeCapture{}
 	invalidUsage.observe(`data: {"usage":{"input_tokens":"unknown","output_tokens":-1}}`)
 	require.False(t, invalidUsage.result.UsageReported)
+}
+
+func TestQualityFinalTextAndDoneCompatibility(t *testing.T) {
+	for _, stream := range []string{
+		"data: {\"choices\":[{\"message\":{\"content\":\"42\"}}]}\ndata: [DONE]\n",
+		"data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[{\"content\":[{\"type\":\"output_text\",\"text\":\"42\"}]}]}}\n",
+	} {
+		capture := &qualityProbeCapture{start: time.Now()}
+		body := &qualityProbeBody{ReadCloser: io.NopCloser(strings.NewReader(stream)), capture: capture}
+		_, err := io.Copy(io.Discard, body)
+		require.NoError(t, err)
+		require.True(t, capture.ended)
+		require.Equal(t, "42", capture.result.Text)
+		require.Empty(t, capture.result.Reason)
+	}
+	capture := &qualityProbeCapture{}
+	capture.observeError([]byte(`{"error":{"param":"max_output_tokens","message":"private-token at https://private.example"}}`))
+	require.Equal(t, "max_output_tokens", capture.result.ErrorParam)
+	capture.observeError([]byte(`{"error":{"param":"secret-token"}}`))
+	require.NotContains(t, capture.result.ErrorParam, "secret")
 }
