@@ -249,7 +249,15 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 	status := creativeVideoProviderStatusFromTask(task)
 	var account *service.Account
 	var provider *service.CreativeVideoHTTPProvider
-	if creativeVideoTaskStatusNeedsSync(task.Status) || (content && status.Status == service.CreativeVideoStatusCompleted && platform == service.PlatformMiniMax && status.DownloadURL == "" && status.FileID == "") {
+	// A stored row that says "completed" but carries no artifact reference is a
+	// task we can never serve from what we have. Re-sync it on a plain status
+	// read too (not just on a content read), so a task recorded as complete by
+	// an older build can still pick up its file_id once upstream exposes it.
+	missingOutputRef := status.Status == service.CreativeVideoStatusCompleted &&
+		platform == service.PlatformMiniMax &&
+		strings.TrimSpace(status.DownloadURL) == "" &&
+		strings.TrimSpace(status.FileID) == ""
+	if creativeVideoTaskStatusNeedsSync(task.Status) || missingOutputRef {
 		account, err = h.gatewayService.GetAccountByID(c.Request.Context(), *task.AccountID)
 		if err != nil || account == nil {
 			h.errorResponse(c, http.StatusNotFound, "not_found_error", "Video request not found")

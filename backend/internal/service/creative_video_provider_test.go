@@ -216,6 +216,44 @@ func TestCreativeVideoProviderResponseJSONIncludesContentURL(t *testing.T) {
 	require.Equal(t, "/v1/videos/vid_happycode/content", video["url"])
 }
 
+func TestNormalizeMiniMaxVideoStatusSuccessWithoutOutputStaysRunning(t *testing.T) {
+	// MiniMax reports Success before the file is retrievable. Calling that
+	// completed makes the row terminal with nothing to download.
+	got := normalizeMiniMaxVideoStatus(map[string]any{
+		"task_id":     "vid_2",
+		"task_status": "Success",
+	}, "vid_2")
+
+	require.Equal(t, CreativeVideoStatusRunning, got.Status)
+	require.Empty(t, got.FileID)
+	require.Empty(t, got.DownloadURL)
+}
+
+func TestNormalizeMiniMaxVideoStatusSuccessWithFileIDCompletes(t *testing.T) {
+	got := normalizeMiniMaxVideoStatus(map[string]any{
+		"task_id":     "vid_3",
+		"task_status": "Success",
+		"file_id":     "file_9",
+	}, "vid_3")
+
+	require.Equal(t, CreativeVideoStatusCompleted, got.Status)
+	require.Equal(t, "file_9", got.FileID)
+}
+
+func TestCreativeVideoProviderResponseJSONHidesUpstreamSignedURL(t *testing.T) {
+	// The upstream signed URL is short-lived and scoped to our account, so the
+	// reply must point at our own content path instead.
+	resp := CreativeVideoProviderResponseJSON(&CreativeVideoProviderStatus{
+		ID:          "vid_signed",
+		Status:      CreativeVideoStatusCompleted,
+		DownloadURL: "https://upstream.example.com/signed?token=secret",
+	})
+
+	video, ok := resp["video"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "/v1/videos/vid_signed/content", video["url"])
+}
+
 func TestCreativeVideoHTTPProvider_OpenAbsoluteSameOriginCarriesRelayKey(t *testing.T) {
 	client := &http.Client{Transport: batchImageProviderRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		require.Equal(t, "Bearer sk-test", r.Header.Get("Authorization"))

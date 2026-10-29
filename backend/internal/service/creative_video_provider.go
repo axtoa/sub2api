@@ -526,6 +526,16 @@ func normalizeMiniMaxVideoStatus(resp map[string]any, fallbackID string) *Creati
 		gjson.GetBytes(data, "task.content.video_url").String(),
 	)
 	done := fileID != "" || downloadURL != ""
+	// MiniMax reports "Success" before the output file is queryable. Calling
+	// that completed strands the task: the row becomes terminal, every status
+	// reply advertises a content URL, and the download can only answer "not
+	// ready" forever. Without a file_id or download_url there is nothing to
+	// fetch, so keep the task in flight and let a later poll (or the in-flight
+	// deadline) settle it.
+	normalized := normalizeCreativeVideoProviderStatus(status, done)
+	if normalized == CreativeVideoStatusCompleted && !done {
+		normalized = CreativeVideoStatusRunning
+	}
 	return &CreativeVideoProviderStatus{
 		ID: firstNonEmptyString(
 			gjson.GetBytes(data, "request_id").String(),
@@ -537,7 +547,7 @@ func normalizeMiniMaxVideoStatus(resp map[string]any, fallbackID string) *Creati
 			gjson.GetBytes(data, "id").String(),
 			fallbackID,
 		),
-		Status:          normalizeCreativeVideoProviderStatus(status, done),
+		Status:          normalized,
 		Model:           firstNonEmptyString(gjson.GetBytes(data, "model").String(), gjson.GetBytes(data, "data.model").String(), gjson.GetBytes(data, "task.model").String()),
 		Resolution:      normalizeMiniMaxReturnedResolution(firstNonEmptyString(gjson.GetBytes(data, "resolution").String(), gjson.GetBytes(data, "data.resolution").String(), gjson.GetBytes(data, "task.resolution").String(), gjson.GetBytes(data, "video.resolution").String(), gjson.GetBytes(data, "data.video.resolution").String())),
 		DurationSeconds: int(firstPositive(int(gjson.GetBytes(data, "duration").Int()), int(gjson.GetBytes(data, "data.duration").Int()), int(gjson.GetBytes(data, "task.duration").Int()), int(gjson.GetBytes(data, "video.duration").Int()), int(gjson.GetBytes(data, "data.video.duration").Int()))),
@@ -665,7 +675,11 @@ func CreativeVideoProviderResponseJSON(status *CreativeVideoProviderStatus) map[
 		video["duration"] = status.DurationSeconds
 	}
 	if status.Status == CreativeVideoStatusCompleted && strings.TrimSpace(status.ID) != "" {
-		video["url"] = firstNonEmptyString(strings.TrimSpace(status.DownloadURL), "/v1/videos/"+url.PathEscape(strings.TrimSpace(status.ID))+"/content")
+		// Always advertise our own content path, never the upstream signed URL:
+		// that URL is short-lived, is scoped to the upstream account rather than
+		// the caller, and sends clients off to a host they have no credentials
+		// or allowlist entry for. OpenContent resolves it server-side instead.
+		video["url"] = "/v1/videos/" + url.PathEscape(strings.TrimSpace(status.ID)) + "/content"
 	}
 	if len(video) > 0 {
 		resp["video"] = video
