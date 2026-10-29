@@ -17,6 +17,7 @@ export interface InsightUser {
   last_redeemed_at: string | null
   usage_30d: string
   calls_30d: number
+  total_calls: number
   last_used_at: string | null
 }
 
@@ -37,11 +38,13 @@ export interface InsightDetail extends InsightUser {
 }
 
 export type Segment = 'all' | 'redeemed' | 'repeat' | 'inactive30'
+export type SortKey = 'email' | 'redeemed_amount' | 'redeem_count' | 'last_redeemed_at' | 'balance' | 'usage_30d' | 'calls_30d' | 'total_calls' | 'last_used_at'
+export type SortOrder = 'asc' | 'desc'
 
 export const userInsightsAPI = {
-  async list(page: number, search: string, segment: Segment, signal?: AbortSignal) {
+  async list(page: number, search: string, segment: Segment, sortBy: SortKey, sortOrder: SortOrder, signal?: AbortSignal) {
     const { data } = await apiClient.get<InsightList>('/admin/user-insights', {
-      params: { page, page_size: 20, search, segment }, signal
+      params: { page, page_size: 20, search, segment, sort_by: sortBy, sort_order: sortOrder }, signal
     })
     return data
   },

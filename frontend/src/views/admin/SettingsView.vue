@@ -13,7 +13,7 @@
         <!-- Tab Navigation -->
         <div class="settings-tabs-shell">
           <nav
-            class="settings-tabs-scroll"
+            class="settings-tabs-nav"
             role="tablist"
             :aria-label="t('admin.settings.title')"
           >
@@ -13198,35 +13198,21 @@ watch(
     0 1px 0 rgb(255 255 255 / 0.9) inset;
 }
 
-.settings-tabs-scroll {
-  @apply overflow-x-auto;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.settings-tabs-scroll::-webkit-scrollbar {
-  display: none;
+.settings-tabs-nav {
+  container-type: inline-size;
 }
 
 .settings-tabs {
-  @apply flex min-w-max items-center gap-1;
+  @apply grid grid-cols-2 gap-1.5;
 }
 
 .settings-tab {
-  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
+  @apply relative isolate flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-transparent px-2 py-2 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
 }
 
-@media (min-width: 768px) {
+@container (min-width: 640px) {
   .settings-tabs {
-    @apply min-w-full;
-  }
-
-  .settings-tab {
-    @apply min-w-0 flex-1 basis-0 overflow-hidden px-2 text-[13px];
-  }
-
-  .settings-tab-icon {
-    @apply h-6 w-6;
+    @apply grid-cols-5;
   }
 }
 
@@ -13268,7 +13254,7 @@ watch(
 }
 
 .settings-tab-icon {
-  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors duration-200 dark:text-gray-400;
+  @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors duration-200 dark:text-gray-400;
 }
 
 .settings-tab:hover .settings-tab-icon,
@@ -13281,7 +13267,8 @@ watch(
 }
 
 .settings-tab-label {
-  @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap leading-none;
+  @apply min-w-0 whitespace-normal text-center leading-5;
+  overflow-wrap: anywhere;
 }
 </style>
 

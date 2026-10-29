@@ -33,19 +33,27 @@
         </select>
       </div>
 
+      <div class="mb-4 flex items-center gap-2 md:hidden">
+        <select v-model="sortBy" class="input h-10 min-w-0 flex-1" :aria-label="t('userInsights.sortBy')" @change="applySort">
+          <option v-for="column in columns" :key="column.key" :value="column.key">{{ t(`userInsights.${column.label}`) }}</option>
+        </select>
+        <button type="button" class="btn btn-secondary h-10 w-10 shrink-0 px-0" :title="t(sortOrder === 'asc' ? 'userInsights.sortDescending' : 'userInsights.sortAscending')" :aria-label="t(sortOrder === 'asc' ? 'userInsights.sortDescending' : 'userInsights.sortAscending')" @click="toggleSort(sortBy)">
+          <Icon :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'" size="sm" />
+        </button>
+      </div>
+
       <p v-if="error" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300" role="alert">{{ error }}</p>
       <div class="overflow-hidden rounded border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800" :aria-busy="loading">
         <div class="hidden overflow-x-auto md:block">
-          <table class="w-full min-w-[900px] text-left text-sm">
+          <table class="w-full min-w-[1200px] text-left text-sm">
             <thead class="bg-gray-50 text-xs font-medium text-gray-500 dark:bg-dark-900 dark:text-dark-400">
               <tr>
-                <th class="px-4 py-3">{{ t('userInsights.user') }}</th>
-                <th class="px-4 py-3 text-right">{{ t('userInsights.redeemedAmount') }}</th>
-                <th class="px-4 py-3 text-right">{{ t('userInsights.redeemCount') }}</th>
-                <th class="px-4 py-3">{{ t('userInsights.lastRedeemed') }}</th>
-                <th class="px-4 py-3 text-right">{{ t('userInsights.balance') }}</th>
-                <th class="px-4 py-3 text-right">{{ t('userInsights.usage30d') }}</th>
-                <th class="px-4 py-3">{{ t('userInsights.lastUsed') }}</th>
+                <th v-for="column in columns" :key="column.key" scope="col" class="px-4 py-3" :aria-sort="sortBy === column.key ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'">
+                  <button type="button" class="flex w-full items-center gap-1.5 whitespace-nowrap rounded-sm hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 dark:hover:text-emerald-400" :class="column.numeric ? 'justify-end' : 'justify-start'" :title="t(sortBy === column.key && sortOrder === 'asc' ? 'userInsights.sortDescending' : 'userInsights.sortAscending')" @click="toggleSort(column.key)">
+                    {{ t(`userInsights.${column.label}`) }}
+                    <Icon :name="sortBy === column.key ? (sortOrder === 'asc' ? 'arrowUp' : 'arrowDown') : 'arrowsUpDown'" size="sm" class="shrink-0" :class="sortBy === column.key ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 dark:text-dark-500'" />
+                  </button>
+                </th>
                 <th class="w-12 px-4 py-3"></th>
               </tr>
             </thead>
@@ -56,7 +64,9 @@
                 <td class="px-4 py-3 text-right tabular-nums">{{ user.redeem_count }}</td>
                 <td class="whitespace-nowrap px-4 py-3 text-gray-600 dark:text-dark-300">{{ date(user.last_redeemed_at) }}</td>
                 <td class="px-4 py-3 text-right tabular-nums">{{ money(user.balance) }}</td>
-                <td class="px-4 py-3 text-right tabular-nums"><span>{{ money(user.usage_30d) }}</span><span class="block text-xs text-gray-500 dark:text-dark-400">{{ user.calls_30d }} {{ t('userInsights.calls') }}</span></td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ money(user.usage_30d) }}</td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ user.calls_30d.toLocaleString(locale) }}</td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ user.total_calls.toLocaleString(locale) }}</td>
                 <td class="whitespace-nowrap px-4 py-3 text-gray-600 dark:text-dark-300">{{ date(user.last_used_at) }}</td>
                 <td class="px-4 py-3"><button type="button" class="text-gray-500 hover:text-emerald-700 dark:text-dark-400 dark:hover:text-emerald-400" :title="t('userInsights.viewDetail')" :aria-label="t('userInsights.viewDetail')" @click="openDetail(user.id)"><Icon name="chevronRight" size="sm" /></button></td>
               </tr>
@@ -68,6 +78,8 @@
             <span class="flex items-center justify-between gap-2"><span class="min-w-0 truncate font-medium">{{ user.email }}</span><Icon name="chevronRight" size="sm" class="shrink-0 text-gray-400" /></span>
             <span class="mt-2 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.redeemedAmount') }}</span><strong class="tabular-nums">{{ money(user.redeemed_amount) }}</strong></span>
             <span class="mt-1 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.usage30d') }}</span><span class="tabular-nums">{{ money(user.usage_30d) }}</span></span>
+            <span class="mt-1 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.calls30d') }}</span><span class="tabular-nums">{{ user.calls_30d.toLocaleString(locale) }}</span></span>
+            <span class="mt-1 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.totalCalls') }}</span><span class="tabular-nums">{{ user.total_calls.toLocaleString(locale) }}</span></span>
           </button>
         </div>
         <p v-if="loading && !list" class="px-4 py-10 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('userInsights.loading') }}</p>
@@ -87,11 +99,13 @@
         <p v-else-if="detailError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ detailError }}</p>
         <div v-else-if="detail" class="space-y-7 text-sm text-gray-700 dark:text-dark-200">
           <div><h2 class="break-all text-lg font-semibold text-gray-900 dark:text-white">{{ detail.email }}</h2><p class="text-xs text-gray-500 dark:text-dark-400">{{ detail.username || `#${detail.id}` }} · {{ statusLabel(detail.status) }}</p></div>
-          <dl class="grid grid-cols-2 gap-4 border-y border-gray-200 py-4 sm:grid-cols-4 dark:border-dark-700">
+          <dl class="grid grid-cols-2 gap-4 border-y border-gray-200 py-4 sm:grid-cols-3 dark:border-dark-700">
             <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.redeemedAmount') }}</dt><dd class="mt-1 font-semibold tabular-nums">{{ money(detail.redeemed_amount) }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.adminAdded') }}</dt><dd class="mt-1 font-semibold tabular-nums">{{ money(detail.admin_added_amount) }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.balance') }}</dt><dd class="mt-1 font-semibold tabular-nums">{{ money(detail.balance) }}</dd></div>
             <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.usage30d') }}</dt><dd class="mt-1 font-semibold tabular-nums">{{ money(detail.usage_30d) }}</dd></div>
+            <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.calls30d') }}</dt><dd class="mt-1 font-semibold tabular-nums">{{ detail.calls_30d.toLocaleString(locale) }}</dd></div>
+            <div><dt class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.totalCalls') }}</dt><dd class="mt-1 font-semibold tabular-nums">{{ detail.total_calls.toLocaleString(locale) }}</dd></div>
           </dl>
           <div class="grid gap-4 text-xs sm:grid-cols-3"><p><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.firstRedeemed') }}:</span> {{ date(detail.first_redeemed_at) }}</p><p><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.lastRedeemed') }}:</span> {{ date(detail.last_redeemed_at) }}</p><p><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.lastUsed') }}:</span> {{ date(detail.last_used_at) }}</p></div>
           <section><h3 class="mb-3 font-semibold text-gray-900 dark:text-white">{{ t('userInsights.modelPreference') }}</h3><p v-if="!detail.models.length" class="text-gray-500 dark:text-dark-400">{{ t('userInsights.noModels') }}</p><div v-else class="overflow-x-auto"><table class="w-full min-w-[440px] text-left"><thead class="text-xs text-gray-500 dark:text-dark-400"><tr><th class="py-2">{{ t('userInsights.model') }}</th><th class="py-2 text-right">{{ t('userInsights.modelCalls') }}</th><th class="py-2 text-right">{{ t('userInsights.modelCost') }}</th></tr></thead><tbody class="divide-y divide-gray-100 dark:divide-dark-700"><tr v-for="model in detail.models" :key="model.name"><td class="py-2 pr-3 font-medium">{{ model.name }}</td><td class="py-2 text-right tabular-nums">{{ model.calls }}</td><td class="py-2 text-right tabular-nums">{{ money(model.cost) }}</td></tr></tbody></table></div></section>
@@ -109,7 +123,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { userInsightsAPI, type InsightDetail, type InsightList, type Segment } from './api'
+import { userInsightsAPI, type InsightDetail, type InsightList, type Segment, type SortKey, type SortOrder } from './api'
 
 const { t, locale } = useI18n()
 const list = ref<InsightList | null>(null)
@@ -118,6 +132,19 @@ const searchDraft = ref('')
 const search = ref('')
 const segment = ref<Segment>('all')
 const page = ref(1)
+const sortBy = ref<SortKey>('redeemed_amount')
+const sortOrder = ref<SortOrder>('desc')
+const columns: Array<{ key: SortKey; label: string; numeric?: boolean }> = [
+  { key: 'email', label: 'user' },
+  { key: 'redeemed_amount', label: 'redeemedAmount', numeric: true },
+  { key: 'redeem_count', label: 'redeemCount', numeric: true },
+  { key: 'last_redeemed_at', label: 'lastRedeemed' },
+  { key: 'balance', label: 'balance', numeric: true },
+  { key: 'usage_30d', label: 'usage30d', numeric: true },
+  { key: 'calls_30d', label: 'calls30d', numeric: true },
+  { key: 'total_calls', label: 'totalCalls', numeric: true },
+  { key: 'last_used_at', label: 'lastUsed' }
+]
 const loading = ref(false)
 const error = ref('')
 const detailID = ref<number | null>(null)
@@ -145,7 +172,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await userInsightsAPI.list(page.value, search.value, segment.value, listController.signal)
+    const result = await userInsightsAPI.list(page.value, search.value, segment.value, sortBy.value, sortOrder.value, listController.signal)
     if (revision !== listRevision) return
     list.value = result
   } catch (cause) {
@@ -158,6 +185,12 @@ async function load() {
 function applySearch() { search.value = searchDraft.value.trim(); page.value = 1; void load() }
 function applySegment() { page.value = 1; void load() }
 function goPage(value: number) { page.value = value; void load() }
+function applySort() { page.value = 1; void load() }
+function toggleSort(key: SortKey) {
+  sortOrder.value = sortBy.value === key && sortOrder.value === 'asc' ? 'desc' : 'asc'
+  sortBy.value = key
+  applySort()
+}
 async function openDetail(id: number) {
   const revision = ++detailRevision
   detailController?.abort()

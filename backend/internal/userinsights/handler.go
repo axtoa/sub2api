@@ -27,7 +27,10 @@ func (h *Handler) List(c *gin.Context) {
 		response.BadRequest(c, "Invalid page_size")
 		return
 	}
-	f := Filter{Page: page, Size: size, Search: strings.TrimSpace(c.Query("search")), Segment: c.DefaultQuery("segment", "all")}
+	f := Filter{
+		Page: page, Size: size, Search: strings.TrimSpace(c.Query("search")), Segment: c.DefaultQuery("segment", "all"),
+		SortBy: c.DefaultQuery("sort_by", "redeemed_amount"), SortOrder: strings.ToLower(c.DefaultQuery("sort_order", "desc")),
+	}
 	if err := f.Validate(); err != nil {
 		response.BadRequest(c, err.Error())
 		return

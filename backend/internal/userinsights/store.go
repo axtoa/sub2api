@@ -31,6 +31,7 @@ type User struct {
 	LastRedeemedAt *time.Time `json:"last_redeemed_at"`
 	Usage30d       string     `json:"usage_30d"`
 	Calls30d       int64      `json:"calls_30d"`
+	TotalCalls     int64      `json:"total_calls"`
 	LastUsedAt     *time.Time `json:"last_used_at"`
 }
 
@@ -63,15 +64,25 @@ type Detail struct {
 }
 
 type Filter struct {
-	Search  string
-	Segment string
-	Page    int
-	Size    int
+	Search    string
+	Segment   string
+	Page      int
+	Size      int
+	SortBy    string
+	SortOrder string
 }
 
 func (f Filter) Validate() error {
 	if f.Page < 1 || f.Page > 100000 || f.Size < 1 || f.Size > 50 || len([]rune(f.Search)) > 100 {
 		return fmt.Errorf("invalid pagination or search")
+	}
+	if f.SortBy != "" {
+		if _, ok := sortColumns[f.SortBy]; !ok {
+			return fmt.Errorf("invalid sort column")
+		}
+	}
+	if f.SortOrder != "" && f.SortOrder != "asc" && f.SortOrder != "desc" {
+		return fmt.Errorf("invalid sort order")
 	}
 	switch f.Segment {
 	case "all", "redeemed", "repeat", "inactive30":
@@ -79,6 +90,25 @@ func (f Filter) Validate() error {
 	default:
 		return fmt.Errorf("invalid segment")
 	}
+}
+
+var sortColumns = map[string]string{
+	"email": "i.email", "redeemed_amount": "i.redeemed_amount",
+	"redeem_count": "i.redeem_count", "last_redeemed_at": "i.last_redeemed_at",
+	"balance": "i.balance", "usage_30d": "i.usage_30d",
+	"calls_30d": "i.calls_30d", "total_calls": "i.total_calls", "last_used_at": "i.last_used_at",
+}
+
+func (f Filter) orderBySQL() string {
+	column := sortColumns[f.SortBy]
+	if column == "" {
+		column = sortColumns["redeemed_amount"]
+	}
+	direction := "DESC"
+	if f.SortOrder == "asc" {
+		direction = "ASC"
+	}
+	return column + " " + direction + " NULLS LAST, i.id DESC"
 }
 
 const redemptionCTE = `WITH redemption AS (
@@ -89,7 +119,9 @@ const redemptionCTE = `WITH redemption AS (
 )`
 
 func filteredUsersSQL(segment string) string {
-	where := `u.deleted_at IS NULL AND
+	where := `u.deleted_at IS NULL AND EXISTS (
+        SELECT 1 FROM usage_logs used WHERE used.user_id = u.id
+    ) AND
         (POSITION(LOWER($1) IN LOWER(u.email)) > 0 OR
          POSITION(LOWER($1) IN LOWER(u.username)) > 0 OR u.id::text = $1)`
 	switch segment {
@@ -100,7 +132,7 @@ func filteredUsersSQL(segment string) string {
 	case "inactive30":
 		where += ` AND r.redeem_count > 0 AND NOT EXISTS (
             SELECT 1 FROM usage_logs ul WHERE ul.user_id = u.id
-            AND ul.created_at >= $2 AND ul.actual_cost > 0
+            AND ul.created_at >= $2
         )`
 	}
 	return ` FROM users u LEFT JOIN redemption r ON r.user_id = u.id WHERE ` + where
@@ -128,25 +160,28 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 	limitArg := len(args) + 1
 	offsetArg := len(args) + 2
 	sinceArg := len(args) + 3
-	query := redemptionCTE + `, page AS (
+	query := redemptionCTE + `, candidates AS (
         SELECT u.id, u.email, u.username, u.status, u.balance,
                COALESCE(r.redeemed_amount, 0) AS redeemed_amount,
                COALESCE(r.redeem_count, 0) AS redeem_count, r.last_redeemed_at
         ` + filteredUsersSQL(f.Segment) + `
-        ORDER BY (r.redeem_count IS NOT NULL) DESC, r.last_redeemed_at DESC NULLS LAST, u.id DESC
-        LIMIT $` + fmt.Sprint(limitArg) + ` OFFSET $` + fmt.Sprint(offsetArg) + `
-    ), usage30 AS (
-        SELECT ul.user_id, COALESCE(SUM(ul.actual_cost), 0)::text AS cost,
-               COUNT(*) AS calls, MAX(ul.created_at) AS last_used_at
-        FROM usage_logs ul JOIN page p ON p.id = ul.user_id
-        WHERE ul.created_at >= $` + fmt.Sprint(sinceArg) + ` AND ul.actual_cost > 0
+    ), usage_stats AS (
+        SELECT ul.user_id,
+               COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $` + fmt.Sprint(sinceArg) + `), 0) AS usage_30d,
+               COUNT(*) FILTER (WHERE ul.created_at >= $` + fmt.Sprint(sinceArg) + `) AS calls_30d,
+               COUNT(*) AS total_calls, MAX(ul.created_at) AS last_used_at
+        FROM usage_logs ul JOIN candidates p ON p.id = ul.user_id
         GROUP BY ul.user_id
+    ), insights AS (
+        SELECT p.*, usage_stats.usage_30d, usage_stats.calls_30d,
+               usage_stats.total_calls, usage_stats.last_used_at
+        FROM candidates p JOIN usage_stats ON usage_stats.user_id = p.id
     )
-    SELECT p.id, p.email, p.username, p.status, p.balance::text,
-           p.redeemed_amount::text, p.redeem_count, p.last_redeemed_at,
-           COALESCE(usage30.cost, '0'), COALESCE(usage30.calls, 0), usage30.last_used_at
-    FROM page p LEFT JOIN usage30 ON usage30.user_id = p.id
-    ORDER BY (p.redeem_count > 0) DESC, p.last_redeemed_at DESC NULLS LAST, p.id DESC`
+    SELECT i.id, i.email, i.username, i.status, i.balance::text,
+           i.redeemed_amount::text, i.redeem_count, i.last_redeemed_at,
+           i.usage_30d::text, i.calls_30d, i.total_calls, i.last_used_at
+    FROM insights i ORDER BY ` + f.orderBySQL() + `
+    LIMIT $` + fmt.Sprint(limitArg) + ` OFFSET $` + fmt.Sprint(offsetArg)
 	args = append(args, f.Size, (f.Page-1)*f.Size, since)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -158,7 +193,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 		var redeemedAt, usedAt sql.NullTime
 		if err := rows.Scan(&item.ID, &item.Email, &item.Username, &item.Status, &item.Balance,
 			&item.RedeemedAmount, &item.RedeemCount, &redeemedAt, &item.Usage30d,
-			&item.Calls30d, &usedAt); err != nil {
+			&item.Calls30d, &item.TotalCalls, &usedAt); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
 		}
 		if redeemedAt.Valid {
@@ -224,15 +259,16 @@ func (s *Store) Detail(ctx context.Context, userID int64) (*Detail, error) {
 	rows.Close()
 
 	since := time.Now().UTC().AddDate(0, 0, -30)
-	err = s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(actual_cost), 0)::text,
-        COUNT(*), MAX(created_at) FROM usage_logs
-        WHERE user_id = $1 AND created_at >= $2 AND actual_cost > 0`, userID, since).
-		Scan(&result.Usage30d, &result.Calls30d, &lastAt)
+	var usedAt sql.NullTime
+	err = s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(actual_cost) FILTER (WHERE created_at >= $2), 0)::text,
+        COUNT(*) FILTER (WHERE created_at >= $2), COUNT(*), MAX(created_at) FROM usage_logs
+        WHERE user_id = $1`, userID, since).
+		Scan(&result.Usage30d, &result.Calls30d, &result.TotalCalls, &usedAt)
 	if err != nil {
 		return nil, fmt.Errorf("usage: %w", err)
 	}
-	if lastAt.Valid {
-		result.LastUsedAt = &lastAt.Time
+	if usedAt.Valid {
+		result.LastUsedAt = &usedAt.Time
 	}
 	rows, err = s.db.QueryContext(ctx, `SELECT COALESCE(NULLIF(requested_model, ''), model) AS name,
         COUNT(*) AS calls, COALESCE(SUM(actual_cost), 0)::text AS cost
