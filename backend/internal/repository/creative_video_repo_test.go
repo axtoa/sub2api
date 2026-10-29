@@ -89,6 +89,30 @@ func TestObserveCreativeVideoTaskCanMatchTaskIDFallback(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestObserveCreativeVideoTaskKeepsTerminalStatus(t *testing.T) {
+	t.Parallel()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	// A re-sync of a finished row must not walk its status back to "running";
+	// only the artifact references may still be filled in.
+	repo := &creativeVideoRepository{sql: db}
+	mock.ExpectExec(regexp.QuoteMeta(`SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') THEN status ELSE $4 END`)).
+		WithArgs("vid_done", int64(1), int64(2), "running", "", "", 0, "", "", "file_7", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	err = repo.ObserveCreativeVideoTask(context.Background(), service.ObserveCreativeVideoTaskParams{
+		ProviderRequestID: "vid_done",
+		UserID:            1,
+		APIKeyID:          2,
+		Status:            "running",
+		FileID:            "file_7",
+	})
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestCompleteCreativeVideoTaskSubmitRequiresExistingTask(t *testing.T) {
 	t.Parallel()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))

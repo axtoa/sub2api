@@ -179,15 +179,18 @@ func (r *creativeVideoRepository) ObserveCreativeVideoTask(ctx context.Context, 
 		return nil
 	}
 	now := time.Now()
+	// A task that already reached a terminal state keeps it: a later poll must
+	// not walk a finished row back to "running". Artifact references below are
+	// still picked up, so a completed row with no file_id can gain one.
 	_, err := r.sql.ExecContext(ctx, `
 UPDATE creative_video_tasks
-SET status = $4,
+SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') THEN status ELSE $4 END,
     model = COALESCE(NULLIF($5, ''), model),
     resolution = COALESCE(NULLIF($6, ''), resolution),
     duration_seconds = COALESCE(NULLIF($7, 0), duration_seconds),
     download_url = COALESCE(NULLIF($9, ''), download_url),
     file_id = COALESCE(NULLIF($10, ''), file_id),
-    completed_at = CASE WHEN $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $11) ELSE completed_at END,
+    completed_at = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') OR $4 IN ('completed', 'failed', 'expired', 'output_deleted') THEN COALESCE(completed_at, $11) ELSE completed_at END,
     updated_at = $11
 WHERE (provider_request_id = $1 OR (NULLIF($8, '') IS NOT NULL AND task_id = $8))
   AND user_id = $2
