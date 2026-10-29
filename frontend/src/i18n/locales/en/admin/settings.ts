@@ -146,6 +146,8 @@ export default {
         imageRunningHint: 'New image tasks are rejected when the user reaches this limit.',
         videoRunning: 'Video running limit',
         videoRunningHint: 'New video tasks are rejected when the user reaches this limit.',
+        videoTaskTimeout: 'Video task timeout (minutes)',
+        videoTaskTimeoutHint: 'A task in flight past this long is marked failed, so an upstream that stops reporting cannot hold a running slot forever. Range 10-1440 minutes.',
         storageHint: 'Generated media should not live on the app server long-term. Images keep using the existing object-storage settings; video should reuse the same temporary storage strategy when added.',
         saved: 'Studio settings saved',
         saveFailed: 'Failed to save studio settings',

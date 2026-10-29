@@ -327,6 +327,41 @@ WHERE (provider_request_id = $1 OR task_id = $1)
 	return requireRowsAffected(res, service.ErrCreativeVideoTaskNotFound)
 }
 
+// FailStaleCreativeVideoTasks fails tasks that have been in flight past the
+// cutoff. Without this an upstream that stops reporting (or reports a status we
+// cannot interpret) leaves a task queued or running forever, holding one of the
+// user's concurrent video slots. The cutoff is measured from submitted_at where
+// known, else created_at, so a task that never reached upstream is covered too.
+func (r *creativeVideoRepository) FailStaleCreativeVideoTasks(ctx context.Context, cutoff time.Time, code, message string, limit int) (int, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	res, err := r.sql.ExecContext(ctx, `
+UPDATE creative_video_tasks
+SET status = 'failed',
+    last_error_code = NULLIF($2, ''),
+    last_error_message = NULLIF($3, ''),
+    completed_at = COALESCE(completed_at, $4),
+    updated_at = $4
+WHERE id IN (
+    SELECT id
+    FROM creative_video_tasks
+    WHERE user_deleted_at IS NULL
+      AND status IN ('queued', 'submitted', 'running')
+      AND COALESCE(submitted_at, created_at) <= $1
+    ORDER BY COALESCE(submitted_at, created_at) ASC, id ASC
+    LIMIT $5
+)`, cutoff, code, message, time.Now(), limit)
+	if err != nil {
+		return 0, translatePersistenceError(err, nil, nil)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, nil
+	}
+	return int(affected), nil
+}
+
 func (r *creativeVideoRepository) ListCreativeVideoTasksDueForRecordCleanup(ctx context.Context, cutoff time.Time, maxRecordsPerUser, limit int) ([]*service.CreativeVideoTask, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100

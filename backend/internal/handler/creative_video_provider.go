@@ -270,6 +270,19 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 			h.errorResponse(c, http.StatusBadGateway, "upstream_error", "Upstream video status request failed")
 			return
 		}
+		if upstreamStatus != nil && upstreamStatus.Status == service.CreativeVideoStatusUnknown {
+			// Upstream reported a status we do not recognize. Keep the status we
+			// already recorded rather than telling the caller "unknown", and
+			// leave the stored row untouched; the in-flight deadline ends the
+			// task if this keeps up.
+			logger.L().Warn("creative_video.unknown_upstream_status",
+				zap.String("request_id", requestID),
+				zap.String("task_id", task.TaskID),
+				zap.String("provider", provider.Name()),
+				zap.String("task_status", task.Status),
+			)
+			upstreamStatus.Status = task.Status
+		}
 		status = upstreamStatus
 		fillCreativeVideoStatusFromTask(status, task)
 		h.creativeVideoService.ObserveProviderTaskStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, task.TaskID, requestID, status)
@@ -332,6 +345,9 @@ func (h *OpenAIGatewayHandler) handleCreativeVideoLookup(c *gin.Context, content
 					zap.Error(refreshErr),
 				)
 			} else if refreshedStatus != nil {
+				if refreshedStatus.Status == service.CreativeVideoStatusUnknown {
+					refreshedStatus.Status = task.Status
+				}
 				fillCreativeVideoStatusFromTask(refreshedStatus, task)
 				status = refreshedStatus
 				h.creativeVideoService.ObserveProviderTaskStatus(c.Request.Context(), service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}, task.TaskID, requestID, status)

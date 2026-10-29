@@ -1357,6 +1357,8 @@ export interface CreativeWorkbenchSettings {
   max_records_per_user: number;
   image_max_running_per_user: number;
   video_max_running_per_user: number;
+  /** In-flight timeout for a video task; past it the cleanup loop fails it. */
+  video_task_timeout_minutes: number;
 }
 
 export async function getCreativeWorkbenchSettings(): Promise<CreativeWorkbenchSettings> {

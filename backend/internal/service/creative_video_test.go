@@ -115,6 +115,64 @@ func TestCreativeVideoCleanupSoftDeletesRecords(t *testing.T) {
 	require.True(t, repo.cleanupCutoff.Equal(now.AddDate(0, 0, -3)))
 }
 
+func TestCreativeVideoFailStaleTasksUsesConfiguredTimeout(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	repo := &fakeCreativeVideoRepo{staleFailed: 2}
+	settings := DefaultCreativeWorkbenchSettings()
+	settings.VideoTaskTimeoutMinutes = 45
+	svc := NewCreativeVideoService(repo, fakeCreativeWorkbenchReader{settings: settings})
+
+	failed, err := svc.FailStaleTasksOnce(ctx, now, 100)
+	require.NoError(t, err)
+	require.Equal(t, 2, failed)
+	require.True(t, repo.staleCutoff.Equal(now.Add(-45*time.Minute)))
+	require.Equal(t, "CREATIVE_VIDEO_TASK_TIMEOUT", repo.staleCode)
+	require.Equal(t, 100, repo.staleLimit)
+}
+
+// A settings blob written before the timeout field existed unmarshals to 0.
+// Without a fallback that would mean "cut off everything older than now", so
+// every in-flight task would be failed the moment the sweep ran.
+func TestCreativeVideoFailStaleTasksFallsBackWhenTimeoutUnset(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	repo := &fakeCreativeVideoRepo{}
+	svc := NewCreativeVideoService(repo, fakeCreativeWorkbenchReader{settings: &CreativeWorkbenchSettings{
+		Enabled:      true,
+		VideoEnabled: true,
+	}})
+
+	_, err := svc.FailStaleTasksOnce(ctx, now, 0)
+	require.NoError(t, err)
+	require.True(t, repo.staleCutoff.Equal(now.Add(-CreativeWorkbenchVideoTaskTimeoutMinutesDefault*time.Minute)))
+	require.Equal(t, 100, repo.staleLimit)
+}
+
+// Observing an unrecognized upstream status must not touch the stored row:
+// writing "unknown" would lose the last status we understood, and writing
+// "running" is what kept tasks in flight forever.
+func TestCreativeVideoObserveIgnoresUnknownStatus(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	repo := &fakeCreativeVideoRepo{}
+	svc := NewCreativeVideoService(repo, fakeCreativeWorkbenchReader{settings: DefaultCreativeWorkbenchSettings()})
+
+	svc.ObserveProviderTaskStatus(ctx, BatchImageOwner{UserID: 1, APIKeyID: 2}, "vidtask_1", "req-1", &CreativeVideoProviderStatus{
+		ID:     "req-1",
+		Status: CreativeVideoStatusUnknown,
+	})
+	require.Empty(t, repo.observedStatus)
+
+	svc.ObserveProviderTaskStatus(ctx, BatchImageOwner{UserID: 1, APIKeyID: 2}, "vidtask_1", "req-1", &CreativeVideoProviderStatus{
+		ID:     "req-1",
+		Status: CreativeVideoStatusRunning,
+	})
+	require.Equal(t, CreativeVideoStatusRunning, repo.observedStatus)
+}
+
 func TestCreativeVideoListIncludesRuntimeLimits(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -167,6 +225,19 @@ type fakeCreativeVideoRepo struct {
 	dueTasks           []*CreativeVideoTask
 	cleanupCutoff      time.Time
 	autoDeletedTaskIDs []string
+	staleCutoff        time.Time
+	staleCode          string
+	staleLimit         int
+	staleFailed        int
+	staleCalls         int
+}
+
+func (r *fakeCreativeVideoRepo) FailStaleCreativeVideoTasks(_ context.Context, cutoff time.Time, code, _ string, limit int) (int, error) {
+	r.staleCutoff = cutoff
+	r.staleCode = code
+	r.staleLimit = limit
+	r.staleCalls++
+	return r.staleFailed, nil
 }
 
 func (r *fakeCreativeVideoRepo) CreateCreativeVideoTask(_ context.Context, params CreateCreativeVideoTaskParams) (*CreativeVideoTask, error) {

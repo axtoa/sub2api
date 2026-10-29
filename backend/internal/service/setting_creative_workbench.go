@@ -13,6 +13,11 @@ const (
 	CreativeWorkbenchMaxRecordsDefault    = 50
 	CreativeWorkbenchImageRunningDefault  = 10
 	CreativeWorkbenchVideoRunningDefault  = 5
+	// CreativeWorkbenchVideoTaskTimeoutMinutesDefault bounds how long a video
+	// task may stay in flight. Past it the cleanup loop fails the task, so an
+	// upstream that stops reporting cannot keep a task (and the user's running
+	// slot) occupied forever.
+	CreativeWorkbenchVideoTaskTimeoutMinutesDefault = 180
 
 	creativeWorkbenchRetentionDaysMin     = 1
 	creativeWorkbenchRetentionDaysMax     = 30
@@ -20,6 +25,10 @@ const (
 	creativeWorkbenchMaxRecordsMax        = 500
 	creativeWorkbenchMaxRunningPerUserMin = 1
 	creativeWorkbenchMaxRunningPerUserMax = 50
+	// 10 minutes is shorter than any real generation; 24 hours is the longest
+	// an operator could reasonably wait before writing a task off.
+	creativeWorkbenchVideoTaskTimeoutMinutesMin = 10
+	creativeWorkbenchVideoTaskTimeoutMinutesMax = 1440
 )
 
 // CreativeWorkbenchSettings controls user-facing AI creation task limits.
@@ -34,18 +43,22 @@ type CreativeWorkbenchSettings struct {
 	MaxRecordsPerUser      int  `json:"max_records_per_user"`
 	ImageMaxRunningPerUser int  `json:"image_max_running_per_user"`
 	VideoMaxRunningPerUser int  `json:"video_max_running_per_user"`
+	// VideoTaskTimeoutMinutes bounds how long a video task may stay queued,
+	// submitted or running before the cleanup loop fails it.
+	VideoTaskTimeoutMinutes int `json:"video_task_timeout_minutes"`
 }
 
 func DefaultCreativeWorkbenchSettings() *CreativeWorkbenchSettings {
 	return &CreativeWorkbenchSettings{
-		Enabled:                true,
-		ImageEnabled:           true,
-		VideoEnabled:           false,
-		AutoCleanupEnabled:     true,
-		RetentionDays:          CreativeWorkbenchRetentionDaysDefault,
-		MaxRecordsPerUser:      CreativeWorkbenchMaxRecordsDefault,
-		ImageMaxRunningPerUser: CreativeWorkbenchImageRunningDefault,
-		VideoMaxRunningPerUser: CreativeWorkbenchVideoRunningDefault,
+		Enabled:                 true,
+		ImageEnabled:            true,
+		VideoEnabled:            false,
+		AutoCleanupEnabled:      true,
+		RetentionDays:           CreativeWorkbenchRetentionDaysDefault,
+		MaxRecordsPerUser:       CreativeWorkbenchMaxRecordsDefault,
+		ImageMaxRunningPerUser:  CreativeWorkbenchImageRunningDefault,
+		VideoMaxRunningPerUser:  CreativeWorkbenchVideoRunningDefault,
+		VideoTaskTimeoutMinutes: CreativeWorkbenchVideoTaskTimeoutMinutesDefault,
 	}
 }
 
@@ -88,6 +101,14 @@ func normalizeCreativeWorkbenchSettings(settings *CreativeWorkbenchSettings) {
 	if settings.VideoMaxRunningPerUser > creativeWorkbenchMaxRunningPerUserMax {
 		settings.VideoMaxRunningPerUser = creativeWorkbenchMaxRunningPerUserMax
 	}
+	// Settings stored before this field existed unmarshal to 0; fall back to
+	// the default rather than leaving a timeout that would fail every task.
+	if settings.VideoTaskTimeoutMinutes < creativeWorkbenchVideoTaskTimeoutMinutesMin {
+		settings.VideoTaskTimeoutMinutes = CreativeWorkbenchVideoTaskTimeoutMinutesDefault
+	}
+	if settings.VideoTaskTimeoutMinutes > creativeWorkbenchVideoTaskTimeoutMinutesMax {
+		settings.VideoTaskTimeoutMinutes = creativeWorkbenchVideoTaskTimeoutMinutesMax
+	}
 }
 
 func validateCreativeWorkbenchSettings(settings *CreativeWorkbenchSettings) error {
@@ -105,6 +126,9 @@ func validateCreativeWorkbenchSettings(settings *CreativeWorkbenchSettings) erro
 	}
 	if settings.VideoMaxRunningPerUser < creativeWorkbenchMaxRunningPerUserMin || settings.VideoMaxRunningPerUser > creativeWorkbenchMaxRunningPerUserMax {
 		return fmt.Errorf("video_max_running_per_user must be between %d-%d", creativeWorkbenchMaxRunningPerUserMin, creativeWorkbenchMaxRunningPerUserMax)
+	}
+	if settings.VideoTaskTimeoutMinutes < creativeWorkbenchVideoTaskTimeoutMinutesMin || settings.VideoTaskTimeoutMinutes > creativeWorkbenchVideoTaskTimeoutMinutesMax {
+		return fmt.Errorf("video_task_timeout_minutes must be between %d-%d", creativeWorkbenchVideoTaskTimeoutMinutesMin, creativeWorkbenchVideoTaskTimeoutMinutesMax)
 	}
 	return nil
 }

@@ -23,6 +23,12 @@ const (
 	CreativeVideoStatusFailed        = "failed"
 	CreativeVideoStatusExpired       = "expired"
 	CreativeVideoStatusOutputDeleted = "output_deleted"
+	// CreativeVideoStatusUnknown marks an upstream status we do not recognize.
+	// It is never persisted: treating an unknown value as "running" is what let
+	// tasks sit in flight forever, and overwriting the stored status with it
+	// would lose the last state we did understand. Callers keep the task's
+	// recorded status and let the in-flight deadline end it.
+	CreativeVideoStatusUnknown = "unknown"
 
 	CreativeWorkbenchHeader      = "X-Sub2API-Creative-Workbench"
 	CreativeWorkbenchHeaderVideo = "video"
@@ -126,6 +132,7 @@ type CreativeVideoRepository interface {
 	MarkCreativeVideoTaskOutputMetadata(ctx context.Context, userID, apiKeyID int64, providerRequestID string, fileSizeBytes int64, contentType string) error
 	MarkCreativeVideoTaskUserDeleted(ctx context.Context, userID, apiKeyID int64, providerRequestID string, deletedAt time.Time) error
 	ListCreativeVideoTasksDueForRecordCleanup(ctx context.Context, cutoff time.Time, maxRecordsPerUser, limit int) ([]*CreativeVideoTask, error)
+	FailStaleCreativeVideoTasks(ctx context.Context, cutoff time.Time, code, message string, limit int) (int, error)
 	MarkCreativeVideoTaskAutoDeleted(ctx context.Context, taskID string, deletedAt time.Time) error
 }
 
@@ -336,7 +343,7 @@ func (s *CreativeVideoService) observeProviderStatus(ctx context.Context, owner 
 		return
 	}
 	nextStatus := strings.TrimSpace(status.Status)
-	if nextStatus == "" {
+	if nextStatus == "" || nextStatus == CreativeVideoStatusUnknown {
 		return
 	}
 	_ = s.Repo.ObserveCreativeVideoTask(ctx, ObserveCreativeVideoTaskParams{
@@ -465,6 +472,32 @@ func (s *CreativeVideoService) DeleteRecord(ctx context.Context, owner BatchImag
 		return nil
 	}
 	return s.Repo.MarkCreativeVideoTaskUserDeleted(ctx, owner.UserID, owner.APIKeyID, requestID, time.Now())
+}
+
+// FailStaleTasksOnce ends tasks that have been in flight past the configured
+// timeout. It is deliberately independent of AutoCleanupEnabled: that switch
+// governs deleting old records, while this one stops tasks from hanging, which
+// an operator should not have to opt into. Usage is only recorded once a task
+// completes, so a timed-out task was never billed and needs no refund.
+func (s *CreativeVideoService) FailStaleTasksOnce(ctx context.Context, now time.Time, limit int) (int, error) {
+	if s == nil || s.Repo == nil {
+		return 0, nil
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	settings := s.creativeWorkbenchSettings(ctx)
+	timeout := time.Duration(settings.VideoTaskTimeoutMinutes) * time.Minute
+	if timeout <= 0 {
+		timeout = CreativeWorkbenchVideoTaskTimeoutMinutesDefault * time.Minute
+	}
+	return s.Repo.FailStaleCreativeVideoTasks(ctx, now.Add(-timeout),
+		"CREATIVE_VIDEO_TASK_TIMEOUT",
+		"video task exceeded the configured in-flight timeout",
+		limit)
 }
 
 func (s *CreativeVideoService) CleanupOnce(ctx context.Context, now time.Time, limit int) (int, error) {

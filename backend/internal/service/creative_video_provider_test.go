@@ -162,6 +162,42 @@ func TestCreativeVideoHTTPProvider_MiniMaxHappyCodeRelay(t *testing.T) {
 	require.Equal(t, "happycode-mp4", string(data))
 }
 
+func TestNormalizeCreativeVideoProviderStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status string
+		done   bool
+		want   string
+	}{
+		{"completed", "succeeded", false, CreativeVideoStatusCompleted},
+		{"failed", "error", false, CreativeVideoStatusFailed},
+		{"expired", "expired", false, CreativeVideoStatusExpired},
+		{"running", "in_progress", false, CreativeVideoStatusRunning},
+		// An unrecognized status used to become "running", which is what let a
+		// task stay in flight forever. It must report unknown instead.
+		{"unrecognized", "sleeping", false, CreativeVideoStatusUnknown},
+		{"empty", "", false, CreativeVideoStatusUnknown},
+		// Output already present outweighs a status we cannot read.
+		{"unrecognized but done", "sleeping", true, CreativeVideoStatusCompleted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, normalizeCreativeVideoProviderStatus(tc.status, tc.done))
+		})
+	}
+}
+
+// A MiniMax status payload with neither a file id nor a URL and an unreadable
+// status must surface as unknown, not as a task that is still running.
+func TestNormalizeMiniMaxVideoStatusUnrecognizedIsUnknown(t *testing.T) {
+	got := normalizeMiniMaxVideoStatus(map[string]any{
+		"task_id":     "vid_1",
+		"task_status": "Mystery",
+	}, "vid_1")
+
+	require.Equal(t, CreativeVideoStatusUnknown, got.Status)
+	require.Equal(t, "vid_1", got.ID)
+}
+
 func TestCreativeVideoProviderResponseJSONIncludesContentURL(t *testing.T) {
 	resp := CreativeVideoProviderResponseJSON(&CreativeVideoProviderStatus{
 		ID:              "vid_happycode",

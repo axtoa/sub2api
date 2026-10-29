@@ -146,6 +146,8 @@ export default {
         imageRunningHint: '达到上限时拒绝创建新图片任务。',
         videoRunning: '视频进行中上限',
         videoRunningHint: '达到上限时拒绝创建新视频任务。',
+        videoTaskTimeout: '视频任务超时（分钟）',
+        videoTaskTimeoutHint: '任务在途超过该时长后标记为失败，避免上游不再回报状态时一直占用进行中名额。范围 10-1440 分钟。',
         storageHint: '生成内容不应长期保存在本机。图片继续复用现有对象存储配置；视频接入时也会优先复用同一对象存储和临时保留策略。',
         saved: '创作台设置已保存',
         saveFailed: '保存创作台设置失败',

@@ -7839,6 +7839,22 @@
                       {{ t("admin.settings.creativeWorkbench.videoRunningHint") }}
                     </p>
                   </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.creativeWorkbench.videoTaskTimeout") }}
+                    </label>
+                    <input
+                      v-model.number="creativeWorkbenchForm.video_task_timeout_minutes"
+                      type="number"
+                      min="10"
+                      max="1440"
+                      class="input"
+                    />
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.creativeWorkbench.videoTaskTimeoutHint") }}
+                    </p>
+                  </div>
                 </div>
 
                 <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-4 dark:border-dark-700">
@@ -9182,6 +9198,7 @@ const creativeWorkbenchForm = reactive<CreativeWorkbenchSettings>({
   max_records_per_user: 50,
   image_max_running_per_user: 10,
   video_max_running_per_user: 5,
+  video_task_timeout_minutes: 180,
 });
 
 // Stream Timeout 状态
@@ -12089,6 +12106,7 @@ async function saveCreativeWorkbenchSettings() {
       max_records_per_user: Math.floor(Number(creativeWorkbenchForm.max_records_per_user)),
       image_max_running_per_user: Math.floor(Number(creativeWorkbenchForm.image_max_running_per_user)),
       video_max_running_per_user: Math.floor(Number(creativeWorkbenchForm.video_max_running_per_user)),
+      video_task_timeout_minutes: Math.floor(Number(creativeWorkbenchForm.video_task_timeout_minutes)),
     });
     Object.assign(creativeWorkbenchForm, updated);
     await appStore.fetchPublicSettings(true);

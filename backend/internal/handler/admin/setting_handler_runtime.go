@@ -254,14 +254,15 @@ func (h *SettingHandler) GetCreativeWorkbenchSettings(c *gin.Context) {
 		return
 	}
 	response.Success(c, dto.CreativeWorkbenchSettings{
-		Enabled:                settings.Enabled,
-		ImageEnabled:           settings.ImageEnabled,
-		VideoEnabled:           settings.VideoEnabled,
-		AutoCleanupEnabled:     settings.AutoCleanupEnabled,
-		RetentionDays:          settings.RetentionDays,
-		MaxRecordsPerUser:      settings.MaxRecordsPerUser,
-		ImageMaxRunningPerUser: settings.ImageMaxRunningPerUser,
-		VideoMaxRunningPerUser: settings.VideoMaxRunningPerUser,
+		Enabled:                 settings.Enabled,
+		ImageEnabled:            settings.ImageEnabled,
+		VideoEnabled:            settings.VideoEnabled,
+		AutoCleanupEnabled:      settings.AutoCleanupEnabled,
+		RetentionDays:           settings.RetentionDays,
+		MaxRecordsPerUser:       settings.MaxRecordsPerUser,
+		ImageMaxRunningPerUser:  settings.ImageMaxRunningPerUser,
+		VideoMaxRunningPerUser:  settings.VideoMaxRunningPerUser,
+		VideoTaskTimeoutMinutes: settings.VideoTaskTimeoutMinutes,
 	})
 }
 
@@ -274,6 +275,9 @@ type UpdateCreativeWorkbenchSettingsRequest struct {
 	MaxRecordsPerUser      int  `json:"max_records_per_user"`
 	ImageMaxRunningPerUser int  `json:"image_max_running_per_user"`
 	VideoMaxRunningPerUser int  `json:"video_max_running_per_user"`
+	// Pointer so a client that does not know this field yet leaves the stored
+	// value alone instead of submitting 0 and failing validation.
+	VideoTaskTimeoutMinutes *int `json:"video_task_timeout_minutes"`
 }
 
 // UpdateCreativeWorkbenchSettings 更新 AI 创作台配置
@@ -285,15 +289,23 @@ func (h *SettingHandler) UpdateCreativeWorkbenchSettings(c *gin.Context) {
 		return
 	}
 
+	timeoutMinutes := service.CreativeWorkbenchVideoTaskTimeoutMinutesDefault
+	if current, err := h.settingService.GetCreativeWorkbenchSettings(c.Request.Context()); err == nil && current != nil {
+		timeoutMinutes = current.VideoTaskTimeoutMinutes
+	}
+	if req.VideoTaskTimeoutMinutes != nil {
+		timeoutMinutes = *req.VideoTaskTimeoutMinutes
+	}
 	settings := &service.CreativeWorkbenchSettings{
-		Enabled:                req.Enabled,
-		ImageEnabled:           req.ImageEnabled,
-		VideoEnabled:           req.VideoEnabled,
-		AutoCleanupEnabled:     req.AutoCleanupEnabled,
-		RetentionDays:          req.RetentionDays,
-		MaxRecordsPerUser:      req.MaxRecordsPerUser,
-		ImageMaxRunningPerUser: req.ImageMaxRunningPerUser,
-		VideoMaxRunningPerUser: req.VideoMaxRunningPerUser,
+		Enabled:                 req.Enabled,
+		ImageEnabled:            req.ImageEnabled,
+		VideoEnabled:            req.VideoEnabled,
+		AutoCleanupEnabled:      req.AutoCleanupEnabled,
+		RetentionDays:           req.RetentionDays,
+		MaxRecordsPerUser:       req.MaxRecordsPerUser,
+		ImageMaxRunningPerUser:  req.ImageMaxRunningPerUser,
+		VideoMaxRunningPerUser:  req.VideoMaxRunningPerUser,
+		VideoTaskTimeoutMinutes: timeoutMinutes,
 	}
 	if err := h.settingService.SetCreativeWorkbenchSettings(c.Request.Context(), settings); err != nil {
 		response.BadRequest(c, err.Error())
@@ -306,14 +318,15 @@ func (h *SettingHandler) UpdateCreativeWorkbenchSettings(c *gin.Context) {
 		return
 	}
 	response.Success(c, dto.CreativeWorkbenchSettings{
-		Enabled:                updated.Enabled,
-		ImageEnabled:           updated.ImageEnabled,
-		VideoEnabled:           updated.VideoEnabled,
-		AutoCleanupEnabled:     updated.AutoCleanupEnabled,
-		RetentionDays:          updated.RetentionDays,
-		MaxRecordsPerUser:      updated.MaxRecordsPerUser,
-		ImageMaxRunningPerUser: updated.ImageMaxRunningPerUser,
-		VideoMaxRunningPerUser: updated.VideoMaxRunningPerUser,
+		Enabled:                 updated.Enabled,
+		ImageEnabled:            updated.ImageEnabled,
+		VideoEnabled:            updated.VideoEnabled,
+		AutoCleanupEnabled:      updated.AutoCleanupEnabled,
+		RetentionDays:           updated.RetentionDays,
+		MaxRecordsPerUser:       updated.MaxRecordsPerUser,
+		ImageMaxRunningPerUser:  updated.ImageMaxRunningPerUser,
+		VideoMaxRunningPerUser:  updated.VideoMaxRunningPerUser,
+		VideoTaskTimeoutMinutes: updated.VideoTaskTimeoutMinutes,
 	})
 }
 

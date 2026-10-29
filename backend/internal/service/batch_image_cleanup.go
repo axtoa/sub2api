@@ -103,11 +103,25 @@ func (s *BatchImageCleanupService) RunOnce(ctx context.Context, now time.Time) (
 		now = time.Now()
 	}
 	settings := s.creativeWorkbenchSettings(ctx)
+	// Failing hung video tasks is not record cleanup, so it runs even when
+	// auto-cleanup is off: a stuck task holds a user's concurrency slot and
+	// never resolves on its own.
+	staleResult := BatchImageCleanupRunResult{}
+	if s.CreativeVideo != nil {
+		failed, err := s.CreativeVideo.FailStaleTasksOnce(ctx, now, s.cleanupBatchSize())
+		if err != nil {
+			logger.L().Warn("creative_video.fail_stale_tasks_failed", zap.Error(err))
+			staleResult.Failures++
+		} else if failed > 0 {
+			logger.L().Info("creative_video.failed_stale_tasks", zap.Int("count", failed))
+			staleResult.VideoTasksTimedOut += failed
+		}
+	}
 	if settings != nil && !settings.AutoCleanupEnabled {
-		return BatchImageCleanupRunResult{}, nil
+		return staleResult, nil
 	}
 	limit := s.cleanupBatchSize()
-	result := BatchImageCleanupRunResult{}
+	result := staleResult
 	inputCutoff := now.Add(-s.inputRetentionAfterTerminal())
 	inputJobs, err := s.Repo.ListBatchImageJobsDueForInputCleanup(ctx, inputCutoff, limit)
 	if err != nil {
@@ -355,6 +369,7 @@ type BatchImageCleanupRunResult struct {
 	OutputCleaned       int
 	RecordsDeleted      int
 	VideoRecordsDeleted int
+	VideoTasksTimedOut  int
 	Failures            int
 }
 

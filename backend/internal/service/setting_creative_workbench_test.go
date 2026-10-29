@@ -74,19 +74,21 @@ func TestCreativeWorkbenchSettingsDefaultsAndPersistence(t *testing.T) {
 		t.Fatalf("unexpected default switches: %+v", defaults)
 	}
 	if defaults.RetentionDays != 3 || defaults.MaxRecordsPerUser != 50 ||
-		defaults.ImageMaxRunningPerUser != 10 || defaults.VideoMaxRunningPerUser != 5 {
+		defaults.ImageMaxRunningPerUser != 10 || defaults.VideoMaxRunningPerUser != 5 ||
+		defaults.VideoTaskTimeoutMinutes != CreativeWorkbenchVideoTaskTimeoutMinutesDefault {
 		t.Fatalf("unexpected default limits: %+v", defaults)
 	}
 
 	input := &CreativeWorkbenchSettings{
-		Enabled:                true,
-		ImageEnabled:           true,
-		VideoEnabled:           true,
-		AutoCleanupEnabled:     true,
-		RetentionDays:          7,
-		MaxRecordsPerUser:      80,
-		ImageMaxRunningPerUser: 12,
-		VideoMaxRunningPerUser: 6,
+		Enabled:                 true,
+		ImageEnabled:            true,
+		VideoEnabled:            true,
+		AutoCleanupEnabled:      true,
+		RetentionDays:           7,
+		MaxRecordsPerUser:       80,
+		ImageMaxRunningPerUser:  12,
+		VideoMaxRunningPerUser:  6,
+		VideoTaskTimeoutMinutes: 90,
 	}
 	if err := svc.SetCreativeWorkbenchSettings(ctx, input); err != nil {
 		t.Fatalf("save settings: %v", err)
@@ -113,5 +115,44 @@ func TestCreativeWorkbenchSettingsRejectsOutOfRangeValues(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid retention_days to be rejected")
+	}
+}
+
+// Settings saved before video_task_timeout_minutes existed unmarshal to 0. A
+// zero timeout would fail every in-flight task on the next sweep, so reading
+// such a blob must substitute the default.
+func TestCreativeWorkbenchSettingsLegacyBlobGetsDefaultTimeout(t *testing.T) {
+	ctx := context.Background()
+	repo := newCreativeWorkbenchSettingRepo()
+	repo.data[SettingKeyCreativeWorkbenchSettings] = `{"enabled":true,"image_enabled":true,"video_enabled":true,` +
+		`"auto_cleanup_enabled":true,"retention_days":3,"max_records_per_user":50,` +
+		`"image_max_running_per_user":10,"video_max_running_per_user":5}`
+	svc := NewSettingService(repo, nil)
+
+	got, err := svc.GetCreativeWorkbenchSettings(ctx)
+	if err != nil {
+		t.Fatalf("get legacy settings: %v", err)
+	}
+	if got.VideoTaskTimeoutMinutes != CreativeWorkbenchVideoTaskTimeoutMinutesDefault {
+		t.Fatalf("legacy blob timeout = %d, want %d", got.VideoTaskTimeoutMinutes, CreativeWorkbenchVideoTaskTimeoutMinutesDefault)
+	}
+}
+
+func TestCreativeWorkbenchSettingsRejectsOutOfRangeTimeout(t *testing.T) {
+	svc := NewSettingService(newCreativeWorkbenchSettingRepo(), nil)
+	for _, minutes := range []int{0, 5, 2000} {
+		err := svc.SetCreativeWorkbenchSettings(context.Background(), &CreativeWorkbenchSettings{
+			Enabled:                 true,
+			ImageEnabled:            true,
+			AutoCleanupEnabled:      true,
+			RetentionDays:           3,
+			MaxRecordsPerUser:       50,
+			ImageMaxRunningPerUser:  10,
+			VideoMaxRunningPerUser:  5,
+			VideoTaskTimeoutMinutes: minutes,
+		})
+		if err == nil {
+			t.Fatalf("expected video_task_timeout_minutes=%d to be rejected", minutes)
+		}
 	}
 }

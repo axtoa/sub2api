@@ -622,7 +622,11 @@ func normalizeCreativeVideoProviderStatus(status string, done bool) string {
 		if done {
 			return CreativeVideoStatusCompleted
 		}
-		return CreativeVideoStatusRunning
+		// An unrecognized status used to collapse to "running", which kept a
+		// task in flight for as long as upstream kept reporting it. Report it
+		// as unknown instead: observers keep the task's stored status and the
+		// in-flight deadline is what ends it.
+		return CreativeVideoStatusUnknown
 	}
 }
 

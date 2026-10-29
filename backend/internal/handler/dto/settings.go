@@ -481,6 +481,8 @@ type CreativeWorkbenchSettings struct {
 	MaxRecordsPerUser      int  `json:"max_records_per_user"`
 	ImageMaxRunningPerUser int  `json:"image_max_running_per_user"`
 	VideoMaxRunningPerUser int  `json:"video_max_running_per_user"`
+	// VideoTaskTimeoutMinutes 视频任务在途超时分钟数，超时后由清理循环标记失败
+	VideoTaskTimeoutMinutes int `json:"video_task_timeout_minutes"`
 }
 
 // StreamTimeoutSettings 流超时处理配置 DTO
