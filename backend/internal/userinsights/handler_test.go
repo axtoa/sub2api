@@ -32,7 +32,7 @@ func TestListHandlerPassesSortAndPagination(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(0, "0"))
 	mock.ExpectQuery(`ORDER BY i.total_calls ASC NULLS LAST, i.id DESC LIMIT \$2 OFFSET \$3`).
 		WithArgs("alice", 10, 10, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}))
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/user-insights?search=alice&page=2&page_size=10&sort_by=total_calls&sort_order=ASC", nil)

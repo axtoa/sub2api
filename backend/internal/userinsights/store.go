@@ -24,6 +24,7 @@ type User struct {
 	ID             int64      `json:"id"`
 	Email          string     `json:"email"`
 	Username       string     `json:"username"`
+	Notes          string     `json:"notes"`
 	Status         string     `json:"status"`
 	Balance        string     `json:"balance"`
 	RedeemedAmount string     `json:"redeemed_amount"`
@@ -93,7 +94,7 @@ func (f Filter) Validate() error {
 }
 
 var sortColumns = map[string]string{
-	"email": "i.email", "redeemed_amount": "i.redeemed_amount",
+	"email": "i.email", "notes": "i.notes", "redeemed_amount": "i.redeemed_amount",
 	"redeem_count": "i.redeem_count", "last_redeemed_at": "i.last_redeemed_at",
 	"balance": "i.balance", "usage_30d": "i.usage_30d",
 	"calls_30d": "i.calls_30d", "total_calls": "i.total_calls", "last_used_at": "i.last_used_at",
@@ -161,7 +162,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 	offsetArg := len(args) + 2
 	sinceArg := len(args) + 3
 	query := redemptionCTE + `, candidates AS (
-        SELECT u.id, u.email, u.username, u.status, u.balance,
+        SELECT u.id, u.email, u.username, u.notes, u.status, u.balance,
                COALESCE(r.redeemed_amount, 0) AS redeemed_amount,
                COALESCE(r.redeem_count, 0) AS redeem_count, r.last_redeemed_at
         ` + filteredUsersSQL(f.Segment) + `
@@ -177,7 +178,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
                usage_stats.total_calls, usage_stats.last_used_at
         FROM candidates p JOIN usage_stats ON usage_stats.user_id = p.id
     )
-    SELECT i.id, i.email, i.username, i.status, i.balance::text,
+    SELECT i.id, i.email, i.username, i.notes, i.status, i.balance::text,
            i.redeemed_amount::text, i.redeem_count, i.last_redeemed_at,
            i.usage_30d::text, i.calls_30d, i.total_calls, i.last_used_at
     FROM insights i ORDER BY ` + f.orderBySQL() + `
@@ -191,7 +192,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 	for rows.Next() {
 		var item User
 		var redeemedAt, usedAt sql.NullTime
-		if err := rows.Scan(&item.ID, &item.Email, &item.Username, &item.Status, &item.Balance,
+		if err := rows.Scan(&item.ID, &item.Email, &item.Username, &item.Notes, &item.Status, &item.Balance,
 			&item.RedeemedAmount, &item.RedeemCount, &redeemedAt, &item.Usage30d,
 			&item.Calls30d, &item.TotalCalls, &usedAt); err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
@@ -213,7 +214,7 @@ func (s *Store) Detail(ctx context.Context, userID int64) (*Detail, error) {
 	}
 	result := &Detail{Redemptions: []Redemption{}, Models: []Model{}}
 	var firstAt, lastAt sql.NullTime
-	err := s.db.QueryRowContext(ctx, `SELECT u.id, u.email, u.username, u.status, u.balance::text,
+	err := s.db.QueryRowContext(ctx, `SELECT u.id, u.email, u.username, u.notes, u.status, u.balance::text,
                COALESCE(r.redeemed_amount, 0)::text, COALESCE(r.redeem_count, 0),
                r.first_redeemed_at, r.last_redeemed_at
         FROM users u LEFT JOIN LATERAL (
@@ -222,7 +223,7 @@ func (s *Store) Detail(ctx context.Context, userID int64) (*Detail, error) {
             FROM redeem_codes WHERE used_by = u.id AND `+redeemedBalance+`
         ) r ON true
         WHERE u.id = $1 AND u.deleted_at IS NULL`, userID).
-		Scan(&result.ID, &result.Email, &result.Username, &result.Status, &result.Balance,
+		Scan(&result.ID, &result.Email, &result.Username, &result.Notes, &result.Status, &result.Balance,
 			&result.RedeemedAmount, &result.RedeemCount, &firstAt, &lastAt)
 	if err != nil {
 		return nil, fmt.Errorf("user detail: %w", err)

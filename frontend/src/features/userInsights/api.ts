@@ -10,6 +10,7 @@ export interface InsightUser {
   id: number
   email: string
   username: string
+  notes: string
   status: string
   balance: string
   redeemed_amount: string
@@ -38,7 +39,7 @@ export interface InsightDetail extends InsightUser {
 }
 
 export type Segment = 'all' | 'redeemed' | 'repeat' | 'inactive30'
-export type SortKey = 'email' | 'redeemed_amount' | 'redeem_count' | 'last_redeemed_at' | 'balance' | 'usage_30d' | 'calls_30d' | 'total_calls' | 'last_used_at'
+export type SortKey = 'email' | 'notes' | 'redeemed_amount' | 'redeem_count' | 'last_redeemed_at' | 'balance' | 'usage_30d' | 'calls_30d' | 'total_calls' | 'last_used_at'
 export type SortOrder = 'asc' | 'desc'
 
 export const userInsightsAPI = {

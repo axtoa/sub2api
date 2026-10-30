@@ -60,6 +60,7 @@
             <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
               <tr v-for="user in list?.items ?? []" :key="user.id" class="hover:bg-gray-50/70 dark:hover:bg-dark-700/50">
                 <td class="px-4 py-3"><button type="button" class="max-w-[230px] text-left hover:text-emerald-700 dark:hover:text-emerald-400" @click="openDetail(user.id)"><span class="block truncate font-medium" :title="user.email">{{ user.email }}</span><span class="text-xs text-gray-500 dark:text-dark-400">{{ user.username || `#${user.id}` }}</span></button></td>
+                <td class="min-w-[160px] max-w-[240px] px-4 py-3 text-gray-600 dark:text-dark-300"><span class="block truncate" :title="user.notes || undefined">{{ user.notes || t('userInsights.dash') }}</span></td>
                 <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ money(user.redeemed_amount) }}</td>
                 <td class="px-4 py-3 text-right tabular-nums">{{ user.redeem_count }}</td>
                 <td class="whitespace-nowrap px-4 py-3 text-gray-600 dark:text-dark-300">{{ date(user.last_redeemed_at) }}</td>
@@ -76,6 +77,7 @@
         <div class="divide-y divide-gray-100 md:hidden dark:divide-dark-700">
           <button v-for="user in list?.items ?? []" :key="user.id" type="button" class="w-full px-4 py-4 text-left" @click="openDetail(user.id)">
             <span class="flex items-center justify-between gap-2"><span class="min-w-0 truncate font-medium">{{ user.email }}</span><Icon name="chevronRight" size="sm" class="shrink-0 text-gray-400" /></span>
+            <span class="mt-1 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.notes') }}</span><span class="min-w-0 truncate text-right">{{ user.notes || t('userInsights.dash') }}</span></span>
             <span class="mt-2 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.redeemedAmount') }}</span><strong class="tabular-nums">{{ money(user.redeemed_amount) }}</strong></span>
             <span class="mt-1 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.usage30d') }}</span><span class="tabular-nums">{{ money(user.usage_30d) }}</span></span>
             <span class="mt-1 flex justify-between gap-2 text-sm"><span class="text-gray-500 dark:text-dark-400">{{ t('userInsights.calls30d') }}</span><span class="tabular-nums">{{ user.calls_30d.toLocaleString(locale) }}</span></span>
@@ -87,10 +89,10 @@
       </div>
       <footer v-if="list" class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500 dark:text-dark-400">
         <span>{{ t('userInsights.pageCount', { count: list.total }) }}</span>
-        <div class="flex items-center gap-2">
+        <div class="ml-auto flex items-center gap-2">
           <button class="btn btn-secondary px-2" type="button" :disabled="loading || page <= 1" :title="t('userInsights.previous')" :aria-label="t('userInsights.previous')" @click="goPage(page - 1)"><Icon name="chevronLeft" size="sm" /></button>
-          <span class="min-w-20 text-center">{{ t('userInsights.page', { page }) }}</span>
-          <button class="btn btn-secondary px-2" type="button" :disabled="loading || page * 20 >= list.total" :title="t('userInsights.next')" :aria-label="t('userInsights.next')" @click="goPage(page + 1)"><Icon name="chevronRight" size="sm" /></button>
+          <span class="min-w-36 text-center">{{ t('userInsights.pageProgress', { page, totalPages }) }}</span>
+          <button class="btn btn-secondary px-2" type="button" :disabled="loading || page >= totalPages" :title="t('userInsights.next')" :aria-label="t('userInsights.next')" @click="goPage(page + 1)"><Icon name="chevronRight" size="sm" /></button>
         </div>
       </footer>
 
@@ -136,6 +138,7 @@ const sortBy = ref<SortKey>('redeemed_amount')
 const sortOrder = ref<SortOrder>('desc')
 const columns: Array<{ key: SortKey; label: string; numeric?: boolean }> = [
   { key: 'email', label: 'user' },
+  { key: 'notes', label: 'notes' },
   { key: 'redeemed_amount', label: 'redeemedAmount', numeric: true },
   { key: 'redeem_count', label: 'redeemCount', numeric: true },
   { key: 'last_redeemed_at', label: 'lastRedeemed' },
@@ -164,6 +167,7 @@ const metrics = computed(() => list.value ? [
   { label: t('userInsights.totalCodes'), value: list.value.summary.codes.toLocaleString(locale.value) },
   { label: t('userInsights.filteredAmount'), value: money(list.value.filtered_amount) }
 ] : [])
+const totalPages = computed(() => list.value ? Math.max(1, Math.ceil(list.value.total / list.value.page_size)) : 1)
 
 async function load() {
   const revision = ++listRevision

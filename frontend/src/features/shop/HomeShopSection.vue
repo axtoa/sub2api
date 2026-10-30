@@ -1,7 +1,7 @@
 <template>
   <section class="home-shop best-shop" aria-labelledby="home-shop-title">
     <div class="shop-section-heading">
-      <div><h2 id="home-shop-title">{{ title }}</h2><p>{{ lead }}</p></div>
+      <div><h2 id="home-shop-title">{{ title }}</h2><p class="shop-prewrap">{{ lead }}</p></div>
       <router-link to="/shop/options" class="shop-text-link home-shop-cta">{{ t(auth.isAuthenticated ? 'shop.homepageView' : 'shop.homepageExplore') }}<Icon name="arrowRight" size="sm" /></router-link>
     </div>
     <div v-if="cards.length" class="home-shop-grid">

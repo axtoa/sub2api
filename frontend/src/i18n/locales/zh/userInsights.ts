@@ -16,6 +16,7 @@ export default {
     inactive30: '已兑换 · 近 30 天未调用',
     refresh: '刷新数据',
     user: '用户',
+    notes: '备注',
     redeemedAmount: '兑换到账',
     redeemCount: '兑换次数',
     lastRedeemed: '最近兑换',
@@ -50,6 +51,7 @@ export default {
     previous: '上一页',
     next: '下一页',
     page: '第 {page} 页',
+    pageProgress: '第 {page} 页 / 共 {totalPages} 页',
     dash: '—'
   }
 }

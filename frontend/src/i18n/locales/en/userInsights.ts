@@ -16,6 +16,7 @@ export default {
     inactive30: 'Redeemed, no calls in 30 days',
     refresh: 'Refresh data',
     user: 'User',
+    notes: 'Notes',
     redeemedAmount: 'Redeemed credit',
     redeemCount: 'Redemptions',
     lastRedeemed: 'Last redeemed',
@@ -50,6 +51,7 @@ export default {
     previous: 'Previous page',
     next: 'Next page',
     page: 'Page {page}',
+    pageProgress: 'Page {page} / {totalPages}',
     dash: '—'
   }
 }

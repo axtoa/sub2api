@@ -22,12 +22,25 @@ type ShopHomepageContent struct {
 }
 
 func IsValidShopHomepageContent(value ShopHomepageContent) bool {
-	if len(value.Cards) > 6 || !validShopHomepageText(value.Title, 60, true) || !validShopHomepageText(value.Lead, 180, true) {
+	if len(value.Cards) > 6 || !validShopHomepageText(value.Title, 60, true) || !validShopHomepageLead(value.Lead) {
 		return false
 	}
 	for _, card := range value.Cards {
 		if !validShopHomepageText(card.Title, 60, true) || !validShopHomepageText(card.Summary, 140, true) ||
 			!validShopHomepageText(card.PriceHint, 40, false) || card.BonusCents < 0 || card.BonusCents > 1000000 {
+			return false
+		}
+	}
+	return true
+}
+
+func validShopHomepageLead(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || utf8.RuneCountInString(value) > 180 {
+		return false
+	}
+	for _, r := range value {
+		if (r < 32 && r != '\n') || r == 127 {
 			return false
 		}
 	}

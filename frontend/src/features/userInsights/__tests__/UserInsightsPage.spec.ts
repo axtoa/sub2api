@@ -7,11 +7,16 @@ const { list, detail } = vi.hoisted(() => ({ list: vi.fn(), detail: vi.fn() }))
 vi.mock('../api', () => ({ userInsightsAPI: { list, detail } }))
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
-  return { ...actual, useI18n: () => ({ t: (key: string) => key, locale: ref('zh') }) }
+  return { ...actual, useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) => key === 'userInsights.pageProgress'
+      ? `第 ${params?.page} 页 / 共 ${params?.totalPages} 页`
+      : key,
+    locale: ref('zh')
+  }) }
 })
 
 const user = {
-  id: 7, email: 'alice@example.com', username: 'Alice', status: 'active',
+  id: 7, email: 'alice@example.com', username: 'Alice', notes: '重点用户', status: 'active',
   balance: '5.00', redeemed_amount: '30.00', redeem_count: 2,
   last_redeemed_at: '2026-10-25T09:00:00Z', usage_30d: '25.00', calls_30d: 3, total_calls: 42,
   last_used_at: '2026-10-25T09:00:00Z'
@@ -46,6 +51,7 @@ describe('UserInsightsPage', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('$100.00')
     expect(wrapper.text()).toContain('$30.00')
+    expect(wrapper.find('tbody').text()).toContain('重点用户')
     expect(list).toHaveBeenCalledWith(1, '', 'all', 'redeemed_amount', 'desc', expect.any(AbortSignal))
     wrapper.unmount()
   })
@@ -71,13 +77,13 @@ describe('UserInsightsPage', () => {
     expect(headers).toContain('userInsights.calls30d')
     expect(headers).toContain('userInsights.totalCalls')
     const cells = wrapper.findAll('tbody tr')[0].findAll('td')
-    expect(cells[6].text()).toBe('3')
-    expect(cells[7].text()).toBe('42')
+    expect(cells[7].text()).toBe('3')
+    expect(cells[8].text()).toBe('42')
     wrapper.unmount()
   })
 
   it.each([
-    ['user', 'email'], ['redeemedAmount', 'redeemed_amount'], ['redeemCount', 'redeem_count'],
+    ['user', 'email'], ['notes', 'notes'], ['redeemedAmount', 'redeemed_amount'], ['redeemCount', 'redeem_count'],
     ['lastRedeemed', 'last_redeemed_at'], ['balance', 'balance'], ['usage30d', 'usage_30d'],
     ['calls30d', 'calls_30d'], ['totalCalls', 'total_calls'], ['lastUsed', 'last_used_at']
   ])('toggles the %s header in both directions', async (label, key) => {
@@ -126,6 +132,22 @@ describe('UserInsightsPage', () => {
     await wrapper.find('button[aria-label="userInsights.sortAscending"]').trigger('click')
     await flushPromises()
     expect(list).toHaveBeenLastCalledWith(1, '', 'all', 'calls_30d', 'asc', expect.any(AbortSignal))
+    wrapper.unmount()
+  })
+
+  it('shows the total page count on the right side of pagination', async () => {
+    list.mockResolvedValue({
+      items: [user], total: 41, page: 1, page_size: 20,
+      summary: { amount: '100.00', users: 3, codes: 4 }, filtered_amount: '30.00'
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.text()).toContain('第 1 页 / 共 3 页')
+    expect(wrapper.find('.min-w-36').text()).toBe('第 1 页 / 共 3 页')
+    await wrapper.find('button[title="userInsights.next"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.min-w-36').text()).toBe('第 2 页 / 共 3 页')
+    expect(list).toHaveBeenLastCalledWith(2, '', 'all', 'redeemed_amount', 'desc', expect.any(AbortSignal))
     wrapper.unmount()
   })
 })

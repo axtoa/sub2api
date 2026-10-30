@@ -27,15 +27,15 @@ func TestCallerFilteringAndSorting(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	_, err = db.ExecContext(ctx, `
-        CREATE TABLE users (id bigint PRIMARY KEY, email text, username text, status text, balance numeric, deleted_at timestamptz);
+		CREATE TABLE users (id bigint PRIMARY KEY, email text, username text, notes text, status text, balance numeric, deleted_at timestamptz);
         CREATE TABLE redeem_codes (used_by bigint, type text, status text, value numeric, used_at timestamptz);
         CREATE TABLE usage_logs (user_id bigint, actual_cost numeric, created_at timestamptz, model text, requested_model text);
-        INSERT INTO users VALUES
-            (1, 'never@example.com', 'Never', 'active', 100, NULL),
-            (2, 'old@example.com', 'Old', 'active', 2, NULL),
-            (3, 'free@example.com', 'Free', 'active', 10, NULL),
-            (4, 'recent@example.com', 'Recent', 'active', 30, NULL),
-            (5, 'deleted@example.com', 'Deleted', 'active', 50, NOW());
+		INSERT INTO users VALUES
+		    (1, 'never@example.com', 'Never', 'no calls', 'active', 100, NULL),
+		    (2, 'old@example.com', 'Old', 'legacy user', 'active', 2, NULL),
+		    (3, 'free@example.com', 'Free', 'zero cost call', 'active', 10, NULL),
+		    (4, 'recent@example.com', 'Recent', 'priority', 'active', 30, NULL),
+		    (5, 'deleted@example.com', 'Deleted', '', 'active', 50, NOW());
         INSERT INTO redeem_codes VALUES
             (1, 'balance', 'used', 100, NOW()),
             (2, 'balance', 'used', 2, NOW() - INTERVAL '40 days'),
@@ -101,6 +101,7 @@ func TestCallerFilteringAndSorting(t *testing.T) {
 			desc []int64
 		}{
 			{"email", []int64{3, 2, 4}, []int64{4, 2, 3}},
+			{"notes", []int64{2, 4, 3}, []int64{3, 4, 2}},
 			{"redeemed_amount", []int64{2, 3, 4}, []int64{4, 3, 2}},
 			{"redeem_count", []int64{3, 2, 4}, []int64{4, 3, 2}},
 			{"last_redeemed_at", []int64{2, 3, 4}, []int64{4, 3, 2}},

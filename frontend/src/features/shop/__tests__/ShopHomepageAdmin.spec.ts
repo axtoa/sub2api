@@ -31,6 +31,15 @@ describe('homepage promotion editor', () => {
     expect(applyHomepageContent).toHaveBeenCalledWith(expect.objectContaining({ cards: [expect.objectContaining({ bonus_cents: 350 })] }), true)
   })
 
+  it('saves a multiline homepage lead', async () => {
+    const wrapper = mount(ShopHomepageAdmin, { global: { stubs: { Icon: true } } }); await flushPromises()
+    await wrapper.get('textarea').setValue('官方订阅/续费，也省下一笔。\n登录完成代充，赠送站点余额。')
+    await wrapper.get('form').trigger('submit'); await flushPromises()
+    expect(shopAPI.saveHomepageContent).toHaveBeenCalledWith({ ...content, lead: '官方订阅/续费，也省下一笔。\n登录完成代充，赠送站点余额。' })
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+  })
+
   it('rejects an invalid bonus before calling the server', async () => {
     const wrapper = mount(ShopHomepageAdmin, { global: { stubs: { Icon: true } } }); await flushPromises()
     await wrapper.get('.shop-homepage-card-editor input[inputmode="decimal"]').setValue('3.555')

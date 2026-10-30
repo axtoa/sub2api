@@ -100,6 +100,8 @@ func TestHomepageContentIsValidatedAndIndependent(t *testing.T) {
 		{"user", `{"title":"代购","lead":"看看","cards":[]}`, 403},
 		{"admin", `{"title":"","lead":"看看","cards":[]}`, 400},
 		{"admin", `{"title":"代购","lead":"看看","cards":[{"title":"Plus","summary":"简介","bonus_cents":-1}]}`, 400},
+		{"admin", `{"title":"代购","lead":"第一行\n第二行","cards":[]}`, 200},
+		{"admin", `{"title":"代购","lead":"第一行\u0001第二行","cards":[]}`, 400},
 		{"admin", `{"title":"代购","lead":"看看","cards":[{"title":"Plus","summary":"简介","price_hint":"约 ¥200/月","bonus_cents":500}]}`, 200},
 	} {
 		w := httptest.NewRecorder()

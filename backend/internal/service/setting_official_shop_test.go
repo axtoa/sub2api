@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -109,7 +110,7 @@ func TestShopHomepageContentIsIndependentAndPublic(t *testing.T) {
 	repo := &panelRateLimitSettingRepo{values: map[string]string{SettingKeyOfficialShopEnabled: "false"}}
 	s := NewSettingService(repo, &config.Config{})
 	content := ShopHomepageContent{
-		Title: "官方订阅", Lead: "登录后查看", Cards: []ShopHomepageCard{{Title: "Plus", Summary: "适合日常使用", PriceHint: "约 ¥200/月", BonusCents: 500}},
+		Title: "官方订阅", Lead: "官方订阅/续费，也省下一笔。\n登录完成代充，赠送站点余额。", Cards: []ShopHomepageCard{{Title: "Plus", Summary: "适合日常使用", PriceHint: "约 ¥200/月", BonusCents: 500}},
 	}
 	require.NoError(t, s.SetShopHomepageContent(context.Background(), content))
 	saved, err := s.GetShopHomepageContent(context.Background())
@@ -124,6 +125,34 @@ func TestShopHomepageContentIsIndependentAndPublic(t *testing.T) {
 	require.Equal(t, &content, payload.(*PublicSettingsInjectionPayload).ShopHomepageContent)
 	require.Error(t, s.SetShopHomepageContent(context.Background(), ShopHomepageContent{Title: "", Lead: "x"}))
 	require.Equal(t, &content, public.ShopHomepageContent)
+}
+
+func TestShopHomepageContentOnlyAllowsLineBreaksInLead(t *testing.T) {
+	valid := ShopHomepageContent{
+		Title: "ChatGPT", Lead: "Line one\nLine two",
+		Cards: []ShopHomepageCard{{Title: "Plus", Summary: "Monthly plan", PriceHint: "$20", BonusCents: 100}},
+	}
+	require.True(t, IsValidShopHomepageContent(valid))
+	for _, test := range []struct {
+		name string
+		edit func(*ShopHomepageContent)
+	}{
+		{"title newline", func(c *ShopHomepageContent) { c.Title = "Chat\nGPT" }},
+		{"card title newline", func(c *ShopHomepageContent) { c.Cards[0].Title = "Plus\nPlan" }},
+		{"summary newline", func(c *ShopHomepageContent) { c.Cards[0].Summary = "Monthly\nplan" }},
+		{"price newline", func(c *ShopHomepageContent) { c.Cards[0].PriceHint = "$20\nmonth" }},
+		{"lead tab", func(c *ShopHomepageContent) { c.Lead = "Line\tone" }},
+		{"lead null", func(c *ShopHomepageContent) { c.Lead = "Line\x00one" }},
+		{"lead delete", func(c *ShopHomepageContent) { c.Lead = "Line\x7fone" }},
+		{"lead too long", func(c *ShopHomepageContent) { c.Lead = strings.Repeat("x", 180) + "\nx" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			content := valid
+			content.Cards = append([]ShopHomepageCard(nil), valid.Cards...)
+			test.edit(&content)
+			require.False(t, IsValidShopHomepageContent(content))
+		})
+	}
 }
 
 func TestExternalPurchaseLinksAreIndependentFromOnSiteShop(t *testing.T) {

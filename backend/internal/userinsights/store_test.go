@@ -33,9 +33,9 @@ func TestListIncludesCallersWithoutRedemptions(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users"}).AddRow("0", 0, 0))
 	mock.ExpectQuery("EXISTS \\( SELECT 1 FROM usage_logs used WHERE used.user_id = u.id \\)").WithArgs("").
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(1, "0"))
-	mock.ExpectQuery("LEFT JOIN redemption r").WithArgs("", 20, 0, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}).
-			AddRow(7, "alice@example.com", "Alice", "active", "0", "0", 0, nil, "0", 0, 1, time.Now().AddDate(0, 0, -40)))
+	mock.ExpectQuery("WITH redemption AS").WithArgs("", 20, 0, sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}).
+			AddRow(7, "alice@example.com", "Alice", "priority account", "active", "0", "0", 0, nil, "0", 0, 1, time.Now().AddDate(0, 0, -40)))
 
 	result, err := NewStore(db).List(context.Background(), Filter{Page: 1, Size: 20, Segment: "all"})
 	require.NoError(t, err)
@@ -46,6 +46,7 @@ func TestListIncludesCallersWithoutRedemptions(t *testing.T) {
 	require.Nil(t, result.Items[0].LastRedeemedAt)
 	require.Zero(t, result.Items[0].Calls30d)
 	require.EqualValues(t, 1, result.Items[0].TotalCalls)
+	require.Equal(t, "priority account", result.Items[0].Notes)
 	require.NotNil(t, result.Items[0].LastUsedAt)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -62,8 +63,8 @@ func TestListSeparatesGlobalAndFilteredTotals(t *testing.T) {
 	usedAt := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	mock.ExpectQuery("WITH redemption AS").
 		WithArgs("alice", 20, 0, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}).
-			AddRow(7, "alice@example.com", "Alice", "active", "5.00", "30.00", 2, usedAt, "25.00", 3, 9, usedAt))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}).
+			AddRow(7, "alice@example.com", "Alice", "prefers email", "active", "5.00", "30.00", 2, usedAt, "25.00", 3, 9, usedAt))
 	result, err := NewStore(db).List(context.Background(), Filter{Page: 1, Size: 20, Segment: "repeat", Search: "alice"})
 	require.NoError(t, err)
 	require.Equal(t, "100.00", result.Summary.Amount)
@@ -73,6 +74,7 @@ func TestListSeparatesGlobalAndFilteredTotals(t *testing.T) {
 	require.Equal(t, "30.00", result.Items[0].RedeemedAmount)
 	require.EqualValues(t, 3, result.Items[0].Calls30d)
 	require.EqualValues(t, 9, result.Items[0].TotalCalls)
+	require.Equal(t, "prefers email", result.Items[0].Notes)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -87,7 +89,7 @@ func TestListInactiveSegmentUsesThirtyDayCutoff(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(0, "0"))
 	mock.ExpectQuery("WITH redemption AS").
 		WithArgs("", sqlmock.AnyArg(), 20, 0, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}))
 	result, err := NewStore(db).List(context.Background(), Filter{Page: 1, Size: 20, Segment: "inactive30"})
 	require.NoError(t, err)
 	require.Empty(t, result.Items)
@@ -110,8 +112,8 @@ func TestDetailKeepsRedeemedAndAdminCreditSeparate(t *testing.T) {
 	defer db.Close()
 	usedAt := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	mock.ExpectQuery("LEFT JOIN LATERAL").WithArgs(int64(7)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "status", "balance", "redeemed", "count", "first", "last"}).
-			AddRow(7, "alice@example.com", "Alice", "active", "5.00", "30.00", 2, usedAt, usedAt))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "first", "last"}).
+			AddRow(7, "alice@example.com", "Alice", "priority account", "active", "5.00", "30.00", 2, usedAt, usedAt))
 	mock.ExpectQuery("type = 'admin_balance'").WithArgs(int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"amount"}).AddRow("4.00"))
 	mock.ExpectQuery("SELECT value::text, used_at FROM redeem_codes").WithArgs(int64(7)).
@@ -124,6 +126,7 @@ func TestDetailKeepsRedeemedAndAdminCreditSeparate(t *testing.T) {
 	detail, err := NewStore(db).Detail(context.Background(), 7)
 	require.NoError(t, err)
 	require.Equal(t, "30.00", detail.RedeemedAmount)
+	require.Equal(t, "priority account", detail.Notes)
 	require.Equal(t, "4.00", detail.AdminAddedAmount)
 	require.Equal(t, "25.00", detail.Usage30d)
 	require.EqualValues(t, 3, detail.Calls30d)
