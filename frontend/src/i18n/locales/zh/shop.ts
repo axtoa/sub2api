@@ -4,6 +4,7 @@ export default { shop: {
   storefrontGoToCheckout: '去结算',
   storefrontRewardLogin: '登录领取赠送余额',
   storefrontLoginTitle: '登录商城',
+  storefrontSignedIn: '已登录',
   storefrontLoginLead: '登录后继续选购，符合条件的订单可获赠 Best AI 余额。',
   storefrontBackToShopping: '返回选购',
   storefrontEyebrow: '为你的 AI 日常，多一点选择',

@@ -1,5 +1,5 @@
 <template>
-  <ShopLayout :embedded="false" :storefront="true">
+  <ShopLayout :embedded="false" :storefront="true" :login-return-to="rewardLoginLink.query.redirect">
     <main class="shop-main cdk-storefront">
       <header class="shop-heading"><p class="cdk-storefront-eyebrow">{{ t('shop.storefrontEyebrow') }}</p><h1>{{ t('shop.storefrontTitle') }}</h1><p>支付成功后自动发放兑换码，前往兑换站完成充值。</p></header>
       <p v-if="error" class="shop-error" role="alert">{{ error }}</p>

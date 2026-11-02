@@ -4,6 +4,7 @@ export default { shop: {
   storefrontGoToCheckout: 'Go to checkout',
   storefrontRewardLogin: 'Sign in for balance rewards',
   storefrontLoginTitle: 'Sign in to the shop',
+  storefrontSignedIn: 'Signed in',
   storefrontLoginLead: 'Sign in to continue shopping and receive Best AI balance on eligible orders.',
   storefrontBackToShopping: 'Back to shopping',
   storefrontEyebrow: 'A little more choice for your AI day',

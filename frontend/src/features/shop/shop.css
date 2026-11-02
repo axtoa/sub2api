@@ -183,11 +183,14 @@
 .cdk-public-nav { display: flex; flex-shrink: 0; align-items: center; gap: 22px; }
 .cdk-public-nav a { display: inline-flex; min-height: 44px; align-items: center; color: var(--shop-green); font-size: 12px; }
 .cdk-public-nav a:last-child { font-weight: 600; }
+.cdk-public-nav .cdk-public-login { padding: 0 15px; border: 1px solid var(--shop-green); border-radius: 8px; }
+.cdk-public-nav .cdk-public-login:hover { background: var(--shop-selected); }
+.cdk-public-account { color: var(--shop-muted); font-size: 12px; white-space: nowrap; }
 .cdk-storefront .cdk-storefront-eyebrow { color: var(--shop-green); font-size: 12px; letter-spacing: 1px; }
 .cdk-recovery, #shop-product-details { scroll-margin-top: 24px; }
-@media (max-width: 420px) {
-  .cdk-public-header { flex-wrap: wrap; gap: 4px 16px; padding-top: 12px; padding-bottom: 8px; }
-  .cdk-public-nav { gap: 18px; }
+@media (max-width: 560px) {
+  .cdk-public-shop .cdk-public-header { flex-wrap: wrap; gap: 4px 16px; padding-top: 12px; padding-bottom: 8px; }
+  .cdk-public-nav { gap: 18px; margin-left: auto; }
 }
 .cdk-public-header { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 64px; padding: 0 max(24px, calc((100vw - 1280px) / 2)); border-bottom: 1px solid var(--shop-line); background: var(--shop-surface); }
 .cdk-public-brand { display: inline-flex; align-items: center; gap: 12px; min-width: 0; color: var(--shop-text); }

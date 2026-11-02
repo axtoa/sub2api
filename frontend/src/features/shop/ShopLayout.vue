@@ -29,6 +29,8 @@
       <nav class="cdk-public-nav" :aria-label="t('shop.storefrontNavigation')">
         <router-link to="/shop">{{ t('shop.storefrontAllProducts') }}</router-link>
         <a href="/shop?lookup=1#shop-order-lookup">{{ t('shop.storefrontLookup') }}</a>
+        <router-link v-if="!auth.isAuthenticated && route.name !== 'ShopLogin'" class="cdk-public-login" :to="loginLink">{{ t('home.login') }}</router-link>
+        <span v-else-if="auth.isAuthenticated" class="cdk-public-account">{{ t('shop.storefrontSignedIn') }}</span>
       </nav>
     </header>
     <div class="shop-main"><slot /></div>
@@ -42,12 +44,16 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { sanitizeUrl } from '@/utils/url'
+import { storefrontLoginReturnTo } from './storefront'
 import './shop.css'
-const props = withDefaults(defineProps<{ admin?: boolean; embedded?: boolean; storefront?: boolean; siteName?: string; siteLogo?: string }>(), { embedded: true })
+const props = withDefaults(defineProps<{ admin?: boolean; embedded?: boolean; storefront?: boolean; siteName?: string; siteLogo?: string; loginReturnTo?: string }>(), { embedded: true })
 const { t } = useI18n()
 const route = useRoute()
 const app = useAppStore()
+const auth = useAuthStore()
+const loginLink = computed(() => ({ path: '/shop/login', query: { redirect: storefrontLoginReturnTo(props.loginReturnTo || route.fullPath) } }))
 const resolvedSiteName = computed(() => props.siteName || app.cachedPublicSettings?.official_shop_name?.trim() || t('shop.storefrontTitle'))
 const resolvedSiteLogo = computed(() => sanitizeUrl(props.siteLogo || app.cachedPublicSettings?.site_logo || app.siteLogo || '', { allowRelative: true, allowDataUrl: true }) || '/logo.svg')
 </script>
