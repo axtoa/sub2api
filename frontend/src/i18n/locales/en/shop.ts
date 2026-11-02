@@ -1,5 +1,11 @@
 export default { shop: {
   storefrontTitle: 'AI Shop',
+  storefrontCodeDelivery: 'Delivered as a redemption code',
+  storefrontGoToCheckout: 'Go to checkout',
+  storefrontRewardLogin: 'Sign in for balance rewards',
+  storefrontLoginTitle: 'Sign in to the shop',
+  storefrontLoginLead: 'Sign in to continue shopping and receive Best AI balance on eligible orders.',
+  storefrontBackToShopping: 'Back to shopping',
   storefrontEyebrow: 'A little more choice for your AI day',
   storefrontLead: 'Find the AI products that fit your day. Keep your favorite tools close.',
   storefrontBrowse: 'Browse the shop',

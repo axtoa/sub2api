@@ -1,13 +1,13 @@
 <template>
-  <AuthLayout brand-name="Best AI" :brand-subtitle="t('home.heroEyebrow')" best-ai-theme>
+  <component :is="shopMode ? ShopLoginLayout : AuthLayout" v-bind="shopMode ? { returnTo: loginDestination } : { brandName: 'Best AI', brandSubtitle: t('home.heroEyebrow'), bestAiTheme: true }">
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-          {{ t('auth.welcomeBack') }}
+          {{ t(shopMode ? 'shop.storefrontLoginTitle' : 'auth.welcomeBack') }}
         </h2>
         <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
-          {{ t('auth.signInToAccount') }}
+          {{ t(shopMode ? 'shop.storefrontLoginLead' : 'auth.signInToAccount') }}
         </p>
       </div>
       <!-- Login Form -->
@@ -197,7 +197,7 @@
     </div>
 
     <!-- Footer -->
-    <template v-if="!backendModeEnabled" #footer>
+    <template v-if="!backendModeEnabled && !shopMode" #footer>
       <p class="text-gray-500 dark:text-dark-400">
         {{ t('auth.dontHaveAccount') }}
         <router-link
@@ -208,7 +208,7 @@
         </router-link>
       </p>
     </template>
-  </AuthLayout>
+  </component>
 
   <!-- 2FA Modal -->
   <TotpLoginModal
@@ -226,6 +226,8 @@ import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
+import ShopLoginLayout from '@/features/shop/ShopLoginLayout.vue'
+import { storefrontLoginReturnTo } from '@/features/shop/storefront'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
 import DingTalkOAuthSection from '@/components/auth/DingTalkOAuthSection.vue'
 import OidcOAuthSection from '@/components/auth/OidcOAuthSection.vue'
@@ -258,6 +260,10 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 // ==================== Router & Stores ====================
 
 const router = useRouter()
+const props = withDefaults(defineProps<{ shopMode?: boolean }>(), { shopMode: false })
+const loginDestination = computed(() => props.shopMode
+  ? storefrontLoginReturnTo(router.currentRoute.value.query.redirect)
+  : (router.currentRoute.value.query.redirect as string) || '/dashboard')
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
@@ -601,7 +607,7 @@ async function handleLogin(): Promise<void> {
     appStore.showSuccess(t('auth.loginSuccess'))
 
     // Redirect to dashboard or intended route
-    const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
+    const redirectTo = loginDestination.value
     await router.push(redirectTo)
   } catch (error: unknown) {
     errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.loginFailed'))
@@ -642,7 +648,7 @@ async function handlePasskeyLogin(): Promise<void> {
     await authStore.loginWithPasskey(proof)
     clearAllAffiliateReferralCodes()
     appStore.showSuccess(t('auth.loginSuccess'))
-    const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
+    const redirectTo = loginDestination.value
     await router.push(redirectTo)
   } catch (error: unknown) {
     const fallback = error instanceof DOMException && error.name === 'NotAllowedError'
@@ -711,7 +717,7 @@ async function handle2FAVerify(code: string): Promise<void> {
     appStore.showSuccess(t('auth.loginSuccess'))
 
     // Redirect to dashboard or intended route
-    const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
+    const redirectTo = loginDestination.value
     await router.push(redirectTo)
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { message?: string } } }

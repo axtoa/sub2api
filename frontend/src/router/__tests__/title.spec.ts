@@ -26,6 +26,11 @@ describe('resolveDocumentTitle', () => {
 })
 
 describe('resolveRouteDocumentTitle', () => {
+  it('keeps the shop login title independent of the gateway brand', () => {
+    const translate = vi.spyOn(i18n.global, 't').mockImplementation((key: string) => key === 'shop.storefrontLoginTitle' ? 'Shop sign in' : 'AI Shop')
+    expect(resolveRouteDocumentTitle({ name: 'ShopLogin', params: {}, meta: {} }, 'My API Gateway')).toBe('Shop sign in · AI Shop')
+    translate.mockRestore()
+  })
   it('keeps the public shop title independent of the gateway brand', () => {
     const translate = vi.spyOn(i18n.global, 't').mockReturnValue('AI Shop')
     const title = resolveRouteDocumentTitle({ name: 'Shop', params: {}, meta: { titleKey: 'shop.storefrontTitle' } }, 'My API Gateway')

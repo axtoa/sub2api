@@ -194,22 +194,22 @@
 .cdk-public-logo { display: flex; width: 36px; height: 36px; flex: 0 0 36px; align-items: center; justify-content: center; overflow: hidden; border-radius: 12px; background: var(--shop-selected); color: var(--shop-green); }
 .cdk-public-logo img { width: 100%; height: 100%; object-fit: contain; }
 .cdk-public-site-name { overflow: hidden; font-size: 18px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.cdk-public-shop > .shop-main { width: min(1328px, 100%); padding: 40px 24px 72px; }
+.cdk-public-shop > .shop-main { width: min(1328px, 100%); padding: 28px 24px 48px; }
 .cdk-storefront { padding-bottom: 0; }
 .cdk-storefront .shop-heading { display: flex; flex-direction: column; gap: 10px; }
 .cdk-storefront .shop-heading p { margin: 0; }
 .cdk-storefront .shop-checkout-grid { grid-template-columns: minmax(0, 1.5fr) minmax(300px, .8fr); gap: 32px; }
-.cdk-checkout-card { padding: 24px; border: 1px solid var(--shop-line); border-radius: 12px; background: var(--shop-surface); }
+.cdk-checkout-card { position: sticky; top: 24px; padding: 24px; border: 1px solid var(--shop-line); border-radius: 12px; background: var(--shop-surface); }
 .cdk-checkout-card > p { margin-bottom: 20px; }
 .cdk-checkout-total { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--shop-line); padding-top: 16px; }
 .cdk-checkout-total strong { font-size: 22px; }
 .cdk-balance-reward { display: inline-flex; align-self: flex-start; max-width: 100%; padding: 5px 9px; border-radius: 6px; background: var(--shop-reward-bg); color: var(--shop-reward-ink); font-size: 12px; font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; }
 .shop-product .cdk-balance-reward { display: flex; width: fit-content; margin-top: 12px; }
 .cdk-checkout-reward .shop-caption { margin: 8px 0 0; }
-.cdk-workflow { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 0 0 30px; padding: 16px 0; border-bottom: 1px solid var(--shop-line); list-style: none; color: var(--shop-muted); font-size: 13px; }
+.cdk-workflow { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0 0 22px; padding: 12px 0; border-bottom: 1px solid var(--shop-line); list-style: none; color: var(--shop-muted); font-size: 12px; }
 .cdk-workflow li { display: inline-flex; align-items: center; gap: 8px; }
 .cdk-workflow span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--shop-selected); color: var(--shop-green); font-weight: 600; font-size: 11px; }
-.cdk-recovery { margin-bottom: 26px; padding: 14px 0; border-bottom: 1px solid var(--shop-line); }
+.cdk-recovery { margin: 24px 0 0; padding: 14px 0; border-top: 1px solid var(--shop-line); }
 .cdk-recovery summary { cursor: pointer; width: fit-content; color: var(--shop-muted); font-size: 13px; }
 .cdk-recovery .shop-recovery-form { padding-bottom: 0; margin-bottom: 0; border: 0; }
 .cdk-order-qrcode { width: 220px; max-width: 100%; margin: 16px 0; }
@@ -229,7 +229,23 @@
 .cdk-import { display: grid; gap: 8px; font-size: 12px; }
 .cdk-rewards { border-top: 1px solid var(--shop-line); padding-top: 24px; }
 .cdk-reward-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--shop-line); }
-.cdk-storefront .shop-heading { margin-bottom: 24px; }
+.cdk-storefront .shop-heading { margin-bottom: 14px; gap: 7px; }
+.cdk-storefront .shop-heading h1 { margin-bottom: 0; }
+.cdk-reward-login { margin-top: 10px; min-height: 36px; text-decoration: underline !important; text-underline-offset: 3px; }
+.cdk-mobile-summary { display: none; }
+.cdk-shop-login { width: min(448px, 100%); margin: 16px auto 32px; }
+.cdk-shop-login > .shop-text-link { min-height: 44px; margin-bottom: 12px; }
+.cdk-shop-login-card { padding: 28px; border: 1px solid var(--shop-line); border-radius: 16px; background: var(--shop-surface); }
+.cdk-shop-login :is(.text-gray-900, .input-label) { color: var(--shop-text); }
+.cdk-shop-login .text-gray-500 { color: var(--shop-muted); }
+.cdk-shop-login .text-primary-600 { color: var(--shop-green); }
+.cdk-shop-login .input { border-color: var(--shop-line); background: var(--shop-bg); color: var(--shop-text); }
+.cdk-shop-login .input.pl-11 { padding-left: 2.75rem; }
+.cdk-shop-login .input.pr-11 { padding-right: 2.75rem; }
+.cdk-shop-login .input:focus { border-color: var(--shop-green); --tw-ring-color: var(--shop-green); }
+.cdk-shop-login .btn-primary { background: var(--shop-green); color: var(--shop-surface); }
+.cdk-shop-login .btn-secondary { border-color: var(--shop-line); background: var(--shop-bg); color: var(--shop-text); }
+.cdk-shop-login input::placeholder { color: var(--shop-muted); }
 .shop-recovery-form { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; padding: 16px 0; margin-bottom: 20px; border-bottom: 1px solid var(--shop-line); }
 .shop-recovery-form label { display: grid; gap: 6px; flex: 1 1 220px; min-width: 0; color: var(--shop-muted); font-size: 12px; }
 .cdk-order-result { max-width: 700px; padding: 24px 0; }
@@ -269,7 +285,13 @@
 }
 @container (max-width: 900px) {
   .cdk-storefront .shop-checkout-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .cdk-checkout-card { padding: 20px; }
+  .cdk-checkout-card { position: static; padding: 20px; }
+  .cdk-storefront { padding-bottom: 100px; }
+  .cdk-mobile-summary { position: fixed; z-index: 30; right: 16px; bottom: max(12px, env(safe-area-inset-bottom)); left: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; border: 1px solid var(--shop-line); border-radius: 12px; background: var(--shop-surface); box-shadow: 0 5px 24px rgb(98 61 43 / 12%); }
+  .cdk-mobile-summary > div { display: grid; min-width: 0; gap: 3px; }
+  .cdk-mobile-summary strong { overflow: hidden; color: var(--shop-text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .cdk-mobile-summary span { color: var(--shop-green); font-size: 13px; font-weight: 600; }
+  .cdk-mobile-summary .shop-primary { min-height: 44px; flex-shrink: 0; }
   .shop-checkout-grid, .shop-admin-grid, .shop-detail-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .shop-product-editor, .shop-order-actions { border-left: 0; border-top: 1px solid var(--shop-line); padding: 26px 0 0; }
 }

@@ -29,6 +29,7 @@ export function resolveRouteDocumentTitle(
   customMenuItems: CustomMenuItem[] = [],
 ): string {
   if (route.name === 'Shop') return i18n.global.t('shop.storefrontTitle')
+  if (route.name === 'ShopLogin') return `${i18n.global.t('shop.storefrontLoginTitle')} · ${i18n.global.t('shop.storefrontTitle')}`
 
   const id = typeof route.params.id === 'string' ? route.params.id : ''
   const menuItem = route.name === 'CustomPage' && id

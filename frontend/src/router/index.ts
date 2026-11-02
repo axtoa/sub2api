@@ -14,12 +14,19 @@ import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 import { completeShopEntry, resolveShopEntryRedirect } from '@/features/shop/entryFlow'
+import { storefrontLoginReturnTo } from '@/features/shop/storefront'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 /**
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/shop/login', name: 'ShopLogin',
+    component: () => import('@/views/auth/LoginView.vue'),
+    props: { shopMode: true },
+    meta: { requiresAuth: false, titleKey: 'shop.storefrontLoginTitle' }
+  },
   {
     path: '/admin/upstream-balances', name: 'UpstreamBalances',
     component: () => import('@/features/upstreamBalance/UpstreamBalancePage.vue'),
@@ -921,6 +928,10 @@ router.beforeEach(async (to, _from, next) => {
 
   // If route doesn't require auth, allow access
   if (!requiresAuth) {
+    if (authStore.isAuthenticated && to.name === 'ShopLogin') {
+      next(storefrontLoginReturnTo(to.query.redirect))
+      return
+    }
     // If already authenticated and trying to access login/register, redirect to appropriate dashboard
     if (authStore.isAuthenticated && (to.path === '/login' || to.path === '/register')) {
       // In backend mode, non-admin users should NOT be redirected away from login

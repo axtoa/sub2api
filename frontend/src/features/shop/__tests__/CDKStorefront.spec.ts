@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
 import CDKStorefront from '../CDKStorefront.vue'
 
 const state = vi.hoisted(() => ({
@@ -19,6 +19,7 @@ const product = { id: 'product-1', name: 'Plus', spec: '1 个月', price_cents: 
 const order = { id: 'order-1', product_name: 'Plus', price_cents: 9900, payment_status: 'pending', delivery_status: 'pending' }
 const response = (body: unknown, ok = true) => ({ ok, json: async () => body })
 let wrapper: VueWrapper | undefined
+const mountStorefront = () => mount(CDKStorefront, { global: { stubs: { RouterLink: RouterLinkStub } } })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -37,14 +38,14 @@ afterEach(() => { wrapper?.unmount(); vi.unstubAllGlobals() })
 
 describe('CDK storefront order access', () => {
   it('keeps signed-in buyers in the independent storefront', async () => {
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.attributes('data-embedded')).toBe('false')
   })
 
   it.each([true, false])('shows USD balance rewards with the appropriate purchase conditions when authenticated=%s', async authenticated => {
     state.auth.isAuthenticated = authenticated
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.get('.shop-product .cdk-balance-reward').text()).toBe('赠 $5 Best AI 余额')
     expect(wrapper.get('.cdk-checkout-reward .cdk-balance-reward').text()).toBe('赠 $5 Best AI 余额')
@@ -55,10 +56,23 @@ describe('CDK storefront order access', () => {
 
   it('does not promise balance rewards for a product with no reward configured', async () => {
     state.fetch.mockImplementation(async (url: string) => url.endsWith('/products') ? response({ items: [{ ...product, reward_cents: 0 }] }) : response({ enabled: true }))
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.find('.cdk-balance-reward').exists()).toBe(false)
     expect(wrapper.find('.cdk-checkout-reward').exists()).toBe(false)
+  })
+
+  it('preserves the selected product in the reward login link without forcing guests to sign in', async () => {
+    state.auth.isAuthenticated = false
+    state.fetch.mockImplementation(async (url: string) => url.endsWith('/products')
+      ? response({ items: [product, { ...product, id: 'product-2', name: 'Pro' }] }) : response({ enabled: true }))
+    wrapper = mountStorefront()
+    await flushPromises()
+    await wrapper.findAll('.shop-product-choice')[1].trigger('click')
+    expect(wrapper.getComponent(RouterLinkStub).props('to')).toEqual({ path: '/shop/login', query: { redirect: '/shop?product=product-2#shop-product-details' } })
+    expect(wrapper.get('.cdk-checkout-card .shop-primary').attributes('disabled')).toBeUndefined()
+    expect(state.post).not.toHaveBeenCalled()
+    expect(wrapper.element.querySelector('.shop-checkout-grid')!.compareDocumentPosition(wrapper.get('#shop-order-lookup').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('selects the product linked from the homepage rather than the first product', async () => {
@@ -66,7 +80,7 @@ describe('CDK storefront order access', () => {
     state.fetch.mockImplementation(async (url: string) => url.endsWith('/products')
       ? response({ items: [product, { ...product, id: 'product-2', name: 'Pro', price_cents: 19900 }] })
       : response({ enabled: true }))
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.get('.cdk-checkout-card').text()).toContain('Pro')
     expect(wrapper.get('.cdk-checkout-total').text()).toContain('199.00')
@@ -78,7 +92,7 @@ describe('CDK storefront order access', () => {
     state.fetch.mockImplementation(async (url: string) => url.endsWith('/products')
       ? response({ items: [product, { ...product, id: 'product-2', name: 'Sold out Pro', stock: 0 }] })
       : response({ enabled: true }))
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.get('.cdk-checkout-card').text()).toContain('Sold out Pro')
     expect(wrapper.get('.cdk-checkout-card').text()).toContain('shop.storefrontSoldOutHint')
@@ -87,7 +101,7 @@ describe('CDK storefront order access', () => {
 
   it('explains when the shared product is no longer available', async () => {
     state.route.query = { product: 'removed-product' }
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.text()).toContain('shop.storefrontProductMissing')
   })
@@ -95,7 +109,7 @@ describe('CDK storefront order access', () => {
   it('opens order recovery directly from the homepage lookup link', async () => {
     state.auth.isAuthenticated = false
     state.route.query = { lookup: '1' }
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.get('#shop-order-lookup').attributes('open')).toBeDefined()
     expect(state.post).not.toHaveBeenCalled()
@@ -103,7 +117,7 @@ describe('CDK storefront order access', () => {
 
   it('uses scoped account authorization to recover an order after returning from payment', async () => {
     state.route.query = { order: order.id }
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(state.post).toHaveBeenCalledWith('/auth/cdkshop-token')
     expect(state.fetch).toHaveBeenCalledWith('/api/v1/cdkshop/orders/order-1', expect.objectContaining({
@@ -117,7 +131,7 @@ describe('CDK storefront order access', () => {
     state.auth.isAuthenticated = false
     state.route.query = { order: order.id }
     sessionStorage.setItem('cdkshop-recovery:order-1', 'guest-recovery')
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(state.post).not.toHaveBeenCalled()
     expect(state.fetch).toHaveBeenCalledWith('/api/v1/cdkshop/orders/order-1', expect.objectContaining({
@@ -134,7 +148,7 @@ describe('CDK storefront order access', () => {
       if (attempts === 1) throw new Error('network timeout')
       return response({ order, recovery_key: 'saved-key' })
     })
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     await wrapper.get('.shop-form').trigger('submit')
     await flushPromises()
@@ -149,7 +163,7 @@ describe('CDK storefront order access', () => {
   it('does not render unsafe payment links supplied by the provider', async () => {
     state.route.query = { order: order.id }
     state.fetch.mockResolvedValue(response({ ...order, pay_url: 'javascript:alert(1)' }))
-    wrapper = mount(CDKStorefront)
+    wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.find('a[href^="javascript:"]').exists()).toBe(false)
   })

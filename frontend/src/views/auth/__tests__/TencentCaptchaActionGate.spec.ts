@@ -10,11 +10,12 @@ const startOAuthLoginMock = vi.fn()
 const verifyActionMock = vi.fn()
 const captchaResetMock = vi.fn()
 const locationState = { href: 'http://localhost/login' }
+const routeState = vi.hoisted(() => ({ query: {} as Record<string, string>, push: vi.fn() }))
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
-    currentRoute: { value: { query: {} } },
-    push: vi.fn()
+    currentRoute: { value: { query: routeState.query } },
+    push: routeState.push
   })
 }))
 
@@ -75,11 +76,13 @@ const OAuthButtonStub = defineComponent({
   }
 })
 
-function mountLogin() {
+function mountLogin(shopMode = false) {
   return mount(LoginView, {
+    props: { shopMode },
     global: {
       stubs: {
         AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' },
+        ShopLoginLayout: { props: ['returnTo'], template: '<div data-testid="shop-login" :data-return-to="returnTo"><slot /></div>' },
         RouterLink: true,
         TurnstileWidget: CaptchaChallengeStub,
         Icon: true,
@@ -97,6 +100,8 @@ function mountLogin() {
 
 describe('Tencent captcha action gate', () => {
   beforeEach(() => {
+    routeState.query = {}
+    routeState.push.mockReset()
     loginMock.mockReset()
     loginWithPasskeyMock.mockReset()
     getPublicSettingsMock.mockReset()
@@ -127,6 +132,33 @@ describe('Tencent captcha action gate', () => {
       configurable: true,
       value: locationState
     })
+  })
+
+  it('reuses captcha-protected login in the shop shell and returns to the selected product', async () => {
+    routeState.query = { redirect: '/shop?product=claude#shop-product-details' }
+    const wrapper = mountLogin(true)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="shop-login"]').attributes('data-return-to')).toBe('/shop?product=claude#shop-product-details')
+    expect(wrapper.text()).toContain('shop.storefrontLoginTitle')
+    expect(wrapper.text()).not.toContain('auth.dontHaveAccount')
+    await wrapper.get('#email').setValue('user@example.com')
+    await wrapper.get('#password').setValue('secret-123')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(verifyActionMock).toHaveBeenCalledOnce()
+    expect(loginMock).toHaveBeenCalledWith(expect.objectContaining({ tencent_captcha_ticket: 'ticket-1' }))
+    expect(routeState.push).toHaveBeenCalledWith('/shop?product=claude#shop-product-details')
+  })
+
+  it('returns shop passkey users to the shop instead of the dashboard', async () => {
+    routeState.query = { redirect: '/shop?product=plus' }
+    const wrapper = mountLogin(true)
+    await flushPromises()
+    const button = wrapper.findAll('button').find(button => button.text().includes('auth.passkeySignIn'))!
+    await button.trigger('click')
+    await flushPromises()
+    expect(loginWithPasskeyMock).toHaveBeenCalledOnce()
+    expect(routeState.push).toHaveBeenCalledWith('/shop?product=plus')
   })
 
   it('clicking login opens Tencent captcha before calling login', async () => {

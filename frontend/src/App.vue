@@ -141,6 +141,6 @@ onMounted(async () => {
   <NavigationProgress />
   <RouterView />
   <Toast />
-  <AnnouncementPopup v-if="route.name !== 'Shop'" />
-  <AdminComplianceDialog v-if="route.name !== 'Shop'" />
+  <AnnouncementPopup v-if="route.name !== 'Shop' && route.name !== 'ShopLogin'" />
+  <AdminComplianceDialog v-if="route.name !== 'Shop' && route.name !== 'ShopLogin'" />
 </template>

@@ -1,5 +1,11 @@
 export default { shop: {
   storefrontTitle: 'AI 代购商城',
+  storefrontCodeDelivery: '兑换码交付',
+  storefrontGoToCheckout: '去结算',
+  storefrontRewardLogin: '登录领取赠送余额',
+  storefrontLoginTitle: '登录商城',
+  storefrontLoginLead: '登录后继续选购，符合条件的订单可获赠 Best AI 余额。',
+  storefrontBackToShopping: '返回选购',
   storefrontEyebrow: '为你的 AI 日常，多一点选择',
   storefrontLead: '选一份适合自己的 AI 产品，让喜欢的工具常伴左右。',
   storefrontBrowse: '逛逛商城',

@@ -130,12 +130,19 @@ describe('feature route guard', () => {
   })
 
   it('allows guest access to the CDK catalogue while keeping account orders and administration protected', () => {
+    expect(routerHarness.routes.find(route => route.path === '/shop/login')?.meta?.requiresAuth).toBe(false)
     expect(routerHarness.routes.find(route => route.path === '/shop/options')?.meta?.requiresAuth).toBe(true)
     expect(routerHarness.routes.find(route => route.path === '/shop')?.meta?.requiresAuth).toBe(false)
     expect(routerHarness.routes.find(route => route.path === '/shop/orders/:id?')?.meta?.requiresAuth).toBe(true)
     for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id']) {
       expect(routerHarness.routes.find(route => route.path === path)?.meta).toMatchObject({ requiresAuth: true, requiresAdmin: true })
     }
+  })
+
+  it('returns signed-in shoppers to their selected product from the shop login route', async () => {
+    const next = vi.fn()
+    await routerHarness.guard!({ path: '/shop/login', fullPath: '/shop/login', name: 'ShopLogin', params: {}, query: { redirect: '/shop?product=claude#shop-product-details' }, meta: { requiresAuth: false } }, {}, next)
+    expect(next).toHaveBeenCalledWith('/shop?product=claude#shop-product-details')
   })
 
   it.each(['/shop/options', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {

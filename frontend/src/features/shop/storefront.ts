@@ -18,6 +18,15 @@ export function formatStorefrontReward(cents: number): string {
   }).format(cents / 100)
 }
 
+export function storefrontLoginReturnTo(value: unknown): string {
+  if (typeof value !== 'string') return '/shop'
+  try {
+    const url = new URL(value, 'https://storefront.invalid')
+    return url.origin === 'https://storefront.invalid' && url.pathname === '/shop'
+      ? `${url.pathname}${url.search}${url.hash}` : '/shop'
+  } catch { return '/shop' }
+}
+
 // An optional dedicated storefront URL; same-site installations work without it.
 export function storefrontLink(product?: string, lookup = false): string {
   const base = safeExternalLink(import.meta.env.VITE_STOREFRONT_URL, '') || '/shop'

@@ -5,7 +5,6 @@
       <p v-if="error" class="shop-error" role="alert">{{ error }}</p>
       <p v-if="!loading && !storeEnabled && !order" class="shop-paused" role="status">商城暂停售卖，已创建订单仍可查询。</p>
       <ol v-if="!order" class="cdk-workflow" aria-label="购买流程"><li><span>1</span>选择商品</li><li><span>2</span>支付领取兑换码</li><li><span>3</span>前往兑换站充值</li></ol>
-      <details v-if="!order" id="shop-order-lookup" class="cdk-recovery" :open="route.query.lookup === '1'"><summary>已有订单？查询 / 找回兑换码</summary><form class="shop-recovery-form" @submit.prevent="recoverOrder"><label>找回已有订单<input v-model.trim="recoverID" required autocomplete="off" placeholder="订单号" /></label><label>订单恢复码<input v-model.trim="recoverKey" required autocomplete="off" /></label><button class="shop-secondary" :disabled="busy">查询订单</button></form></details>
       <div v-if="loading" class="shop-empty">{{ t('common.loading') }}</div>
       <template v-else-if="!order">
         <p v-if="requestedProductMissing" class="shop-paused" role="status">{{ t('shop.storefrontProductMissing') }}</p>
@@ -13,7 +12,7 @@
         <div v-else class="shop-checkout-grid">
           <section><div class="shop-section-heading"><h2>选择商品</h2></div><div class="shop-product-grid">
             <button v-for="item in products" :key="item.id" class="shop-product-choice" type="button" :aria-pressed="selected?.id === item.id" :disabled="item.stock < 1" @click="selected=item">
-              <article class="shop-product" :class="{selected:selected?.id===item.id}"><div class="shop-product-top"><span class="shop-brand-label">CDK 兑换码</span><span>{{ item.stock > 0 ? `库存 ${item.stock}` : '暂时售罄' }}</span></div><h3>{{ item.name }}</h3><p class="shop-muted">{{ item.spec }}</p><p>{{ item.description }}</p><strong class="shop-price">¥{{ (item.price_cents/100).toFixed(2) }}</strong><span v-if="item.reward_cents > 0" class="cdk-balance-reward">{{ t('shop.storefrontReward', { amount: formatStorefrontReward(item.reward_cents) }) }}</span></article>
+              <article class="shop-product" :class="{selected:selected?.id===item.id}"><div class="shop-product-top"><span class="shop-brand-label">{{ t('shop.storefrontCodeDelivery') }}</span><span>{{ item.stock > 0 ? `库存 ${item.stock}` : '暂时售罄' }}</span></div><h3>{{ item.name }}</h3><p class="shop-muted">{{ item.spec }}</p><p>{{ item.description }}</p><strong class="shop-price">¥{{ (item.price_cents/100).toFixed(2) }}</strong><span v-if="item.reward_cents > 0" class="cdk-balance-reward">{{ t('shop.storefrontReward', { amount: formatStorefrontReward(item.reward_cents) }) }}</span></article>
             </button>
           </div></section>
           <section v-if="selected" id="shop-product-details" ref="checkoutCard" class="cdk-checkout-card"><h2>确认订单</h2><p class="shop-muted">{{ selected.name }} · {{ selected.spec }}</p><form class="shop-form" @submit.prevent="checkout">
@@ -21,13 +20,18 @@
             <p class="shop-product-description">{{ selected.instructions }}</p>
             <p v-if="selected.stock < 1" class="shop-paused" role="status">{{ t('shop.storefrontSoldOutHint') }}</p>
             <div class="cdk-checkout-total"><span>应付金额</span><strong>¥{{ (selected.price_cents/100).toFixed(2) }}</strong></div>
-            <div v-if="selected.reward_cents > 0" class="cdk-checkout-reward"><span class="cdk-balance-reward">{{ t('shop.storefrontReward', { amount: formatStorefrontReward(selected.reward_cents) }) }}</span><p class="shop-caption">{{ t(auth.isAuthenticated ? 'shop.storefrontRewardTerms' : 'shop.storefrontRewardGuest') }}</p></div>
+            <div v-if="selected.reward_cents > 0" class="cdk-checkout-reward"><span class="cdk-balance-reward">{{ t('shop.storefrontReward', { amount: formatStorefrontReward(selected.reward_cents) }) }}</span><p class="shop-caption">{{ t(auth.isAuthenticated ? 'shop.storefrontRewardTerms' : 'shop.storefrontRewardGuest') }}</p><router-link v-if="!auth.isAuthenticated" class="shop-text-link cdk-reward-login" :to="rewardLoginLink">{{ t('shop.storefrontRewardLogin') }}</router-link></div>
             <button class="shop-primary" :disabled="busy || !storeEnabled || selected.stock<1">{{ !storeEnabled ? '暂停售卖' : busy ? '正在创建订单…' : `支付宝付款 · ¥${(selected.price_cents/100).toFixed(2)}` }}</button>
             <small class="shop-caption">兑换码将在支付确认后显示，也可凭订单恢复码找回。</small>
           </form></section>
         </div>
       </template>
-      <section v-else class="cdk-order-result">
+      <details v-if="!order" id="shop-order-lookup" class="cdk-recovery" :open="route.query.lookup === '1'"><summary>已有订单？查询 / 找回兑换码</summary><form class="shop-recovery-form" @submit.prevent="recoverOrder"><label>找回已有订单<input v-model.trim="recoverID" required autocomplete="off" placeholder="订单号" /></label><label>订单恢复码<input v-model.trim="recoverKey" required autocomplete="off" /></label><button class="shop-secondary" :disabled="busy">查询订单</button></form></details>
+      <div v-if="selected && selected.stock > 0 && storeEnabled && !order && !loading && !checkoutInView" class="cdk-mobile-summary">
+        <div><strong>{{ selected.name }}</strong><span>¥{{ (selected.price_cents / 100).toFixed(2) }}</span></div>
+        <button type="button" class="shop-primary" @click="goToCheckout">{{ t('shop.storefrontGoToCheckout') }}</button>
+      </div>
+      <section v-if="!loading && order" class="cdk-order-result">
         <h2>{{ order.payment_status === 'paid' ? '支付成功' : '订单已创建' }}</h2>
         <p>{{ order.product_name }} · ¥{{ (order.price_cents/100).toFixed(2) }}</p><p>订单号：{{ order.id }}</p>
         <p v-if="order.payment_status !== 'paid'">请完成付款后刷新订单，确认到账后即可领取兑换码。</p>
@@ -46,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import QRCode from 'qrcode'
@@ -60,6 +64,19 @@ type Order={id:string;product_name:string;price_cents:number;payment_status:stri
 const {t}=useI18n(),route=useRoute(),auth=useAuthStore()
 const products=ref<StorefrontProduct[]>([]),selected=ref<StorefrontProduct>(),email=ref(auth.user?.email||''),loading=ref(true),busy=ref(false),error=ref(''),order=ref<Order>(),recoveryKey=ref(''),recoverID=ref(''),recoverKey=ref(''),storeEnabled=ref(false),qrImage=ref('')
 const checkoutCard = ref<HTMLElement>()
+const checkoutInView = ref(false)
+let checkoutObserver: IntersectionObserver | undefined
+watch(checkoutCard, element => {
+  checkoutObserver?.disconnect()
+  checkoutInView.value = false
+  if (element && typeof IntersectionObserver !== 'undefined') {
+    checkoutObserver = new IntersectionObserver(([entry]) => { checkoutInView.value = entry.isIntersecting }, { threshold: 0.15 })
+    checkoutObserver.observe(element)
+  }
+})
+onUnmounted(() => checkoutObserver?.disconnect())
+const rewardLoginLink = computed(() => ({ path: '/shop/login', query: { redirect: `/shop?${new URLSearchParams({ product: selected.value?.id || '' })}#shop-product-details` } }))
+function goToCheckout() { checkoutCard.value?.scrollIntoView?.({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }) }
 const requestedProductMissing = computed(() => !!route.query.product && !products.value.some(item => item.id === route.query.product))
 
 async function selectRequestedProduct() {
