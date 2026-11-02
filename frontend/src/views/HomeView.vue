@@ -45,19 +45,11 @@
             <Icon name="grid" size="md" />
             <span class="hidden sm:inline">{{ t('nav.modelPlaza') }}</span>
           </router-link>
-          <button
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-dark-400 dark:hover:bg-dark-800"
-            :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-            @click="toggleTheme"
-          >
-            <Icon v-if="isDark" name="sun" size="md" />
-            <Icon v-else name="moon" size="md" />
-          </button>
           <router-link
             :to="isAuthenticated ? dashboardPath : '/login'"
-            class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+            class="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-md text-xs font-semibold text-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:text-gray-200"
           >
-            {{ isAuthenticated ? t('home.dashboard') : t('home.login') }}
+            <span class="inline-flex min-h-[30px] items-center rounded-md bg-gray-100 px-3 transition-colors hover:bg-gray-200 dark:bg-dark-800 dark:hover:bg-dark-700">{{ isAuthenticated ? t('home.dashboard') : t('home.login') }}</span>
           </router-link>
         </div>
       </nav>
@@ -104,17 +96,8 @@
         >
           {{ t('nav.modelPlaza') }}
         </router-link>
-        <button
-          class="icon-action theme-action"
-          type="button"
-          :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          @click="toggleTheme"
-        >
-          <Icon v-if="isDark" name="sun" size="md" />
-          <Icon v-else name="moon" size="md" />
-        </button>
         <router-link class="account-link" :to="isAuthenticated ? dashboardPath : '/login'">
-          {{ isAuthenticated ? t('home.dashboard') : t('home.login') }}
+          <span>{{ isAuthenticated ? t('home.dashboard') : t('home.login') }}</span>
         </router-link>
       </nav>
     </header>
@@ -183,7 +166,6 @@ import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
-import { useTheme } from '@/composables/useTheme'
 import HomeShopSection from '@/features/shop/HomeShopSection.vue'
 import { useShopAvailability } from '@/features/shop/availability'
 import { externalShopLink } from '@/utils/externalLinks'
@@ -191,7 +173,6 @@ import { externalShopLink } from '@/utils/externalLinks'
 const { t } = useI18n()
 const authStore = useAuthStore()
 const appStore = useAppStore()
-const { isDark, toggleTheme } = useTheme()
 const { enabled: officialShopEnabled, homepageEnabled } = useShopAvailability()
 const externalShopURL = computed(() => externalShopLink(appStore.cachedPublicSettings))
 const showShopPromotion = computed(() => homepageEnabled.value && (officialShopEnabled.value || !!externalShopURL.value))
@@ -248,8 +229,10 @@ onMounted(() => {
 .home-brand-mark { display: block; width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; object-fit: contain; }
 .home-actions { flex-wrap: wrap; justify-content: flex-end; gap: 18px; }
 .icon-action, .model-link { color: var(--home-muted); text-decoration: none; }
-.theme-action { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; }
-.account-link { min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--home-ink); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; }
+.account-link { min-height: 44px; justify-content: center; border-radius: 6px; color: var(--home-ink); font-size: 12px; font-weight: 600; text-decoration: none; }
+.account-link > span { display: inline-flex; min-height: 30px; align-items: center; padding: 0 12px; border-radius: 6px; background: var(--home-panel); transition: background 160ms ease; }
+.account-link:hover > span { background: var(--home-line); }
+.account-link:focus-visible { outline: 2px solid var(--home-green); outline-offset: 3px; }
 .home-main { display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 28px 0; }
 .home-hero { display: grid; min-height: 604px; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); align-items: stretch; gap: 20px; }
 .home-hero-single { grid-template-columns: minmax(0, 1fr); }
@@ -284,7 +267,6 @@ onMounted(() => {
   .home-brand { font-size: 20px; }
   .home-actions { gap: 10px; }
   .model-link { display: none; }
-  .account-link { min-height: 36px; padding: 0 11px; }
   .home-main { padding: 18px 0 24px; }
   .home-hero { min-height: auto; grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .hero-copy { min-height: 604px; }
@@ -318,6 +300,5 @@ onMounted(() => {
   --home-button-ink: #183a2b;
   background: #141d19;
 }
-.dark .best-ai-home .account-link { background: #e7efdf; color: #173b32; }
 .dark .best-ai-home .home-mobile-nav a:last-child { border-color: #76533a; background: #493426; color: #f2ddc8; }
 </style>

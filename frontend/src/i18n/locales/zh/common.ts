@@ -205,6 +205,8 @@ export default {
     myAccount: '我的账户',
     lightMode: '浅色模式',
     darkMode: '深色模式',
+    systemMode: '跟随系统',
+    theme: '外观主题',
     collapse: '收起',
     expand: '展开',
     logout: '退出登录',

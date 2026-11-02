@@ -16,7 +16,7 @@ const state = vi.hoisted(() => ({
     toggleSidebar: vi.fn(), setMobileOpen: vi.fn(),
   },
   admin: { customMenuItems: [], fetch: vi.fn() },
-  toggleTheme: vi.fn(),
+  setTheme: vi.fn(),
 }))
 
 vi.mock('@/stores', () => ({
@@ -32,7 +32,7 @@ vi.mock('@/composables/useBatchImageAccess', async () => {
 })
 vi.mock('@/composables/useTheme', async () => {
   const { ref } = await import('vue')
-  return { useTheme: () => ({ isDark: ref(false), toggleTheme: state.toggleTheme }) }
+  return { useTheme: () => ({ theme: ref('light'), isDark: ref(false), setTheme: state.setTheme }) }
 })
 vi.mock('vue-i18n', async original => ({
   ...await original<typeof import('vue-i18n')>(),
@@ -167,7 +167,7 @@ describe('AppSidebar official product purchasing', () => {
     expect(shop.element.parentElement?.previousElementSibling?.tagName).toBe('NAV')
     const controls = shop.element.nextElementSibling
     expect(controls?.classList.contains('border-t')).toBe(true)
-    expect(controls?.querySelector('button[aria-label="nav.darkMode"]')).not.toBeNull()
+    expect(controls?.querySelector('button[aria-haspopup="menu"]')).not.toBeNull()
     const link = shop.get('a')
     expect(link.attributes('target')).toBe('_blank')
     expect(link.attributes('rel')).toBe('noopener noreferrer')
@@ -208,8 +208,9 @@ describe('AppSidebar official product purchasing', () => {
     await wrapper.get('a[href="/profile"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/profile')
-    await wrapper.get('button[aria-label="nav.darkMode"]').trigger('click')
-    expect(state.toggleTheme).toHaveBeenCalledOnce()
+    await wrapper.get('button[aria-haspopup="menu"]').trigger('click')
+    await wrapper.get('[role="menuitemradio"]:nth-child(2)').trigger('click')
+    expect(state.setTheme).toHaveBeenCalledWith('dark')
   })
 
   it('retains an accessible shop link in collapsed mode', async () => {
