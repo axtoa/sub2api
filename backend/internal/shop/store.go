@@ -21,7 +21,7 @@ func (s *Store) Products(ctx context.Context, admin bool) ([]Product, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]Product, 0)
 	for rows.Next() {
 		var raw []byte
@@ -88,7 +88,7 @@ func (s *Store) Create(ctx context.Context, userID int64, req CreateOrder) (*Ord
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	// Serialize only this user's shop submissions, without locking gateway billing rows.
 	if _, err = tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, fmt.Sprintf("subscription-shop:%d", userID)); err != nil {
 		return nil, err
@@ -236,7 +236,7 @@ func (s *Store) Orders(ctx context.Context, f OrderFilter) ([]Order, int64, erro
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]Order, 0)
 	for rows.Next() {
 		var raw []byte
@@ -277,7 +277,7 @@ func (s *Store) Act(ctx context.Context, id string, userID int64, admin bool, ac
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var raw []byte
 	var version int
 	err = tx.QueryRowContext(ctx, `SELECT payload,version FROM shop_orders WHERE id=$1 AND ($2 OR user_id=$3) FOR UPDATE`, id, admin, userID).Scan(&raw, &version)

@@ -25,7 +25,7 @@ func TestListHandlerRejectsInvalidSort(t *testing.T) {
 func TestListHandlerPassesSortAndPagination(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(value\\), 0\\)::text").
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users"}).AddRow("0", 0, 0))
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\), COALESCE").WithArgs("alice").

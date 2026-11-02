@@ -20,7 +20,7 @@ func TestCreateOrderRejectsWhenStoreIsPaused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	s := &Server{db: db}
 	requestID := "11111111-1111-4111-8111-111111111111"
 	mock.ExpectBegin()
@@ -46,7 +46,7 @@ func TestOrderQueryUsesQualifiedColumnsAndAccountAuthorization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	secret := []byte("0123456789abcdef0123456789abcdef")
 	token, err := SignToken(secret, 17, "user", time.Now())
 	if err != nil {

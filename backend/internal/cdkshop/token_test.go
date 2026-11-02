@@ -47,7 +47,8 @@ func TestCryptoEncryptsAndFingerprintsCDK(t *testing.T) {
 	if err != nil || plain != "SECRET-CODE" {
 		t.Fatalf("decrypt = %q, %v", plain, err)
 	}
-	if c.Fingerprint("SECRET-CODE") != c.Fingerprint("SECRET-CODE") {
+	fingerprint := c.Fingerprint(plain)
+	if fingerprint != c.Fingerprint("SECRET-CODE") {
 		t.Fatal("fingerprint is not stable")
 	}
 }

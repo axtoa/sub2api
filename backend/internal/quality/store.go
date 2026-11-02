@@ -285,9 +285,10 @@ func (s *Store) Finish(ctx context.Context, r Run, next time.Time, retry, target
 		return tx.Commit()
 	}
 	column, last := "next_availability_at", "last_availability_at"
-	if r.Kind == "quality" {
+	switch r.Kind {
+	case "quality":
 		column, last = "next_quality_at", "last_quality_at"
-	} else if r.Kind == "cache" {
+	case "cache":
 		column, last = "next_cache_at", "last_cache_at"
 	}
 	// Column names are selected exclusively from the constants above.

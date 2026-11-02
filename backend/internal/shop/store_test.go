@@ -16,7 +16,10 @@ func testStore(t *testing.T) (*Store, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, mock.ExpectationsWereMet()); db.Close() })
+	t.Cleanup(func() {
+		require.NoError(t, mock.ExpectationsWereMet())
+		_ = db.Close()
+	})
 	return &Store{DB: db}, mock
 }
 
@@ -60,8 +63,12 @@ type orderArgument struct {
 }
 
 func (arg orderArgument) Match(value driver.Value) bool {
+	raw, ok := value.(string)
+	if !ok {
+		return false
+	}
 	var o Order
-	if json.Unmarshal([]byte(value.(string)), &o) != nil {
+	if json.Unmarshal([]byte(raw), &o) != nil {
 		return false
 	}
 	return o.UserID == 42 && o.ApplicantEmail == "member@example.com" && o.TargetEmail == arg.target && o.ContactEmail == "member@example.com" && o.AmountCents == 12300 && o.Product.Version == 3 && o.Product.PaymentURL == productFixture().PaymentURL && o.PaymentStatus == "PENDING" && o.Version == 1

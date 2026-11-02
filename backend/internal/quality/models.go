@@ -216,9 +216,10 @@ func validateModel(model string) error {
 
 func period(p Profile, kind string) time.Duration {
 	minutes := p.AvailabilityIntervalMinutes
-	if kind == "quality" {
+	switch kind {
+	case "quality":
 		minutes = p.QualityIntervalMinutes
-	} else if kind == "cache" {
+	case "cache":
 		minutes = p.CacheIntervalMinutes
 	}
 	return time.Duration(minutes) * time.Minute

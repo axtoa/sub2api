@@ -188,7 +188,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var item User
 		var redeemedAt, usedAt sql.NullTime
@@ -248,16 +248,18 @@ func (s *Store) Detail(ctx context.Context, userID int64) (*Detail, error) {
 	for rows.Next() {
 		var item Redemption
 		if err := rows.Scan(&item.Value, &item.UsedAt); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, fmt.Errorf("scan redemption: %w", err)
 		}
 		result.Redemptions = append(result.Redemptions, item)
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
+		_ = rows.Close()
 		return nil, err
 	}
-	rows.Close()
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close redemptions: %w", err)
+	}
 
 	since := time.Now().UTC().AddDate(0, 0, -30)
 	var usedAt sql.NullTime
@@ -278,7 +280,7 @@ func (s *Store) Detail(ctx context.Context, userID int64) (*Detail, error) {
 	if err != nil {
 		return nil, fmt.Errorf("models: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var item Model
 		if err := rows.Scan(&item.Name, &item.Calls, &item.Cost); err != nil {

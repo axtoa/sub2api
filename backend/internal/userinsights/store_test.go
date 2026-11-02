@@ -28,7 +28,7 @@ func TestFilterValidate(t *testing.T) {
 func TestListIncludesCallersWithoutRedemptions(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(value\\), 0\\)::text").
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users"}).AddRow("0", 0, 0))
 	mock.ExpectQuery("EXISTS \\( SELECT 1 FROM usage_logs used WHERE used.user_id = u.id \\)").WithArgs("").
@@ -54,7 +54,7 @@ func TestListIncludesCallersWithoutRedemptions(t *testing.T) {
 func TestListSeparatesGlobalAndFilteredTotals(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(value\\), 0\\)::text").
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users"}).AddRow("100.00", 4, 3))
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\), COALESCE\\(SUM\\(r.redeemed_amount\\), 0\\)::text").
@@ -81,7 +81,7 @@ func TestListSeparatesGlobalAndFilteredTotals(t *testing.T) {
 func TestListInactiveSegmentUsesThirtyDayCutoff(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(value\\), 0\\)::text").
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users"}).AddRow("0", 0, 0))
 	mock.ExpectQuery("NOT EXISTS").
@@ -99,7 +99,7 @@ func TestListInactiveSegmentUsesThirtyDayCutoff(t *testing.T) {
 func TestDetailMissingUser(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("LEFT JOIN LATERAL").WithArgs(int64(88)).WillReturnError(sql.ErrNoRows)
 	_, err = NewStore(db).Detail(context.Background(), 88)
 	require.ErrorIs(t, err, sql.ErrNoRows)
@@ -109,7 +109,7 @@ func TestDetailMissingUser(t *testing.T) {
 func TestDetailKeepsRedeemedAndAdminCreditSeparate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	usedAt := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 	mock.ExpectQuery("LEFT JOIN LATERAL").WithArgs(int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "first", "last"}).

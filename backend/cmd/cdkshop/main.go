@@ -20,7 +20,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer server.Close()
+	defer func() {
+		if err := server.Close(); err != nil {
+			log.Printf("close CDK shop: %v", err)
+		}
+	}()
 	addr := strings.TrimSpace(os.Getenv("CDKSHOP_LISTEN"))
 	if addr == "" {
 		addr = ":8082"

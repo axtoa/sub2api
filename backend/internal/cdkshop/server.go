@@ -42,30 +42,30 @@ func OpenServer(ctx context.Context, dsn, encryptionKey, authSecret, payBase, pa
 	}
 	db.SetMaxOpenConns(20)
 	if err = db.PingContext(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 	schema, err := schemaSQL()
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 	if _, err = db.ExecContext(ctx, schema); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("cdkshop schema: %w", err)
 	}
 	crypto, err := NewCrypto(encryptionKey)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 	pay, err := provider.NewEasyPay("cdkshop", map[string]string{"apiBase": payBase, "pid": payPID, "pkey": payKey, "notifyUrl": strings.TrimRight(publicURL, "/") + "/api/v1/cdkshop/payment/notify", "returnUrl": strings.TrimRight(publicURL, "/") + "/shop/complete"})
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 	if len(authSecret) < 32 {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("CDKSHOP_AUTH_SECRET must be at least 32 bytes")
 	}
 	return &Server{db: db, crypto: crypto, pay: pay, publicURL: strings.TrimRight(publicURL, "/"), tokenSecret: []byte(authSecret)}, nil
@@ -161,7 +161,7 @@ func (s *Server) adminProducts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "catalog_unavailable")
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := []Product{}
 	for rows.Next() {
 		var p Product
@@ -221,7 +221,7 @@ func (s *Server) adminImportCDKs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "import_failed")
 		return
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	count := 0
 	for _, raw := range body.Codes {
 		code := strings.TrimSpace(raw)
@@ -257,7 +257,7 @@ func (s *Server) adminRewards(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "rewards_unavailable")
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	tasks := []RewardTask{}
 	for rows.Next() {
 		var t RewardTask
@@ -301,7 +301,7 @@ func (s *Server) products(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "catalog_unavailable")
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]Product, 0)
 	for rows.Next() {
 		var p Product
@@ -335,7 +335,7 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "order_unavailable")
 		return
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var existing Order
 	var recoveryCipher string
 	err = tx.QueryRowContext(r.Context(), `SELECT id,email,product_id,product_name,price_cents,reward_cents,payment_status,delivery_status,recovery_secret,created_at,pay_url,qr_code,COALESCE(user_id,0) FROM cdkshop_orders WHERE request_id=$1`, req.RequestID).Scan(&existing.ID, &existing.Email, &existing.ProductID, &existing.ProductName, &existing.PriceCents, &existing.RewardCents, &existing.PaymentStatus, &existing.DeliveryStatus, &recoveryCipher, &existing.CreatedAt, &existing.PayURL, &existing.QRCode, &existing.UserID)
@@ -525,7 +525,7 @@ func (s *Server) notify(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "fail", 500)
 		return
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	var price int64
 	var userID sql.NullInt64
 	var reward int64
@@ -540,7 +540,7 @@ func (s *Server) notify(w http.ResponseWriter, r *http.Request) {
 		var code string
 		err = tx.QueryRowContext(r.Context(), `SELECT encrypted_code FROM cdkshop_cdks WHERE id=$1 AND order_id=$2 AND status='reserved' FOR UPDATE`, cdkID, n.OrderID).Scan(&code)
 		if err != nil {
-			http.Error(w, "fail", 409)
+			http.Error(w, "fail", http.StatusConflict)
 			return
 		}
 		_, err = tx.ExecContext(r.Context(), `UPDATE cdkshop_orders SET payment_status='paid',delivery_status='delivered',paid_at=NOW() WHERE id=$1`, n.OrderID)

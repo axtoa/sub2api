@@ -239,9 +239,10 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		}
 	}
 	count := 1
-	if job.Kind == "quality" {
+	switch job.Kind {
+	case "quality":
 		count = p.Questions
-	} else if job.Kind == "cache" {
+	case "cache":
 		count = 3
 	}
 	job.Result.Planned = count

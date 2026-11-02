@@ -208,7 +208,7 @@ func event(ctx context.Context, tx *sql.Tx, id string, actor int64, action strin
 	return e
 }
 func (s *Store) Save(ctx context.Context, id string, in Input, actor int64) (Wallet, error) {
-	if e := in.Config.validate(); e != nil {
+	if e := in.validate(); e != nil {
 		return Wallet{}, e
 	}
 	if in.InitialBalance != nil {

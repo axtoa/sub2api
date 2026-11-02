@@ -138,7 +138,7 @@ func QualityProbeSupported(a *Account, model string) bool {
 	if a.IsOpenAIAgentIdentity() || a.IsCredentialShadow() {
 		return false
 	}
-	if a.Type != AccountTypeAPIKey && a.Type != AccountTypeOAuth && !(a.Platform == PlatformAnthropic && a.Type == AccountTypeSetupToken) {
+	if a.Type != AccountTypeAPIKey && a.Type != AccountTypeOAuth && (a.Platform != PlatformAnthropic || a.Type != AccountTypeSetupToken) {
 		return false
 	}
 	m := strings.ToLower(a.GetMappedModel(model))
