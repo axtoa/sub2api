@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS cdkshop_products (
   price_cents BIGINT NOT NULL CHECK (price_cents > 0), reward_cents BIGINT NOT NULL DEFAULT 0 CHECK (reward_cents >= 0),
   active BOOLEAN NOT NULL DEFAULT FALSE, sort_order INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE cdkshop_products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS cdkshop_cdks (
   id BIGSERIAL PRIMARY KEY, product_id TEXT NOT NULL REFERENCES cdkshop_products(id), encrypted_code TEXT NOT NULL,
   fingerprint TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','reserved','delivered')),

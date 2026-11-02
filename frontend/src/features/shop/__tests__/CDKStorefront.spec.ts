@@ -5,10 +5,11 @@ import CDKStorefront from '../CDKStorefront.vue'
 const state = vi.hoisted(() => ({
   auth: { isAuthenticated: true, user: { id: 17, email: 'buyer@example.com' } },
   route: { query: {} as Record<string, string> },
-  fetch: vi.fn(), post: vi.fn(),
+  fetch: vi.fn(), post: vi.fn(), copy: vi.fn(), showSuccess: vi.fn(), showError: vi.fn(),
 }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => state.auth }))
-vi.mock('@/stores/app', () => ({ useAppStore: () => ({ siteName: 'Best AI', siteLogo: '' }) }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => ({ siteName: 'Best AI', siteLogo: '', showSuccess: state.showSuccess, showError: state.showError }) }))
+vi.mock('@/i18n', () => ({ i18n: { global: { t: (key: string) => key } } }))
 vi.mock('@/api/client', () => ({ apiClient: { post: state.post } }))
 vi.mock('vue-router', () => ({ useRoute: () => state.route }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string, params?: { amount: string }) => key === 'shop.storefrontReward' ? `赠 ${params?.amount} Best AI 余额` : key }) }))
@@ -28,6 +29,9 @@ beforeEach(() => {
   state.auth.isAuthenticated = true
   state.post.mockResolvedValue({ data: { token: 'scoped-shop-token' } })
   vi.stubGlobal('fetch', state.fetch)
+  vi.stubGlobal('isSecureContext', true)
+  vi.stubGlobal('navigator', { clipboard: { writeText: state.copy } })
+  state.copy.mockResolvedValue(undefined)
   state.fetch.mockImplementation(async (url: string) => {
     if (url.endsWith('/products')) return response({ items: [product] })
     if (url.endsWith('/status')) return response({ enabled: true })
@@ -167,5 +171,45 @@ describe('CDK storefront order access', () => {
     wrapper = mountStorefront()
     await flushPromises()
     expect(wrapper.find('a[href^="javascript:"]').exists()).toBe(false)
+  })
+
+  it('clearly labels the payment QR and keeps recovery credentials collapsed', async () => {
+    state.route.query = { order: order.id }
+    sessionStorage.setItem('cdkshop-recovery:order-1', 'private-recovery')
+    state.fetch.mockResolvedValue(response({ ...order, qr_code: 'https://pay.example.com/order-1', pay_url: 'https://pay.example.com/order-1' }))
+    wrapper = mountStorefront()
+    await flushPromises()
+    expect(wrapper.get('h1').text()).toBe('等待付款')
+    expect(wrapper.get('.cdk-payment-qr figcaption').text()).toContain('支付宝付款二维码')
+    expect(wrapper.get('.cdk-order-qrcode').attributes('alt')).toBe('支付宝付款二维码')
+    expect(wrapper.get('.cdk-order-receipt').attributes('open')).toBeUndefined()
+    expect(wrapper.get('.cdk-order-receipt').text()).toContain('与兑换码不同')
+    expect(wrapper.find('.shop-cdk-code').exists()).toBe(false)
+  })
+
+  it('copies only the delivered code and opens the redemption site without credentials', async () => {
+    state.route.query = { order: order.id }
+    state.fetch.mockResolvedValue(response({ ...order, payment_status: 'paid', delivery_status: 'delivered', cdk: 'SECRET-DELIVERED-CODE' }))
+    wrapper = mountStorefront()
+    await flushPromises()
+    expect(wrapper.get('h1').text()).toContain('支付成功')
+    expect(wrapper.find('.cdk-payment-qr').exists()).toBe(false)
+    await wrapper.get('.cdk-code-actions button').trigger('click')
+    await flushPromises()
+    expect(state.copy).toHaveBeenCalledTimes(1)
+    expect(state.copy).toHaveBeenCalledWith('SECRET-DELIVERED-CODE')
+    expect(wrapper.get('.cdk-code-actions button').text()).toBe('已复制')
+    expect(wrapper.get('.cdk-code-actions a').attributes()).toMatchObject({ href: 'https://shop.aisale.best/recharge', target: '_blank', rel: 'noopener noreferrer' })
+  })
+
+  it('does not show a code or a copy action before delivery is ready', async () => {
+    state.route.query = { order: order.id }
+    state.fetch.mockResolvedValue(response({ ...order, payment_status: 'paid' }))
+    wrapper = mountStorefront()
+    await flushPromises()
+    expect(wrapper.text()).toContain('正在准备兑换码')
+    expect(wrapper.find('.cdk-code-actions').exists()).toBe(false)
+    expect(wrapper.find('.cdk-payment-qr').exists()).toBe(false)
+    expect(state.copy).not.toHaveBeenCalled()
   })
 })

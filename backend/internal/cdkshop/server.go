@@ -88,6 +88,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/cdkshop/payment/notify", s.notify)
 	mux.HandleFunc("GET /api/v1/cdkshop/admin/products", s.adminProducts)
 	mux.HandleFunc("POST /api/v1/cdkshop/admin/products", s.adminCreateProduct)
+	mux.HandleFunc("PATCH /api/v1/cdkshop/admin/products/{id}", s.adminSetProductActive)
+	mux.HandleFunc("DELETE /api/v1/cdkshop/admin/products/{id}", s.adminDeleteProduct)
 	mux.HandleFunc("POST /api/v1/cdkshop/admin/products/{id}/cdks", s.adminImportCDKs)
 	mux.HandleFunc("GET /api/v1/cdkshop/admin/rewards", s.adminRewards)
 	mux.HandleFunc("POST /api/v1/cdkshop/admin/rewards/{id}/issue", s.adminIssueReward)
@@ -156,7 +158,7 @@ func (s *Server) adminProducts(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return
 	}
-	rows, err := s.db.QueryContext(r.Context(), `SELECT p.id,p.name,p.spec,p.description,p.instructions,p.price_cents,p.reward_cents,p.active,p.sort_order,p.version,p.created_at,COUNT(c.id) FROM cdkshop_products p LEFT JOIN cdkshop_cdks c ON c.product_id=p.id AND c.status='available' GROUP BY p.id ORDER BY p.sort_order,p.created_at`)
+	rows, err := s.db.QueryContext(r.Context(), `SELECT p.id,p.name,p.spec,p.description,p.instructions,p.price_cents,p.reward_cents,p.active,p.sort_order,p.version,p.created_at,COUNT(c.id) FROM cdkshop_products p LEFT JOIN cdkshop_cdks c ON c.product_id=p.id AND c.status='available' WHERE p.deleted_at IS NULL GROUP BY p.id ORDER BY p.sort_order,p.created_at`)
 	if err != nil {
 		writeError(w, 500, "catalog_unavailable")
 		return
@@ -205,7 +207,7 @@ func (s *Server) adminImportCDKs(w http.ResponseWriter, r *http.Request) {
 	}
 	productID := r.PathValue("id")
 	var exists bool
-	if err := s.db.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM cdkshop_products WHERE id=$1)`, productID).Scan(&exists); err != nil || !exists {
+	if err := s.db.QueryRowContext(r.Context(), `SELECT EXISTS(SELECT 1 FROM cdkshop_products WHERE id=$1 AND deleted_at IS NULL)`, productID).Scan(&exists); err != nil || !exists {
 		writeError(w, 404, "product_not_found")
 		return
 	}
@@ -296,7 +298,7 @@ func (s *Server) adminIssueReward(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) products(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.db.QueryContext(r.Context(), `SELECT p.id,p.name,p.spec,p.description,p.instructions,p.price_cents,p.reward_cents,p.active,p.sort_order,p.version,p.created_at,COUNT(c.id) FROM cdkshop_products p LEFT JOIN cdkshop_cdks c ON c.product_id=p.id AND c.status='available' WHERE p.active=true GROUP BY p.id ORDER BY p.sort_order,p.created_at`)
+	rows, err := s.db.QueryContext(r.Context(), `SELECT p.id,p.name,p.spec,p.description,p.instructions,p.price_cents,p.reward_cents,p.active,p.sort_order,p.version,p.created_at,COUNT(c.id) FROM cdkshop_products p LEFT JOIN cdkshop_cdks c ON c.product_id=p.id AND c.status='available' WHERE p.active=true AND p.deleted_at IS NULL GROUP BY p.id ORDER BY p.sort_order,p.created_at`)
 	if err != nil {
 		writeError(w, 500, "catalog_unavailable")
 		return
@@ -369,7 +371,7 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var p Product
-	err = tx.QueryRowContext(r.Context(), `SELECT id,name,spec,description,instructions,price_cents,reward_cents,active,sort_order,version,created_at FROM cdkshop_products WHERE id=$1 FOR UPDATE`, req.ProductID).Scan(&p.ID, &p.Name, &p.Spec, &p.Description, &p.Instructions, &p.PriceCents, &p.RewardCents, &p.Active, &p.Sort, &p.Version, &p.CreatedAt)
+	err = tx.QueryRowContext(r.Context(), `SELECT id,name,spec,description,instructions,price_cents,reward_cents,active,sort_order,version,created_at FROM cdkshop_products WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, req.ProductID).Scan(&p.ID, &p.Name, &p.Spec, &p.Description, &p.Instructions, &p.PriceCents, &p.RewardCents, &p.Active, &p.Sort, &p.Version, &p.CreatedAt)
 	if err != nil || !p.Active {
 		writeError(w, 404, "product_unavailable")
 		return

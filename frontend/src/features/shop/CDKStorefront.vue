@@ -1,7 +1,7 @@
 <template>
   <ShopLayout :embedded="false" :storefront="true" :login-return-to="rewardLoginLink.query.redirect">
     <main class="shop-main cdk-storefront">
-      <header class="shop-heading"><p class="cdk-storefront-eyebrow">{{ t('shop.storefrontEyebrow') }}</p><h1>{{ t('shop.storefrontTitle') }}</h1><p>支付成功后自动发放兑换码，前往兑换站完成充值。</p></header>
+      <header v-if="!order" class="shop-heading"><p class="cdk-storefront-eyebrow">{{ t('shop.storefrontEyebrow') }}</p><h1>{{ t('shop.storefrontTitle') }}</h1><p>支付成功后自动发放兑换码，前往兑换站完成充值。</p></header>
       <p v-if="error" class="shop-error" role="alert">{{ error }}</p>
       <p v-if="!loading && !storeEnabled && !order" class="shop-paused" role="status">商城暂停售卖，已创建订单仍可查询。</p>
       <ol v-if="!order" class="cdk-workflow" aria-label="购买流程"><li><span>1</span>选择商品</li><li><span>2</span>支付领取兑换码</li><li><span>3</span>前往兑换站充值</li></ol>
@@ -36,22 +36,57 @@
         <button type="button" class="shop-primary" @click="goToCheckout">{{ t('shop.storefrontGoToCheckout') }}</button>
       </div>
       <section v-if="!loading && order" class="cdk-order-result">
-        <h2>{{ order.payment_status === 'paid' ? '支付成功' : '订单已创建' }}</h2>
-        <p>{{ order.product_name }} · ¥{{ (order.price_cents/100).toFixed(2) }}</p><p>订单号：{{ order.id }}</p>
-        <p v-if="order.payment_status !== 'paid'">请完成付款后刷新订单，确认到账后即可领取兑换码。</p>
-        <div class="shop-toolbar">
-          <a v-if="order.payment_status === 'pending' && paymentURL" class="shop-primary" :href="paymentURL" target="_blank" rel="noopener noreferrer">前往支付</a>
-          <button v-else-if="order.payment_status === 'pending' && !order.qr_code" class="shop-primary" type="button" :disabled="busy" @click="retryPayment">{{ busy ? '正在连接支付…' : '重新获取支付链接' }}</button>
-          <button class="shop-secondary" type="button" :disabled="busy" @click="refreshOrder">刷新订单</button>
+        <div class="cdk-order-navigation"><button class="shop-text-link" type="button" :disabled="busy" @click="reset"><Icon name="arrowLeft" size="sm" aria-hidden="true" />返回商城</button><span>订单详情</span></div>
+        <header class="cdk-order-heading">
+          <span class="cdk-order-state-icon" :class="{ 'is-paid': order.payment_status === 'paid' }"><Icon :name="order.payment_status === 'paid' ? 'checkCircle' : 'creditCard'" size="lg" aria-hidden="true" /></span>
+          <div><p class="cdk-order-eyebrow">{{ order.payment_status === 'paid' ? 'PAYMENT RECEIVED' : 'ORDER CREATED' }}</p><h1>{{ orderTitle }}</h1><p>{{ order.payment_status === 'paid' ? '感谢你的选购，让 AI 为日常添一点灵感。' : '订单已创建，完成付款后即可领取兑换码。' }}</p></div>
+        </header>
+        <ol class="cdk-order-steps" aria-label="订单进度">
+          <li class="is-complete"><span><Icon name="check" size="xs" aria-hidden="true" /></span>订单已创建</li>
+          <li :class="order.payment_status === 'paid' ? 'is-complete' : 'is-current'"><span>{{ order.payment_status === 'paid' ? '✓' : '2' }}</span>{{ order.payment_status === 'paid' ? '支付成功' : '完成付款' }}</li>
+          <li :class="{ 'is-current': !!order.cdk }"><span>3</span>领取并兑换</li>
+        </ol>
+        <div class="cdk-order-grid">
+          <div class="cdk-order-content">
+            <section v-if="order.cdk" class="shop-cdk-code" aria-labelledby="cdk-code-title">
+              <div class="cdk-code-heading"><span class="cdk-order-badge"><Icon name="checkCircle" size="sm" aria-hidden="true" />已发放</span><span>妥善保存，请勿分享</span></div>
+              <h2 id="cdk-code-title">你的兑换码</h2>
+              <div class="cdk-code-value"><code>{{ order.cdk }}</code></div>
+              <div class="shop-toolbar cdk-code-actions"><ShopCopyButton class="shop-primary" :text="order.cdk" label="复制兑换码" /><a class="shop-secondary" href="https://shop.aisale.best/recharge" target="_blank" rel="noopener noreferrer">前往兑换<Icon name="externalLink" size="sm" aria-hidden="true" /></a></div>
+              <p class="shop-caption">先复制上方兑换码，再点击「前往兑换」，在兑换站粘贴使用。</p>
+              <div class="cdk-redemption-steps"><span><b>1</b>复制兑换码</span><Icon name="arrowRight" size="sm" aria-hidden="true" /><span><b>2</b>前往兑换站粘贴充值</span></div>
+            </section>
+            <section v-else-if="order.payment_status === 'pending'" class="cdk-payment-card" aria-labelledby="cdk-payment-title">
+              <div class="cdk-payment-heading"><span class="cdk-payment-method"><Icon name="creditCard" size="sm" aria-hidden="true" />支付宝付款</span><span class="cdk-order-badge">待付款</span></div>
+              <h2 id="cdk-payment-title">{{ order.qr_code ? '使用支付宝扫描付款' : '前往支付宝完成付款' }}</h2>
+              <p class="cdk-payment-amount"><span>¥</span>{{ (order.price_cents/100).toFixed(2) }}</p>
+              <figure v-if="order.qr_code" class="cdk-payment-qr">
+                <div class="cdk-payment-qr-frame"><img v-if="qrImage" class="cdk-order-qrcode" :src="qrImage" alt="支付宝付款二维码" /><span v-else class="shop-caption">正在生成付款二维码…</span></div>
+                <figcaption><strong>支付宝付款二维码</strong><span>请使用支付宝扫一扫，支付上方金额</span></figcaption>
+              </figure>
+              <p v-else class="shop-caption">{{ paymentURL ? '点击下方按钮，在支付页面完成付款。' : '支付信息暂未获取，请重新获取支付链接。' }}</p>
+              <div class="shop-toolbar cdk-payment-actions">
+                <a v-if="paymentURL" class="shop-secondary" :href="paymentURL" target="_blank" rel="noopener noreferrer">打开支付宝付款<Icon name="externalLink" size="sm" aria-hidden="true" /></a>
+                <button v-else-if="!order.qr_code" class="shop-primary" type="button" :disabled="busy" @click="retryPayment">{{ busy ? '正在连接支付…' : '重新获取支付链接' }}</button>
+                <button class="shop-primary" type="button" :disabled="busy" @click="refreshOrder"><Icon name="refresh" size="sm" aria-hidden="true" />刷新订单</button>
+              </div>
+              <p class="cdk-payment-help">付款完成后，点击「刷新订单」领取兑换码。</p>
+            </section>
+            <section v-else class="cdk-payment-card cdk-delivery-waiting"><Icon name="clock" size="lg" aria-hidden="true" /><h2>{{ order.payment_status === 'paid' ? '正在准备兑换码' : '支付尚未完成' }}</h2><p class="shop-caption">{{ order.payment_status === 'paid' ? '付款已确认，请稍后刷新订单领取。' : '可刷新订单确认支付结果，如有疑问请联系管理员。' }}</p><button class="shop-secondary" type="button" :disabled="busy" @click="refreshOrder">刷新订单</button></section>
+          </div>
+          <aside class="cdk-order-aside" aria-label="订单信息">
+            <section class="cdk-order-summary">
+              <h2>订单信息</h2><div class="cdk-order-product"><span>所购商品</span><strong>{{ order.product_name }}</strong></div>
+              <dl><div><dt>订单金额</dt><dd>¥{{ (order.price_cents/100).toFixed(2) }}</dd></div><div><dt>支付方式</dt><dd>支付宝</dd></div><div><dt>订单状态</dt><dd>{{ order.payment_status === 'paid' ? '已付款' : order.payment_status === 'pending' ? '待付款' : '未完成' }}</dd></div></dl>
+              <div class="cdk-order-number"><span>订单号</span><code>{{ order.id }}</code><ShopCopyButton :text="order.id" label="复制订单号" /></div>
+            </section>
+            <details v-if="recoveryKey" class="cdk-order-receipt">
+              <summary><Icon name="lock" size="sm" aria-hidden="true" /><span>保存订单凭证</span><Icon name="chevronDown" size="xs" aria-hidden="true" /></summary>
+              <p>订单恢复码用于找回本订单，与兑换码不同。请连同订单号一起保存，请勿分享。</p><label>订单恢复码<code>{{ recoveryKey }}</code></label><ShopCopyButton :text="`订单号：${order.id}\n订单恢复码：${recoveryKey}`" label="复制订单凭证" />
+            </details>
+            <button class="shop-text-link cdk-order-continue" type="button" :disabled="busy" @click="reset">继续选购<Icon name="arrowRight" size="sm" aria-hidden="true" /></button>
+          </aside>
         </div>
-        <img v-if="order.payment_status === 'pending' && qrImage" class="cdk-order-qrcode" :src="qrImage" alt="支付二维码" />
-        <div v-if="order.cdk" class="shop-cdk-code">
-          <span>兑换码</span><code>{{ order.cdk }}</code>
-          <p class="shop-caption">先复制上方兑换码，再点击「前往兑换」，在兑换站粘贴使用。</p>
-          <div class="shop-toolbar"><a class="shop-primary" href="https://shop.aisale.best/recharge" target="_blank" rel="noopener noreferrer">前往兑换 <span aria-hidden="true">↗</span></a></div>
-        </div>
-        <p v-if="recoveryKey" class="shop-caption">订单恢复码：<code>{{ recoveryKey }}</code>，请与订单号一起保存。恢复码可用于领取兑换码，请勿分享。</p>
-        <button class="shop-secondary" type="button" :disabled="busy" @click="reset">继续选购</button>
       </section>
     </main>
   </ShopLayout>
@@ -65,7 +100,9 @@ import QRCode from 'qrcode'
 import { apiClient } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { sanitizeUrl } from '@/utils/url'
+import Icon from '@/components/icons/Icon.vue'
 import ShopLayout from './ShopLayout.vue'
+import ShopCopyButton from './ShopCopyButton.vue'
 import { formatStorefrontReward, type StorefrontProduct } from './storefront'
 
 type Order={id:string;product_name:string;price_cents:number;payment_status:string;delivery_status:string;pay_url?:string;qr_code?:string;cdk?:string}
@@ -98,8 +135,11 @@ async function selectRequestedProduct() {
 
 let attempt: {fingerprint:string;id:string} | undefined
 const paymentURL=computed(()=>sanitizeUrl(order.value?.pay_url||''))
+const orderTitle = computed(() => order.value?.payment_status === 'paid'
+  ? order.value.cdk ? '支付成功，兑换码已就绪' : '支付成功，正在准备兑换码'
+  : order.value?.payment_status === 'pending' ? '等待付款' : '支付尚未完成')
 const keyName=(id:string)=>`cdkshop-recovery:${id}`
-const errors:Record<string,string>={store_paused:'商城暂停售卖，已有订单仍可查询。',out_of_stock:'该商品已售罄，请刷新库存后重试。',order_access_denied:'无法访问该订单，请核对订单号和恢复码，或登录购买时使用的账号。',order_not_found:'没有找到该订单。',shop_session_expired:'商城登录凭证已过期，请刷新页面后重试。',payment_unavailable:'支付服务暂不可用，订单已保留，可稍后重试。',invalid_order:'请检查商品与接收邮箱。'}
+const errors:Record<string,string>={store_paused:'商城暂停售卖，已有订单仍可查询。',out_of_stock:'该商品已售罄，请刷新库存后重试。',product_unavailable:'该商品已下架或删除，请返回商城重新选择。',order_access_denied:'无法访问该订单，请核对订单号和恢复码，或登录购买时使用的账号。',order_not_found:'没有找到该订单。',shop_session_expired:'商城登录凭证已过期，请刷新页面后重试。',payment_unavailable:'支付服务暂不可用，订单已保留，可稍后重试。',invalid_order:'请检查商品与接收邮箱。'}
 async function request(path:string,init:Parameters<typeof fetch>[1]={}) {
   const response=await fetch(`/api/v1/cdkshop${path}`,{...init,cache:'no-store',headers:{'Content-Type':'application/json',...(init.headers||{})}})
   const body=await response.json()
