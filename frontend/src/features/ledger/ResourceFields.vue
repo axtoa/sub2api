@@ -16,7 +16,7 @@
 import { useI18n } from 'vue-i18n'
 import { currencies } from './display'
 export interface ResourceDraft { name: string; kind: 'domain' | 'server' | 'other'; provider: string; expiry: string; originalExpiry?: string; renewal_amount: string; currency: string; management_url: string; note: string; active: boolean; version: number }
-defineProps<{ draft: ResourceDraft }>()
+const draft = defineModel<ResourceDraft>('draft', { required: true })
 const { t } = useI18n()
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 </script>
