@@ -407,11 +407,11 @@ func (s *Server) createOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// The provider may have accepted the request before the network timed out.
 		// Keep this order and its CDK reserved so a late payment cannot lose delivery.
-		writeJSON(w, 201, CreateOrderResponse{Order: Order{ID: orderID, Email: req.Email, ProductID: p.ID, ProductName: p.Name, PriceCents: p.PriceCents, PaymentStatus: "pending", DeliveryStatus: "pending", RedeemURL: "https://cdk.aisale.best/recharge", CreatedAt: time.Now()}, RecoveryKey: recovery})
+		writeJSON(w, 201, CreateOrderResponse{Order: Order{ID: orderID, Email: req.Email, ProductID: p.ID, ProductName: p.Name, PriceCents: p.PriceCents, PaymentStatus: "pending", DeliveryStatus: "pending", RedeemURL: "https://shop.aisale.best/recharge", CreatedAt: time.Now()}, RecoveryKey: recovery})
 		return
 	}
 	_, _ = s.db.ExecContext(r.Context(), `UPDATE cdkshop_orders SET pay_url=$2,qr_code=$3,trade_no=$4 WHERE id=$1`, orderID, resp.PayURL, resp.QRCode, resp.TradeNo)
-	writeJSON(w, 201, CreateOrderResponse{Order: Order{ID: orderID, Email: req.Email, ProductID: p.ID, ProductName: p.Name, PriceCents: p.PriceCents, PaymentStatus: "pending", DeliveryStatus: "pending", PayURL: resp.PayURL, QRCode: resp.QRCode, RedeemURL: "https://cdk.aisale.best/recharge", CreatedAt: time.Now()}, RecoveryKey: recovery})
+	writeJSON(w, 201, CreateOrderResponse{Order: Order{ID: orderID, Email: req.Email, ProductID: p.ID, ProductName: p.Name, PriceCents: p.PriceCents, PaymentStatus: "pending", DeliveryStatus: "pending", PayURL: resp.PayURL, QRCode: resp.QRCode, RedeemURL: "https://shop.aisale.best/recharge", CreatedAt: time.Now()}, RecoveryKey: recovery})
 }
 
 func (s *Server) retryPayment(w http.ResponseWriter, r *http.Request) {

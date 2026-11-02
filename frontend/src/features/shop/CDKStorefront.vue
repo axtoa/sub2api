@@ -45,7 +45,11 @@
           <button class="shop-secondary" type="button" :disabled="busy" @click="refreshOrder">刷新订单</button>
         </div>
         <img v-if="order.payment_status === 'pending' && qrImage" class="cdk-order-qrcode" :src="qrImage" alt="支付二维码" />
-        <div v-if="order.cdk" class="shop-cdk-code"><span>兑换码</span><code>{{ order.cdk }}</code><a href="https://cdk.aisale.best/recharge" target="_blank" rel="noopener noreferrer">前往兑换</a></div>
+        <div v-if="order.cdk" class="shop-cdk-code">
+          <span>兑换码</span><code>{{ order.cdk }}</code>
+          <p class="shop-caption">先复制上方兑换码，再点击「前往兑换」，在兑换站粘贴使用。</p>
+          <div class="shop-toolbar"><a class="shop-primary" href="https://shop.aisale.best/recharge" target="_blank" rel="noopener noreferrer">前往兑换 <span aria-hidden="true">↗</span></a></div>
+        </div>
         <p v-if="recoveryKey" class="shop-caption">订单恢复码：<code>{{ recoveryKey }}</code>，请与订单号一起保存。恢复码可用于领取兑换码，请勿分享。</p>
         <button class="shop-secondary" type="button" :disabled="busy" @click="reset">继续选购</button>
       </section>
