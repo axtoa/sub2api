@@ -152,21 +152,20 @@ describe('shop purchase form', () => {
     expect((wrapper.get('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(false)
     wrapper.unmount()
   })
-  it('shows independent homepage cards and opens the channel selector in the same tab', async () => {
+  it('opens the configured external storefront directly in a new tab', async () => {
     Object.assign(app.cachedPublicSettings, { shop_homepage_content: {
       title: '官方订阅', lead: '选择合适的方案', cards: [{ title: 'Plus', summary: '月度方案', price_hint: '约 ¥200 / 月', bonus_cents: 500 }],
     } })
-    const wrapper = mount(HomeShopSection, { global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
+    const wrapper = mount(HomeShopSection, { props: { officialEnabled: false, externalUrl: 'https://example.com/shop' }, global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
     expect(wrapper.text()).toContain('官方订阅')
-    expect(wrapper.text()).toContain('Plus')
-    expect(wrapper.text()).toContain('shop.homepageBonusLabel')
-    expect(wrapper.text()).toContain('shop.homepageManualBonus')
-    expect(wrapper.get('.home-shop-cta').findComponent(RouterLinkStub).props('to')).toBe('/shop/options')
-    expect(wrapper.get('.home-shop-cta').attributes('target')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('Plus')
+    expect(wrapper.text()).not.toContain('约 ¥200 / 月')
+    expect(wrapper.get('.home-shop-cta').attributes('href')).toBe('https://example.com/shop')
+    expect(wrapper.get('.home-shop-cta').attributes('target')).toBe('_blank')
     expect(shopAPI.products).not.toHaveBeenCalled()
   })
   it('does not promise a bonus when none is configured', async () => {
-    const wrapper = mount(HomeShopSection, { global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
+    const wrapper = mount(HomeShopSection, { props: { officialEnabled: false, externalUrl: 'https://example.com/shop' }, global: { stubs: { Icon: true, RouterLink: RouterLinkStub } } }); await flushPromises()
     expect(wrapper.text()).not.toContain('shop.homepageManualBonus')
   })
 })

@@ -119,9 +119,10 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome(settings)
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
-    expect(wrapper.find('.hero-visual').exists()).toBe(true)
+    expect(wrapper.find('#home-api').exists()).toBe(true)
+    expect(wrapper.get('h1').text()).toBe('home.platformTitle')
     expect(wrapper.text()).toContain('ChatGPT')
-    expect(wrapper.text()).toContain('Anthropic')
+    expect(wrapper.get('.home-model-flow').text()).toContain('ChatGPT / Claude')
     expect(wrapper.text()).not.toContain('shop.homepageTitle')
     expect(wrapper.text()).not.toContain('Gemini')
     expect(wrapper.text()).not.toContain('Antigravity')
@@ -136,10 +137,14 @@ describe('HomeView compact mode', () => {
     const member = mountHome()
     expect(member.findAllComponents(RouterLinkStub).some((link) => link.props('to') === '/dashboard')).toBe(true)
   })
-  it('shows invoice availability immediately after usage-based billing', () => {
+  it('keeps the four model and billing details and all eight use cases', () => {
     const wrapper = mountHome()
-    expect(wrapper.get('.home-proof').findAll('span').map(item => item.text())).toEqual([
-      'ChatGPT', 'Anthropic', 'home.simpleBilling', 'home.invoiceAvailable',
+    expect(wrapper.get('.home-billing').findAll('p').map(item => item.text())).toEqual([
+      'home.openaiModels', 'home.anthropicModels', 'home.simpleBilling', 'home.invoiceAvailable',
+    ])
+    expect(wrapper.get('.home-use-cases').findAll('li').map(item => item.text())).toEqual([
+      'home.useCases.coding', 'home.useCases.writing', 'home.useCases.research', 'home.useCases.office',
+      'home.useCases.comics', 'home.useCases.shortDrama', 'home.useCases.image', 'home.useCases.video',
     ])
   })
   it('hides the promotion when both channels are closed', () => {
@@ -159,7 +164,8 @@ describe('HomeView compact mode', () => {
   it('shows the same promotion with either channel and hides it with the independent switch', () => {
     const externalOnly = mountHome({ official_shop_enabled: false, external_shop_enabled: true, external_shop_url: 'https://example.com/shop', shop_homepage_enabled: true })
     expect(externalOnly.find('.home-shop').exists()).toBe(true)
-    expect(externalOnly.get('.home-shop-cta').findComponent(RouterLinkStub).props('to')).toBe('/shop/options')
+    expect(externalOnly.get('.home-shop-cta').attributes('href')).toBe('https://example.com/shop')
+    expect(externalOnly.get('.home-shop-cta').attributes('target')).toBe('_blank')
     externalOnly.unmount()
 
     const hidden = mountHome({ official_shop_enabled: true, shop_homepage_enabled: false })

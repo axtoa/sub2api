@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { resolveDocumentTitle, resolveRouteDocumentTitle } from '@/router/title'
+import { i18n } from '@/i18n'
 
 describe('resolveDocumentTitle', () => {
   it('路由存在标题时，使用“路由标题 - 站点名”格式', () => {
@@ -25,6 +26,14 @@ describe('resolveDocumentTitle', () => {
 })
 
 describe('resolveRouteDocumentTitle', () => {
+  it('keeps the public shop title independent of the gateway brand', () => {
+    const translate = vi.spyOn(i18n.global, 't').mockReturnValue('AI Shop')
+    const title = resolveRouteDocumentTitle({ name: 'Shop', params: {}, meta: { titleKey: 'shop.storefrontTitle' } }, 'My API Gateway')
+    expect(title).toContain('AI')
+    expect(title).not.toContain('My API Gateway')
+    translate.mockRestore()
+  })
+
   it('自定义页面菜单加载后，使用菜单名称作为标题', () => {
     const route = {
       name: 'CustomPage',

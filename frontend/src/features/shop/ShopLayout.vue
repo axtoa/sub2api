@@ -22,11 +22,14 @@
   </AppLayout>
   <div v-else class="best-shop cdk-public-shop">
     <header class="cdk-public-header">
-      <a class="cdk-public-brand" href="/" :aria-label="resolvedSiteName">
-        <span class="cdk-public-logo shadow-glow"><img :src="resolvedSiteLogo" alt="" /></span>
-        <span class="cdk-public-site-name text-gray-900 transition-colors hover:text-primary-600 dark:text-white dark:hover:text-primary-400">{{ resolvedSiteName }}</span>
-      </a>
-      <router-link class="cdk-public-login" :to="{ path: '/login', query: { redirect: '/shop' } }">登录</router-link>
+      <router-link class="cdk-public-brand" to="/shop" :aria-label="resolvedSiteName">
+        <span class="cdk-public-logo"><img v-if="siteLogo" :src="resolvedSiteLogo" alt="" /><Icon v-else name="sparkles" size="md" aria-hidden="true" /></span>
+        <span class="cdk-public-site-name">{{ resolvedSiteName }}</span>
+      </router-link>
+      <nav class="cdk-public-nav" :aria-label="t('shop.storefrontNavigation')">
+        <router-link to="/shop">{{ t('shop.storefrontAllProducts') }}</router-link>
+        <a href="/shop?lookup=1#shop-order-lookup">{{ t('shop.storefrontLookup') }}</a>
+      </nav>
     </header>
     <div class="shop-main"><slot /></div>
   </div>
@@ -37,6 +40,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 import { sanitizeUrl } from '@/utils/url'
 import './shop.css'
@@ -44,6 +48,6 @@ const props = withDefaults(defineProps<{ admin?: boolean; embedded?: boolean; st
 const { t } = useI18n()
 const route = useRoute()
 const app = useAppStore()
-const resolvedSiteName = computed(() => props.siteName || app.cachedPublicSettings?.site_name || app.siteName || 'Best AI')
+const resolvedSiteName = computed(() => props.siteName || app.cachedPublicSettings?.official_shop_name?.trim() || t('shop.storefrontTitle'))
 const resolvedSiteLogo = computed(() => sanitizeUrl(props.siteLogo || app.cachedPublicSettings?.site_logo || app.siteLogo || '', { allowRelative: true, allowDataUrl: true }) || '/logo.svg')
 </script>

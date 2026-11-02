@@ -31,7 +31,7 @@ async function mountLayout(admin: boolean) {
 }
 
 async function mountPublicStorefront() {
-  const router = createRouter({ history:createMemoryHistory(), routes:[{path:'/login',component:{template:'<div />'}},{path:'/',component:{template:'<div />'}}] })
+  const router = createRouter({ history:createMemoryHistory(), routes:[{path:'/shop',component:{template:'<div />'}},{path:'/',component:{template:'<div />'}}] })
   const wrapper = mount(ShopLayout,{props:{embedded:false,storefront:true,siteName:'Best AI'},slots:{default:'<p data-test="shop-content">Content</p>'},global:{plugins:[router],stubs:{AppLayout:{template:'<div data-test="console-layout"><slot /></div>'}}}})
   return wrapper
 }
@@ -41,8 +41,10 @@ describe('ShopLayout', () => {
     const wrapper=await mountPublicStorefront()
     expect(wrapper.find('[data-test="console-layout"]').exists()).toBe(false)
     expect(wrapper.get('.cdk-public-brand').text()).toBe('Best AI')
-    expect(wrapper.get('.cdk-public-logo img').attributes('src')).toBe('/logo.svg')
-    expect(wrapper.get('.cdk-public-login').attributes('href')).toContain('/login')
+    expect(wrapper.get('.cdk-public-logo svg').exists()).toBe(true)
+    expect(wrapper.get('.cdk-public-brand').attributes('href')).toBe('/shop')
+    expect(wrapper.find('a[href*="login"]').exists()).toBe(false)
+    expect(wrapper.get('a[href*="lookup=1"]').attributes('href')).toBe('/shop?lookup=1#shop-order-lookup')
     expect(wrapper.get('[data-test="shop-content"]').text()).toBe('Content')
   })
   it.each([

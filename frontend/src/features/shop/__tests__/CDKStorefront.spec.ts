@@ -11,8 +11,8 @@ vi.mock('@/stores/auth', () => ({ useAuthStore: () => state.auth }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => ({ siteName: 'Best AI', siteLogo: '' }) }))
 vi.mock('@/api/client', () => ({ apiClient: { post: state.post } }))
 vi.mock('vue-router', () => ({ useRoute: () => state.route }))
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('../ShopLayout.vue', () => ({ default: { template: '<div><slot /></div>' } }))
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string, params?: { amount: string }) => key === 'shop.storefrontReward' ? `赠 ${params?.amount} Best AI 余额` : key }) }))
+vi.mock('../ShopLayout.vue', () => ({ default: { props: ['embedded'], template: '<div :data-embedded="embedded"><slot /></div>' } }))
 vi.mock('qrcode', () => ({ default: { toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,test') } }))
 
 const product = { id: 'product-1', name: 'Plus', spec: '1 个月', price_cents: 9900, reward_cents: 500, stock: 1 }
@@ -36,6 +36,71 @@ beforeEach(() => {
 afterEach(() => { wrapper?.unmount(); vi.unstubAllGlobals() })
 
 describe('CDK storefront order access', () => {
+  it('keeps signed-in buyers in the independent storefront', async () => {
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.attributes('data-embedded')).toBe('false')
+  })
+
+  it.each([true, false])('shows USD balance rewards with the appropriate purchase conditions when authenticated=%s', async authenticated => {
+    state.auth.isAuthenticated = authenticated
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.get('.shop-product .cdk-balance-reward').text()).toBe('赠 $5 Best AI 余额')
+    expect(wrapper.get('.cdk-checkout-reward .cdk-balance-reward').text()).toBe('赠 $5 Best AI 余额')
+    expect(wrapper.get('.cdk-checkout-reward .shop-caption').text()).toBe(authenticated ? 'shop.storefrontRewardTerms' : 'shop.storefrontRewardGuest')
+    expect(wrapper.get('.cdk-checkout-total strong').text()).toBe('¥99.00')
+    expect(state.post).not.toHaveBeenCalled()
+  })
+
+  it('does not promise balance rewards for a product with no reward configured', async () => {
+    state.fetch.mockImplementation(async (url: string) => url.endsWith('/products') ? response({ items: [{ ...product, reward_cents: 0 }] }) : response({ enabled: true }))
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.find('.cdk-balance-reward').exists()).toBe(false)
+    expect(wrapper.find('.cdk-checkout-reward').exists()).toBe(false)
+  })
+
+  it('selects the product linked from the homepage rather than the first product', async () => {
+    state.route.query = { product: 'product-2' }
+    state.fetch.mockImplementation(async (url: string) => url.endsWith('/products')
+      ? response({ items: [product, { ...product, id: 'product-2', name: 'Pro', price_cents: 19900 }] })
+      : response({ enabled: true }))
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.get('.cdk-checkout-card').text()).toContain('Pro')
+    expect(wrapper.get('.cdk-checkout-total').text()).toContain('199.00')
+    expect(wrapper.findAll('.shop-product-choice').map(item => item.attributes('aria-pressed'))).toEqual(['false', 'true'])
+  })
+
+  it('shows a linked sold-out product without silently selecting another offer', async () => {
+    state.route.query = { product: 'product-2' }
+    state.fetch.mockImplementation(async (url: string) => url.endsWith('/products')
+      ? response({ items: [product, { ...product, id: 'product-2', name: 'Sold out Pro', stock: 0 }] })
+      : response({ enabled: true }))
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.get('.cdk-checkout-card').text()).toContain('Sold out Pro')
+    expect(wrapper.get('.cdk-checkout-card').text()).toContain('shop.storefrontSoldOutHint')
+    expect(wrapper.get('.shop-form button').attributes('disabled')).toBeDefined()
+  })
+
+  it('explains when the shared product is no longer available', async () => {
+    state.route.query = { product: 'removed-product' }
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.text()).toContain('shop.storefrontProductMissing')
+  })
+
+  it('opens order recovery directly from the homepage lookup link', async () => {
+    state.auth.isAuthenticated = false
+    state.route.query = { lookup: '1' }
+    wrapper = mount(CDKStorefront)
+    await flushPromises()
+    expect(wrapper.get('#shop-order-lookup').attributes('open')).toBeDefined()
+    expect(state.post).not.toHaveBeenCalled()
+  })
+
   it('uses scoped account authorization to recover an order after returning from payment', async () => {
     state.route.query = { order: order.id }
     wrapper = mount(CDKStorefront)

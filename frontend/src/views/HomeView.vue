@@ -120,70 +120,53 @@
     </header>
 
     <main class="home-main">
-      <section class="home-hero" aria-labelledby="home-title">
-        <div class="hero-copy">
-          <p class="hero-eyebrow">{{ t('home.heroEyebrow') }}</p>
-          <h1 id="home-title">
-            <span>{{ t('home.heroTitleLine1') }}</span>
-            <span class="hero-highlight">{{ t('home.heroTitleLine2') }}</span>
-          </h1>
-          <p class="hero-description">{{ t('home.heroLead') }}</p>
-          <router-link
-            class="hero-cta"
-            :to="isAuthenticated ? dashboardPath : '/login'"
-          >
-            {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
-            <Icon name="arrowRight" size="md" :stroke-width="2" />
-          </router-link>
-        </div>
-
-        <div class="hero-visual" aria-hidden="true">
-          <div class="art-grid"></div>
-          <div class="art-orbit"></div>
-          <div class="art-label">YOUR NEXT IDEA, CONNECTED</div>
-          <article class="visual-card chat-card">
-            <div class="card-top">
-              <span class="chat-mark">✳</span>
-              <span><b>ChatGPT</b><small>A space for your next idea.</small></span>
-              <i>PLUS</i>
+      <nav v-if="showShopPromotion" class="home-mobile-nav" :aria-label="t('home.serviceNavigation')">
+        <a href="#home-api">{{ t('home.apiService') }}</a>
+        <a href="#home-shop">{{ t('shop.storefrontTitle') }} <span aria-hidden="true">↘</span></a>
+      </nav>
+      <div class="home-hero" :class="{ 'home-hero-single': !showShopPromotion }">
+        <section id="home-api" class="hero-copy" aria-labelledby="home-title">
+          <div class="hero-intro">
+            <p class="hero-eyebrow"><Icon name="server" size="sm" aria-hidden="true" />BEST AI · API SERVICES</p>
+            <h1 id="home-title">{{ t('home.platformTitle') }}</h1>
+            <p class="hero-quality">{{ t('home.heroEyebrow') }}</p>
+            <p class="hero-poem">
+              <span>{{ t('home.heroTitleLine1') }}</span>
+              <span>{{ t('home.heroTitleLine2') }}</span>
+            </p>
+            <p class="hero-description">{{ t('home.heroLead') }}</p>
+            <div class="hero-actions">
+              <router-link class="hero-cta" :to="isAuthenticated ? dashboardPath : '/login'">
+                {{ isAuthenticated ? t('home.goToDashboard') : t('home.startConnecting') }}
+                <Icon name="arrowRight" size="md" :stroke-width="2" />
+              </router-link>
+              <a v-if="docUrl" class="hero-docs" :href="docUrl" target="_blank" rel="noopener noreferrer">{{ t('home.viewDocs') }} <Icon name="externalLink" size="sm" /></a>
             </div>
-            <div class="chat-bubble">把这个灵感，变成一个好故事。</div>
-            <div class="chat-answer"><span>✳</span><i></i><i></i><i></i></div>
-            <div class="chat-foot">想法开始生长。 <span>↗</span></div>
-          </article>
-          <div class="visual-card code-card">
-            <div class="code-top"><span>hello_ai.py</span><span>•••</span></div>
-            <pre><span># YOUR AI WORKFLOW</span>
-client = <b>OpenAI</b>(
-  base_url=<b>"Best AI"</b>,
-  api_key=<b>"sk-••••••"</b>
-)
-<i>&gt; Hello, possibility.</i></pre>
           </div>
-          <span class="float-label">ChatGPT <i></i> Anthropic</span>
-          <span class="art-bottom">CONNECT. BUILD. CREATE.</span>
-        </div>
-      </section>
-
-      <section class="home-proof" :aria-label="t('home.providers.title')">
-        <span>ChatGPT</span>
-        <i aria-hidden="true"></i>
-        <span>Anthropic</span>
-        <i aria-hidden="true"></i>
-        <span>{{ t('home.simpleBilling') }}</span>
-        <i aria-hidden="true"></i>
-        <span>{{ t('home.invoiceAvailable') }}</span>
-      </section>
-
-      <HomeShopSection v-if="showShopPromotion" />
-      <section v-if="docUrl" class="home-secondary">
-        <div v-if="docUrl" class="home-next-step">
-          <span>{{ t('home.nextStep') }}</span>
-          <a :href="docUrl" target="_blank" rel="noopener noreferrer">
-            {{ t('home.viewDocs') }} <span aria-hidden="true">↗</span>
-          </a>
-        </div>
-      </section>
+          <div class="home-capabilities" :aria-label="t('home.providers.title')">
+            <article class="home-capability">
+              <h2>{{ t('home.modelEntryTitle') }}</h2>
+              <p>{{ t('home.modelEntryLead') }}</p>
+              <div class="home-model-flow">
+                <span>{{ t('home.yourTools') }}</span><Icon name="arrowRight" size="xs" aria-hidden="true" />
+                <span>Best AI</span><Icon name="arrowRight" size="xs" aria-hidden="true" />
+                <span>ChatGPT / Claude</span>
+              </div>
+            </article>
+            <article class="home-capability home-billing">
+              <h2>{{ t('home.billingTitle') }}</h2>
+              <p>{{ t('home.openaiModels') }}</p>
+              <p>{{ t('home.anthropicModels') }}</p>
+              <p>{{ t('home.simpleBilling') }}</p>
+              <p>{{ t('home.invoiceAvailable') }}</p>
+            </article>
+          </div>
+          <ul class="home-use-cases" :aria-label="t('home.useCasesLabel')">
+            <li v-for="useCase in useCases" :key="useCase">{{ t(`home.useCases.${useCase}`) }}</li>
+          </ul>
+        </section>
+        <HomeShopSection v-if="showShopPromotion" :official-enabled="officialShopEnabled" :external-url="externalShopURL" />
+      </div>
     </main>
 
     <footer class="home-footer">
@@ -210,9 +193,8 @@ const authStore = useAuthStore()
 const appStore = useAppStore()
 const { isDark, toggleTheme } = useTheme()
 const { enabled: officialShopEnabled, homepageEnabled } = useShopAvailability()
-const showShopPromotion = computed(() => homepageEnabled.value && (
-  officialShopEnabled.value || !!externalShopLink(appStore.cachedPublicSettings)
-))
+const externalShopURL = computed(() => externalShopLink(appStore.cachedPublicSettings))
+const showShopPromotion = computed(() => homepageEnabled.value && (officialShopEnabled.value || !!externalShopURL.value))
 
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Best AI')
 const siteLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
@@ -235,6 +217,7 @@ const showModelPlazaEntry = computed(
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
 const currentYear = computed(() => new Date().getFullYear())
+const useCases = ['coding', 'writing', 'research', 'office', 'comics', 'shortDrama', 'image', 'video'] as const
 
 onMounted(() => {
   authStore.checkAuth()
@@ -245,370 +228,96 @@ onMounted(() => {
 <style scoped>
 .best-ai-home {
   --home-ink: #173b32;
-  --home-muted: #737c71;
-  --home-green: #173b32;
-  --home-line: #dfe4d7;
-  --home-lime: #def58b;
+  --home-muted: #697764;
+  --home-green: #234b3a;
+  --home-line: #d7e0cd;
+  --home-panel: #e8efde;
+  --home-card: #fafcf5;
+  --home-button-ink: #f7faef;
   display: flex;
-  min-height: 100vh;
+  min-height: 100svh;
   flex-direction: column;
-  overflow: hidden;
   background: #f7f8f2;
   color: var(--home-ink);
 }
-
-.home-header,
-.home-footer {
-  display: flex;
-  width: min(1180px, calc(100% - 64px));
-  margin: 0 auto;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.home-header {
-  min-height: 82px;
-  border-bottom: 1px solid var(--home-line);
-}
-
-.home-brand,
-.home-actions,
-.account-link,
-.model-link {
-  display: inline-flex;
-  align-items: center;
-}
-
-.home-brand {
-  gap: 9px;
-  color: var(--home-ink);
-  font-size: 23px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.home-brand-mark {
-  display: block;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  object-fit: contain;
-}
-
-.home-actions {
-  gap: 18px;
-}
-
-.icon-action,
-.model-link {
-  color: var(--home-muted);
-  text-decoration: none;
-}
-
-.theme-action {
-  display: inline-flex;
-  width: 36px;
-  height: 36px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-.account-link {
-  min-height: 40px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--home-ink);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.home-main {
-  width: min(1180px, calc(100% - 64px));
-  margin: 0 auto;
-  flex: 1;
-}
-
-.home-hero {
-  display: grid;
-  min-height: 500px;
-  grid-template-columns: 1fr 0.92fr;
-  align-items: center;
-  gap: 42px;
-  padding: 58px 0 54px;
-}
-
-.hero-copy {
-  max-width: 560px;
-}
-
-.hero-eyebrow {
-  margin: 0 0 20px;
-  color: var(--home-green);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-}
-
-.hero-copy h1 {
-  max-width: 580px;
-  margin: 22px 0 20px;
-  font-size: 58px;
-  font-weight: 650;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.hero-copy h1 > span { display: block; }
-.hero-highlight { position: relative; z-index: 0; width: fit-content; }
-.hero-highlight::after {
-  position: absolute;
-  z-index: -1;
-  right: -5px;
-  bottom: 5px;
-  left: -3px;
-  height: 12px;
-  transform: rotate(-1deg);
-  background: var(--home-lime);
-  content: '';
-}
-
-.hero-description {
-  max-width: 470px;
-  margin: 22px 0 30px;
-  color: var(--home-muted);
-  font-size: 14px;
-  line-height: 1.95;
-}
-
-.hero-cta {
-  display: inline-flex;
-  min-height: 54px;
-  align-items: center;
-  gap: 14px;
-  padding: 0 22px;
-  border-radius: 8px;
-  background: var(--home-ink);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background 160ms ease, transform 160ms ease;
-}
-
-.hero-cta:hover {
-  transform: translateY(-1px);
-  background: #2c5547;
-}
-
-.hero-visual {
-  position: relative;
-  height: 404px;
-  overflow: hidden;
-  border-radius: 20px;
-  background: #e9eddf;
-}
-
-.art-grid {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(#bcc9b42b 1px, transparent 1px), linear-gradient(90deg, #bcc9b42b 1px, transparent 1px);
-  background-size: 36px 36px;
-  mask-image: linear-gradient(transparent, #000);
-}
-
-.art-orbit {
-  position: absolute;
-  top: 48px;
-  left: 50%;
-  width: 310px;
-  height: 310px;
-  transform: translateX(-50%);
-  border: 1px solid #cdd8be;
-  border-radius: 50%;
-}
-
-.art-orbit::after {
-  position: absolute;
-  inset: 28px;
-  border: 1px solid #d3ddc7;
-  border-radius: 50%;
-  content: '';
-}
-
-.art-label,
-.art-bottom {
-  position: absolute;
-  color: #6c7d61;
-  font-size: 9px;
-  letter-spacing: 1.7px;
-}
-
-.art-label { top: 22px; left: 25px; }
-.art-bottom { right: 22px; bottom: 16px; }
-
-.visual-card {
-  position: absolute;
-  border: 1px solid #e2e7da;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 16px 25px rgb(33 57 26 / 8%);
-}
-
-.chat-card {
-  top: 72px;
-  left: 7%;
-  z-index: 1;
-  width: 256px;
-  padding: 19px;
-  transform: rotate(-4deg);
-}
-
-.card-top { display: flex; align-items: center; gap: 10px; }
-.chat-mark { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; background: #e9f2e6; color: #39765b; }
-.card-top b { display: block; color: #273b30; font-size: 13px; }
-.card-top small { display: block; margin-top: 3px; color: #899188; font-size: 9px; }
-.card-top > i { margin-left: auto; padding: 4px 6px; border-radius: 4px; background: #e6f3dc; color: #688657; font-size: 8px; font-style: normal; }
-.chat-bubble { margin: 17px 0 12px; padding: 10px 11px; border-radius: 8px 8px 2px 8px; background: #f3f5ee; color: #57665a; font-size: 10px; }
-.chat-answer { display: flex; align-items: center; gap: 7px; color: #74a06c; font-size: 11px; }
-.chat-answer i { width: 32px; height: 4px; border-radius: 3px; background: #dfe6db; }
-.chat-answer i:last-child { width: 22px; }
-.chat-foot { display: flex; justify-content: space-between; margin-top: 13px; padding-top: 10px; border-top: 1px solid #edf0e9; color: #9aa197; font-size: 9px; }
-
-.code-card {
-  right: 5%;
-  bottom: 52px;
-  z-index: 2;
-  width: 265px;
-  overflow: hidden;
-  transform: rotate(3deg);
-  background: #173b32;
-  border-color: #254a3e;
-  color: #f0f3e8;
-}
-
-.code-top { display: flex; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid rgb(255 255 255 / 10%); color: #b5c8b7; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.code-card pre { margin: 0; padding: 12px 14px 15px; font: 9px/1.8 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
-.code-card pre span { color: #91a796; }
-.code-card pre b { color: #def58b; font-weight: 500; }
-.code-card pre i { color: #f0d1aa; font-style: normal; }
-.float-label { position: absolute; top: 216px; right: 8%; display: flex; align-items: center; gap: 7px; color: #62735e; font-size: 10px; }
-.float-label i { width: 4px; height: 4px; border-radius: 50%; background: #89a76a; }
-
-.home-proof {
-  display: flex;
-  flex-wrap: wrap;
-  min-height: 74px;
-  padding: 16px 0;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-  row-gap: 10px;
-  border-top: 1px solid var(--home-line);
-  border-bottom: 1px solid var(--home-line);
-  color: #45564b;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.home-proof span { white-space: nowrap; }
-
-.home-proof i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #86a191;
-}
-
-.home-secondary {
-  display: flex;
-  min-height: 74px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--home-muted);
-  font-size: 12px;
-  text-align: center;
-}
-
-.home-secondary p { margin: 0; }
-.home-next-step { display: flex; gap: 12px; align-items: center; }
-.home-next-step {
-  display: flex;
-  color: var(--home-muted);
-  font-size: 13px;
-}
-
-.home-next-step a { color: var(--home-green); font-weight: 600; text-decoration: none; }
-.home-footer { min-height: 58px; border-top: 1px solid var(--home-line); color: #7c877e; font-size: 12px; }
-.home-footer { justify-content: center; text-align: center; }
-
-@media (max-width: 760px) {
-  .home-header,
-  .home-main,
-  .home-footer { width: min(100% - 36px, 560px); }
+.home-header, .home-footer, .home-main { width: min(1320px, calc(100% - 64px)); margin: 0 auto; }
+.home-header, .home-footer { display: flex; align-items: center; justify-content: space-between; }
+.home-header { min-height: 82px; gap: 20px; border-bottom: 1px solid var(--home-line); }
+.home-brand, .home-actions, .account-link { display: inline-flex; align-items: center; }
+.home-brand { flex-shrink: 0; gap: 9px; color: var(--home-ink); font-size: 23px; font-weight: 700; text-decoration: none; }
+.home-brand-mark { display: block; width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; object-fit: contain; }
+.home-actions { flex-wrap: wrap; justify-content: flex-end; gap: 18px; }
+.icon-action, .model-link { color: var(--home-muted); text-decoration: none; }
+.theme-action { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border: 0; background: transparent; cursor: pointer; }
+.account-link { min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--home-ink); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; }
+.home-main { display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 28px 0; }
+.home-hero { display: grid; min-height: 604px; grid-template-columns: minmax(0, 55fr) minmax(0, 45fr); align-items: stretch; gap: 20px; }
+.home-hero-single { grid-template-columns: minmax(0, 1fr); }
+.hero-copy { display: flex; min-width: 0; flex-direction: column; padding: clamp(24px, 2.7vw, 36px); border: 1px solid var(--home-line); border-radius: 20px; background: var(--home-panel); scroll-margin-top: 20px; }
+.hero-intro { min-width: 0; }
+.hero-eyebrow { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--home-muted); font-size: 11px; font-weight: 600; letter-spacing: 1.2px; }
+.hero-copy h1 { margin: 8px 0 0; font-size: clamp(38px, 4vw, 50px); font-weight: 750; line-height: 1.25; letter-spacing: -1.2px; overflow-wrap: anywhere; }
+.hero-quality { margin: 12px 0 0; color: var(--home-muted); font-size: 13px; font-weight: 400; line-height: 1.8; }
+.hero-poem { margin: 26px 0 0; font-size: clamp(20px, 2vw, 24px); font-weight: 550; line-height: 1.65; }
+.hero-poem > span { display: block; text-wrap: balance; }
+.hero-description { max-width: 440px; margin: 10px 0 0; color: var(--home-muted); font-size: 13px; line-height: 1.9; }
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; margin-top: 22px; }
+.hero-cta { display: inline-flex; min-height: 45px; align-items: center; justify-content: center; gap: 14px; padding: 0 20px; border-radius: 9px; background: var(--home-green); color: var(--home-button-ink); font-size: 13px; font-weight: 600; text-decoration: none; transition: opacity 160ms ease, transform 160ms ease; }
+.hero-cta:hover { transform: translateY(-1px); opacity: .9; }
+.hero-docs { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; color: var(--home-green); font-size: 12px; font-weight: 600; text-decoration: none; }
+.home-capabilities { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 10px; margin-top: 28px; }
+.home-capability { min-width: 0; padding: 16px; border: 1px solid var(--home-line); border-radius: 13px; background: var(--home-card); overflow-wrap: anywhere; }
+.home-capability h2 { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.6; }
+.home-capability p { margin: 7px 0 0; color: var(--home-muted); font-size: 12px; line-height: 1.6; }
+.home-model-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; font-size: 11px; }
+.home-model-flow span { padding: 3px 7px; border: 1px solid var(--home-line); border-radius: 5px; }
+.home-model-flow svg { flex-shrink: 0; }
+.home-use-cases { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; margin: auto 0 0; padding: 20px 0 0; color: var(--home-muted); font-size: 12px; line-height: 1.6; list-style: none; }
+.home-use-cases li { min-width: 0; overflow-wrap: anywhere; }
+.home-hero-single .hero-copy { width: 100%; max-width: 760px; min-height: 604px; margin: 0 auto; }
+.home-footer { min-height: 58px; justify-content: center; padding: 16px 0; border-top: 1px solid var(--home-line); color: var(--home-muted); font-size: 11px; text-align: center; }
+.home-mobile-nav { display: none; }
+.best-ai-home :is(a, button):focus-visible { outline: 2px solid var(--home-green); outline-offset: 4px; }
+@media (max-width: 820px) {
+  .home-header, .home-main, .home-footer { width: min(100% - 36px, 620px); }
   .home-header { min-height: 70px; }
+  .home-brand { font-size: 20px; }
   .home-actions { gap: 10px; }
   .model-link { display: none; }
-  .account-link { min-height: 36px; padding: 0 11px; font-size: 12px; }
-  .home-hero { min-height: auto; grid-template-columns: 1fr; gap: 34px; padding: 52px 0 36px; }
-  .hero-copy h1 { max-width: 520px; font-size: 44px; }
-  .hero-description { margin: 18px 0 24px; font-size: 14px; }
-  .hero-visual { height: 340px; }
-  .chat-card { top: 64px; left: 4%; width: min(256px, 76%); }
-  .code-card { right: 3%; bottom: 37px; width: min(265px, 78%); }
-  .float-label { top: 202px; right: 6%; }
-  .home-proof { min-height: 64px; gap: 12px; font-size: 12px; }
-  .home-secondary { min-height: 70px; flex-direction: column; gap: 7px; font-size: 11px; }
-  .home-next-step { font-size: 11px; }
+  .account-link { min-height: 36px; padding: 0 11px; }
+  .home-main { padding: 18px 0 24px; }
+  .home-hero { min-height: auto; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .hero-copy { min-height: 604px; }
+  .hero-copy h1 { font-size: 38px; }
+  .hero-poem { font-size: 21px; }
+  .home-mobile-nav { display: flex; gap: 10px; margin-bottom: 16px; }
+  .home-mobile-nav a { display: inline-flex; min-height: 40px; flex: 1; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--home-line); border-radius: 10px; color: var(--home-green); font-size: 12px; text-decoration: none; }
+  .home-mobile-nav a:first-child { border-color: var(--home-green); background: var(--home-green); color: var(--home-button-ink); }
+  .home-mobile-nav a:last-child { border-color: #dfbea1; background: #f7e2ce; color: #70422b; }
 }
-
-@media (min-width: 761px) and (max-width: 1024px) {
-  .hero-copy h1 { font-size: 54px; }
+@media (max-width: 420px) {
+  .home-capabilities { grid-template-columns: minmax(0, 1fr); }
+  .home-use-cases { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-cta { transition: none; }
+@media (max-width: 380px) {
+  .home-header { flex-wrap: wrap; padding: 14px 0; }
+  .hero-copy h1 { font-size: 34px; }
 }
+@media (prefers-reduced-motion: reduce) { .hero-cta { transition: none; } .hero-cta:hover { transform: none; } }
 </style>
 
 <style>
-/* Keep these overrides unscoped: Vue drops :global(.dark) descendant selectors in production CSS. */
+/* Unscoped selectors preserve the dark ancestor in production CSS. */
 .dark .best-ai-home {
-  --home-ink: #edf3ed;
-  --home-muted: #a2b0a5;
-  --home-green: #87c5a7;
-  --home-line: #2e3b34;
+  --home-ink: #edf4e5;
+  --home-muted: #b2c0a6;
+  --home-green: #d9edb5;
+  --home-line: #3e5038;
+  --home-panel: #203b2c;
+  --home-card: #2b4835;
+  --home-button-ink: #183a2b;
   background: #141d19;
 }
-
-.dark .best-ai-home .account-link {
-  background: #e7efdf;
-  color: #173b32;
-}
-
-.dark .best-ai-home .hero-cta {
-  background: #e7efdf;
-  color: #173b32;
-}
-
-.dark .best-ai-home .hero-cta:hover {
-  background: #d9e5cf;
-}
-
-.dark .best-ai-home .home-proof { color: #c0cec2; }
-
-.dark .best-ai-home .hero-highlight::after {
-  bottom: 3px;
-  height: 6px;
-  background: #9aa982;
-  opacity: 0.42;
-}
+.dark .best-ai-home .account-link { background: #e7efdf; color: #173b32; }
+.dark .best-ai-home .home-mobile-nav a:last-child { border-color: #76533a; background: #493426; color: #f2ddc8; }
 </style>
