@@ -12,6 +12,53 @@
 # =============================================================================
 
 services:
+  # The CDK storefront is opt-in and uses its own process and database.
+  cdkshop:
+    image: ${SUB2API_IMAGE:-weishaw/sub2api:latest}
+    container_name: sub2api-cdkshop
+    profiles: ["cdkshop"]
+    restart: unless-stopped
+    command: ["/app/cdkshop"]
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:${CDKSHOP_PORT:-8082}:8082"
+    environment:
+      - CDKSHOP_LISTEN=:8082
+      - CDKSHOP_DATABASE_URL=${CDKSHOP_DATABASE_URL:-}
+      - CDKSHOP_AUTH_SECRET=${CDKSHOP_AUTH_SECRET:-}
+      - CDKSHOP_ENCRYPTION_KEY=${CDKSHOP_ENCRYPTION_KEY:-}
+      - CDKSHOP_EASYPAY_API_BASE=${CDKSHOP_EASYPAY_API_BASE:-}
+      - CDKSHOP_EASYPAY_PID=${CDKSHOP_EASYPAY_PID:-}
+      - CDKSHOP_EASYPAY_KEY=${CDKSHOP_EASYPAY_KEY:-}
+      - CDKSHOP_PUBLIC_URL=${CDKSHOP_PUBLIC_URL:-}
+    networks:
+      - sub2api-network
+    depends_on:
+      cdkshop-postgres:
+        condition: service_healthy
+
+  cdkshop-postgres:
+    image: postgres:18-alpine
+    container_name: sub2api-cdkshop-postgres
+    profiles: ["cdkshop"]
+    restart: unless-stopped
+    environment:
+      - PGDATA=/var/lib/postgresql/data
+      - POSTGRES_USER=${CDKSHOP_POSTGRES_USER:-cdkshop}
+      - POSTGRES_PASSWORD=${CDKSHOP_POSTGRES_PASSWORD:-}
+      - POSTGRES_DB=${CDKSHOP_POSTGRES_DB:-cdkshop}
+      - TZ=${TZ:-Asia/Shanghai}
+    volumes:
+      - cdkshop_postgres_data:/var/lib/postgresql/data
+    networks:
+      - sub2api-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CDKSHOP_POSTGRES_USER:-cdkshop} -d ${CDKSHOP_POSTGRES_DB:-cdkshop}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   # ===========================================================================
   # Sub2API Application
   # ===========================================================================
@@ -94,6 +141,7 @@ services:
       # will be generated on each startup.
       # Generate a secure secret: openssl rand -hex 32
       - JWT_SECRET=${JWT_SECRET:-}
+      - CDKSHOP_AUTH_SECRET=${CDKSHOP_AUTH_SECRET:-}
       - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
 
       # =======================================================================
@@ -314,6 +362,8 @@ services:
 # Volumes
 # =============================================================================
 volumes:
+  cdkshop_postgres_data:
+    driver: local
   sub2api_data:
     driver: local
   postgres_data:

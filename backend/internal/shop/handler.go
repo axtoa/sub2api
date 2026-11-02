@@ -15,6 +15,8 @@ import (
 
 type settingsWriter interface {
 	SetOfficialShopEnabled(context.Context, bool) error
+	GetCDKShopMenuVisible(context.Context) (bool, error)
+	SetCDKShopMenuVisible(context.Context, bool) error
 	GetShopHomepageEnabled(context.Context) (bool, error)
 	SetShopHomepageEnabled(context.Context, bool) error
 	GetShopHomepageContent(context.Context) (*service.ShopHomepageContent, error)
@@ -23,6 +25,31 @@ type settingsWriter interface {
 	SetExternalShopSettings(context.Context, bool, string) error
 	GetShopLabels(context.Context) (service.ShopLabels, error)
 	SetShopLabel(context.Context, string, string) (string, error)
+}
+
+func (h *Handler) CDKMenuSettings(c *gin.Context) {
+	visible, err := h.settings.GetCDKShopMenuVisible(c.Request.Context())
+	if !response.ErrorFrom(c, err) {
+		response.Success(c, gin.H{"enabled": visible})
+	}
+}
+
+func (h *Handler) SetCDKMenuSettings(c *gin.Context) {
+	if role, ok := middleware.GetUserRoleFromContext(c); !ok || role != "admin" {
+		response.Forbidden(c, "需要管理员权限")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024)
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		response.BadRequest(c, "请提供有效的菜单显示状态")
+		return
+	}
+	if !response.ErrorFrom(c, h.settings.SetCDKShopMenuVisible(c.Request.Context(), *req.Enabled)) {
+		response.Success(c, gin.H{"enabled": *req.Enabled})
+	}
 }
 
 type Handler struct {

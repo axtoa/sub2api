@@ -3,9 +3,12 @@ package handler
 import (
 	"context"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/cdkshop"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -454,6 +457,31 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		userProfileResponse: userProfileResponseFromService(user, identities),
 		RunMode:             runMode,
 	})
+}
+
+// IssueCDKShopToken grants a short-lived credential scoped to the isolated CDK shop.
+func (h *AuthHandler) IssueCDKShopToken(c *gin.Context) {
+	secret := strings.TrimSpace(os.Getenv("CDKSHOP_AUTH_SECRET"))
+	if len(secret) < 32 {
+		c.JSON(503, gin.H{"error": gin.H{"code": "CDKSHOP_UNAVAILABLE", "message": "CDK shop is not configured"}})
+		return
+	}
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	role, roleOK := middleware2.GetUserRoleFromContext(c)
+	if !ok || !roleOK {
+		c.JSON(401, gin.H{"error": gin.H{"code": "UNAUTHORIZED", "message": "Authentication required"}})
+		return
+	}
+	shopRole := "user"
+	if role == service.RoleAdmin {
+		shopRole = "admin"
+	}
+	token, err := cdkshop.SignToken([]byte(secret), subject.UserID, shopRole, time.Now())
+	if err != nil {
+		c.JSON(500, gin.H{"error": gin.H{"code": "TOKEN_ISSUE_FAILED", "message": "Unable to issue shop token"}})
+		return
+	}
+	c.JSON(200, gin.H{"token": token, "expires_in": 300})
 }
 
 // ValidatePromoCodeRequest 验证优惠码请求

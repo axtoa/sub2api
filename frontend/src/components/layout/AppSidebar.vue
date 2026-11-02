@@ -157,9 +157,9 @@
 
     <!-- Bottom Section -->
     <div class="mt-auto shrink-0">
-      <div v-if="(officialShopEnabled || externalShopURL) && (isAdmin || !appStore.backendModeEnabled)" class="sidebar-shop-entry p-3">
+      <div v-if="(cdkShopMenuVisible || externalShopURL) && (isAdmin || !appStore.backendModeEnabled)" class="sidebar-shop-entry p-3">
         <router-link
-          v-if="officialShopEnabled"
+          v-if="cdkShopMenuVisible"
           to="/shop"
           class="sidebar-link"
           :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
@@ -239,7 +239,6 @@ import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useTheme } from '@/composables/useTheme'
-import { useShopAvailability } from '@/features/shop/availability'
 import { cardShopLink, externalShopLink } from '@/utils/externalLinks'
 
 interface NavItem {
@@ -290,7 +289,6 @@ const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
 const { canUseCreativeStudio, refreshBatchImageAccess } = useBatchImageAccess()
 const { isDark, toggleTheme } = useTheme()
-const { enabled: officialShopEnabled } = useShopAvailability()
 const cardShopURL = computed(() => cardShopLink(appStore.cachedPublicSettings))
 const externalShopURL = computed(() => externalShopLink(appStore.cachedPublicSettings))
 const officialShopName = computed(() => appStore.cachedPublicSettings?.official_shop_name?.trim() || t('shop.entry'))
@@ -299,6 +297,7 @@ const externalShopName = computed(() => appStore.cachedPublicSettings?.external_
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const isAdmin = computed(() => authStore.isAdmin)
+const cdkShopMenuVisible = computed(() => isAdmin.value || appStore.cachedPublicSettings?.cdkshop_menu_visible === true)
 const sidebarNavRef = ref<HTMLElement | null>(null)
 
 const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))

@@ -242,6 +242,7 @@ export interface PublicSettings {
   hide_ccs_import_button: boolean
   payment_enabled: boolean
   official_shop_enabled?: boolean
+  cdkshop_menu_visible?: boolean
   shop_homepage_enabled?: boolean
   shop_homepage_content?: ShopHomepageContent | null
   official_shop_name?: string

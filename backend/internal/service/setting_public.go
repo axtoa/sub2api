@@ -239,6 +239,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyOfficialShopEnabled,
+		SettingKeyCDKShopMenuVisible,
 		SettingKeyShopHomepageEnabled,
 		SettingKeyShopHomepageContent,
 		SettingKeyModelPlazaEnabled,
@@ -383,6 +384,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 		OfficialShopEnabled:      officialShopEnabledFromSettings(settings),
+		CDKShopMenuVisible:       settings[SettingKeyCDKShopMenuVisible] == "true",
 		ShopHomepageEnabled:      shopHomepageEnabledFromSettings(settings),
 		ShopHomepageContent:      shopHomepageContent,
 
@@ -575,6 +577,7 @@ func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
 // drift automatically (see setting_service_injection_test.go).
 type PublicSettingsInjectionPayload struct {
 	OfficialShopEnabled                 bool                     `json:"official_shop_enabled"`
+	CDKShopMenuVisible                  bool                     `json:"cdkshop_menu_visible"`
 	ShopHomepageEnabled                 bool                     `json:"shop_homepage_enabled"`
 	ShopHomepageContent                 *ShopHomepageContent     `json:"shop_homepage_content"`
 	OfficialShopName                    string                   `json:"official_shop_name"`
@@ -673,6 +676,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 
 	return &PublicSettingsInjectionPayload{
 		OfficialShopEnabled:                 settings.OfficialShopEnabled,
+		CDKShopMenuVisible:                  settings.CDKShopMenuVisible,
 		ShopHomepageEnabled:                 settings.ShopHomepageEnabled,
 		ShopHomepageContent:                 settings.ShopHomepageContent,
 		OfficialShopName:                    settings.OfficialShopName,

@@ -25,6 +25,14 @@ builds:
       - -X main.Commit={{.Commit}}
       - -X main.Date={{.Date}}
       - -X main.BuildType=release
+  - id: cdkshop
+    dir: backend
+    main: ./cmd/cdkshop
+    binary: cdkshop
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64]
 
 # 跳过 archives
 archives: []
@@ -39,6 +47,7 @@ changelog:
 # 仅 GHCR x86_64 镜像
 dockers:
   - id: ghcr-amd64
+    ids: [sub2api, cdkshop]
     goos: linux
     goarch: amd64
     image_templates:

@@ -158,6 +158,10 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: devPort,
       proxy: {
+        '/api/v1/cdkshop': {
+          target: env.VITE_CDKSHOP_URL || 'http://127.0.0.1:8082',
+          changeOrigin: true
+        },
         '/api': {
           target: backendUrl,
           changeOrigin: true

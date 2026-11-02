@@ -77,6 +77,27 @@ func TestOfficialShopFailedSaveDoesNotInvalidateCacheOrChangeState(t *testing.T)
 	require.Equal(t, "true", value)
 }
 
+func TestCDKShopMenuVisibilityIsIndependentAndDefaultsHidden(t *testing.T) {
+	repo := &panelRateLimitSettingRepo{values: map[string]string{SettingKeyOfficialShopEnabled: "true"}}
+	s := NewSettingService(repo, &config.Config{})
+	visible, err := s.GetCDKShopMenuVisible(context.Background())
+	require.NoError(t, err)
+	require.False(t, visible)
+	require.NoError(t, s.SetCDKShopMenuVisible(context.Background(), true))
+	public, err := NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, public.CDKShopMenuVisible)
+	require.True(t, public.OfficialShopEnabled)
+	payload, err := NewSettingService(repo, &config.Config{}).GetPublicSettingsForInjection(context.Background())
+	require.NoError(t, err)
+	require.True(t, payload.(*PublicSettingsInjectionPayload).CDKShopMenuVisible)
+	require.NoError(t, s.SetCDKShopMenuVisible(context.Background(), false))
+	public, err = NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, public.CDKShopMenuVisible)
+	require.True(t, public.OfficialShopEnabled)
+}
+
 func TestShopHomepageSwitchDefaultsOffAndDoesNotChangeChannels(t *testing.T) {
 	repo := &panelRateLimitSettingRepo{values: map[string]string{
 		SettingKeyOfficialShopEnabled: "false",

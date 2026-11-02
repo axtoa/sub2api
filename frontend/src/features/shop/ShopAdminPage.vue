@@ -1,9 +1,8 @@
 <template>
   <ShopLayout admin>
-    <ShopAvailabilityControl />
     <ShopHomepageAdmin v-if="route.path.endsWith('/homepage')" />
-    <ShopOrders v-else-if="!route.path.endsWith('/products')" admin />
-    <section v-else>
+    <ShopOrders v-else-if="!route.path.endsWith('/products') && !route.path.endsWith('/settings')" admin />
+    <section v-else-if="route.path.endsWith('/products')">
       <div class="shop-section-heading"><h2>{{ t('shop.products') }}</h2><div class="shop-toolbar"><button type="button" class="shop-icon-button" :disabled="loading || busy" :title="t('shop.refresh')" :aria-label="t('shop.refresh')" @click="load"><Icon name="refresh" size="sm" /></button><button type="button" class="shop-secondary" :disabled="busy" @click="edit()"><Icon name="plus" size="sm" />{{ t('shop.addProduct') }}</button></div></div>
       <p class="shop-caption">{{ t('shop.productHint') }}</p><p v-if="error" class="shop-error" role="alert">{{ error }}</p>
       <div v-if="loading" class="shop-empty">{{ t('common.loading') }}</div>
@@ -36,7 +35,6 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import ShopLayout from './ShopLayout.vue'
-import ShopAvailabilityControl from './ShopAvailabilityControl.vue'
 import ShopHomepageAdmin from './ShopHomepageAdmin.vue'
 import ShopOrders from './ShopOrders.vue'
 import ProductCard from './ProductCard.vue'

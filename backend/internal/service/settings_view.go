@@ -318,6 +318,7 @@ type DefaultSubscriptionSetting struct {
 
 type PublicSettings struct {
 	OfficialShopEnabled                 bool                 `json:"official_shop_enabled"`
+	CDKShopMenuVisible                  bool                 `json:"cdkshop_menu_visible"`
 	ShopHomepageEnabled                 bool                 `json:"shop_homepage_enabled"`
 	ShopHomepageContent                 *ShopHomepageContent `json:"shop_homepage_content"`
 	OfficialShopName                    string               `json:"official_shop_name"`

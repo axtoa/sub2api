@@ -74,6 +74,8 @@ func RegisterAdminRoutes(
 		shop := admin.Group("/shop")
 		shop.GET("/settings", h.Shop.Availability)
 		shop.PUT("/settings", h.Shop.SetAvailability)
+		shop.GET("/settings/cdk-menu", h.Shop.CDKMenuSettings)
+		shop.PUT("/settings/cdk-menu", h.Shop.SetCDKMenuSettings)
 		shop.GET("/settings/homepage", h.Shop.HomepageSettings)
 		shop.PUT("/settings/homepage", h.Shop.SetHomepageSettings)
 		shop.GET("/settings/homepage/content", h.Shop.HomepageContent)

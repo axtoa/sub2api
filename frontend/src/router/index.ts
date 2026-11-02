@@ -42,8 +42,13 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/shop', name: 'Shop',
+    component: () => import('@/features/shop/CDKStorefront.vue'),
+    meta: { requiresAuth: false, titleKey: 'shop.entry' }
+  },
+  {
+    path: '/shop/official', name: 'OfficialShop',
     component: () => import('@/features/shop/ShopPage.vue'),
-    meta: { requiresAuth: true, titleKey: 'shop.entry' }
+    meta: { requiresAuth: true, titleKey: 'shop.officialEntry' }
   },
   {
     path: '/shop/orders/:id?', name: 'ShopOrders',
@@ -54,6 +59,16 @@ const routes: RouteRecordRaw[] = [
     path: '/admin/shop', name: 'ShopAdmin',
     component: () => import('@/features/shop/ShopAdminPage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.adminEntry' }
+  },
+  {
+    path: '/admin/shop/cdk', name: 'CDKShopAdmin',
+    component: () => import('@/features/shop/CDKShopAdmin.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.cdkManagement' }
+  },
+  {
+    path: '/admin/shop/settings', name: 'ShopSettingsAdmin',
+    component: () => import('@/features/shop/ShopSettingsPage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, titleKey: 'shop.settingsTab' }
   },
   {
     path: '/admin/shop/products', name: 'ShopProductsAdmin',
@@ -826,7 +841,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/shop']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

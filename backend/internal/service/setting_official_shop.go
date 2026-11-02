@@ -41,3 +41,21 @@ func (s *SettingService) SetOfficialShopEnabled(ctx context.Context, enabled boo
 	}
 	return nil
 }
+
+func (s *SettingService) GetCDKShopMenuVisible(ctx context.Context) (bool, error) {
+	settings, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyCDKShopMenuVisible})
+	if err != nil {
+		return false, err
+	}
+	return settings[SettingKeyCDKShopMenuVisible] == "true", nil
+}
+
+func (s *SettingService) SetCDKShopMenuVisible(ctx context.Context, visible bool) error {
+	if err := s.settingRepo.Set(ctx, SettingKeyCDKShopMenuVisible, strconv.FormatBool(visible)); err != nil {
+		return err
+	}
+	if s.onUpdate != nil {
+		s.onUpdate()
+	}
+	return nil
+}

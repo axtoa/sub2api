@@ -27,6 +27,9 @@ api.sub2api.com {
 	# =========================================================================
 	# 反向代理配置
 	# =========================================================================
+	@cdkshop path /api/v1/cdkshop/*
+	reverse_proxy @cdkshop localhost:8082
+
 	reverse_proxy localhost:8080 {
 		# 健康检查
 		health_uri /health

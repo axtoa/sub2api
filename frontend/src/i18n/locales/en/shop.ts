@@ -1,5 +1,5 @@
 export default { shop: {
-  entry: 'On-site Official Purchasing', externalEntry: 'External Purchase Marketplace', adminEntry: 'Shop Management', title: 'Official Product Purchasing', adminTitle: 'Official Product Shop Management',
+  entry: 'On-site Official Purchasing', externalEntry: 'External Purchase Marketplace', adminEntry: 'Shop Management', title: 'Official Product Purchasing', adminTitle: 'Official Product Shop Management', officialEntry: 'Official Purchasing', cdkManagement: 'CDK Products & Inventory', settingsTab: 'Shop Settings',
   optionsTitle: 'Choose a Purchase Channel', optionsIntro: 'Choose how to buy. Products and prices are set by each channel.',
   officialOptionHint: 'Create an order here and track its progress', externalOptionHint: 'Shop at the independent marketplace; it handles your order', noChannels: 'No purchasing channels are open right now',
   homepageSetting: 'Show Purchasing on Homepage', homepageSettingHint: 'Control the homepage promotion independently. It appears only while a purchasing channel is open.',

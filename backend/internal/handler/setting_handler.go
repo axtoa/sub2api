@@ -101,6 +101,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		BackendModeEnabled:                  settings.BackendModeEnabled,
 		PaymentEnabled:                      settings.PaymentEnabled,
 		OfficialShopEnabled:                 settings.OfficialShopEnabled,
+		CDKShopMenuVisible:                  settings.CDKShopMenuVisible,
 		ShopHomepageEnabled:                 settings.ShopHomepageEnabled,
 		ShopHomepageContent:                 settings.ShopHomepageContent,
 		Version:                             h.version,

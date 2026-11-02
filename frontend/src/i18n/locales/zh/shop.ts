@@ -1,5 +1,5 @@
 export default { shop: {
-  entry: '站内官方代购', externalEntry: '外部代购商城', adminEntry: '代购管理', title: '官方产品代购', adminTitle: '官方产品代购管理',
+  entry: '站内官方代购', externalEntry: '外部代购商城', adminEntry: '代购管理', title: '官方产品代购', adminTitle: '官方产品代购管理', officialEntry: '站内官方代购', cdkManagement: 'CDK 商品与库存', settingsTab: '代购设置',
   optionsTitle: '选择代购渠道', optionsIntro: '选一种适合自己的购买方式；具体商品与价格以对应渠道为准。',
   officialOptionHint: '站内生成订单，处理进度可查', externalOptionHint: '前往独立商城选购，订单由商城处理', noChannels: '当前没有开放的代购渠道',
   homepageSetting: '首页展示代购', homepageSettingHint: '独立控制首页宣传区；至少开放一个代购渠道时才会出现。',

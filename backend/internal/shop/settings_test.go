@@ -46,6 +46,15 @@ type testSettingsWriter struct {
 	err      error
 	external service.ExternalShopSettings
 	labels   service.ShopLabels
+	cdkMenu  bool
+}
+
+func (s *testSettingsWriter) GetCDKShopMenuVisible(context.Context) (bool, error) {
+	return s.cdkMenu, s.err
+}
+func (s *testSettingsWriter) SetCDKShopMenuVisible(_ context.Context, visible bool) error {
+	s.cdkMenu = visible
+	return s.err
 }
 
 func (s *testSettingsWriter) SetOfficialShopEnabled(_ context.Context, enabled bool) error {
@@ -147,6 +156,40 @@ func TestHomepageSwitchIsIndependentAndAdminOnly(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/admin/shop/settings/homepage", nil))
 	require.Equal(t, 200, w.Code)
 	require.Contains(t, w.Body.String(), `"enabled":false`)
+}
+
+func TestCDKMenuVisibilityIsAdminOnlyAndIndependentFromStoreSwitch(t *testing.T) {
+	writer := &testSettingsWriter{cdkMenu: false, values: []bool{true}}
+	h := NewHandler(nil, writer)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUserRole), c.GetHeader("X-Test-Role"))
+		c.Next()
+	})
+	r.GET("/api/v1/admin/shop/settings/cdk-menu", h.CDKMenuSettings)
+	r.PUT("/api/v1/admin/shop/settings/cdk-menu", h.SetCDKMenuSettings)
+
+	get := httptest.NewRecorder()
+	r.ServeHTTP(get, httptest.NewRequest("GET", "/api/v1/admin/shop/settings/cdk-menu", nil))
+	require.Equal(t, http.StatusOK, get.Code)
+	require.Contains(t, get.Body.String(), `"enabled":false`)
+
+	for _, tc := range []struct {
+		role, body string
+		status     int
+	}{
+		{"user", `{"enabled":true}`, http.StatusForbidden},
+		{"admin", `{}`, http.StatusBadRequest},
+		{"admin", `{"enabled":true}`, http.StatusOK},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("PUT", "/api/v1/admin/shop/settings/cdk-menu", strings.NewReader(tc.body))
+		req.Header.Set("X-Test-Role", tc.role)
+		r.ServeHTTP(w, req)
+		require.Equal(t, tc.status, w.Code)
+	}
+	require.True(t, writer.cdkMenu)
+	require.Equal(t, []bool{true}, writer.values)
 }
 
 func (s *testSettingsWriter) GetExternalShopSettings(context.Context) (service.ExternalShopSettings, error) {

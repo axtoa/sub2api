@@ -129,16 +129,16 @@ describe('feature route guard', () => {
     appStore.fetchPublicSettings.mockReset()
   })
 
-  it('requires login for the shop catalogue and all orders, with administration restricted to admins', () => {
+  it('allows guest access to the CDK catalogue while keeping account orders and administration protected', () => {
     expect(routerHarness.routes.find(route => route.path === '/shop/options')?.meta?.requiresAuth).toBe(true)
-    expect(routerHarness.routes.find(route => route.path === '/shop')?.meta?.requiresAuth).toBe(true)
+    expect(routerHarness.routes.find(route => route.path === '/shop')?.meta?.requiresAuth).toBe(false)
     expect(routerHarness.routes.find(route => route.path === '/shop/orders/:id?')?.meta?.requiresAuth).toBe(true)
-    for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/orders/:id']) {
+    for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id']) {
       expect(routerHarness.routes.find(route => route.path === path)?.meta).toMatchObject({ requiresAuth: true, requiresAdmin: true })
     }
   })
 
-  it.each(['/shop/options', '/shop', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {
+  it.each(['/shop/options', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {
     authStore.isAuthenticated = false
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)
@@ -146,23 +146,20 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith({ path: '/login', query: { redirect: path } })
   })
 
-  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('denies ordinary users access to %s', async path => {
+  it.each(['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('denies ordinary users access to %s', async path => {
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)
     await navigation
     expect(next).toHaveBeenCalledWith('/dashboard')
   })
 
-  it('keeps login reachable for non-admin shop visitors in backend-only mode', async () => {
+  it('allows guest access to the CDK storefront in backend-only mode', async () => {
     authStore.isAuthenticated = false
-    const entry = runGuard({ requiresAuth: true }, '/shop')
+    const entry = runGuard({ requiresAuth: false }, '/shop')
     await entry.navigation
-    expect(entry.next).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/shop' } })
-    authStore.isAuthenticated = true
+    expect(entry.next).toHaveBeenCalledOnce()
+    expect(entry.next).toHaveBeenCalledWith()
     appStore.backendModeEnabled = true
-    const blocked = runGuard({ requiresAuth: true }, '/shop')
-    await blocked.navigation
-    expect(blocked.next).toHaveBeenCalledWith('/login')
     const login = runGuard({ requiresAuth: false }, '/login')
     await login.navigation
     expect(login.next).toHaveBeenCalledOnce()

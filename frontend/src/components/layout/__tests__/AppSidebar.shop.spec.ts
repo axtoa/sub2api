@@ -12,7 +12,7 @@ const state = vi.hoisted(() => ({
   app: {
     sidebarCollapsed: false, mobileOpen: false, backendModeEnabled: false,
     sidebarScrollTop: 0, siteName: 'Best AI', siteLogo: '', siteVersion: '1.0.0',
-    publicSettingsLoaded: true, cachedPublicSettings: { custom_menu_items: [], official_shop_enabled: true, official_shop_name: '', external_shop_enabled: false, external_shop_url: 'https://wzyp.cn/shop/best-ai', external_shop_name: '', card_shop_url: 'https://catfk.com/shop/DFMROLGS' },
+    publicSettingsLoaded: true, cachedPublicSettings: { custom_menu_items: [], official_shop_enabled: true, cdkshop_menu_visible: true, official_shop_name: '', external_shop_enabled: false, external_shop_url: 'https://wzyp.cn/shop/best-ai', external_shop_name: '', card_shop_url: 'https://catfk.com/shop/DFMROLGS' },
     toggleSidebar: vi.fn(), setMobileOpen: vi.fn(),
   },
   admin: { customMenuItems: [], fetch: vi.fn() },
@@ -62,6 +62,7 @@ beforeEach(() => {
   state.app.mobileOpen = false
   state.app.backendModeEnabled = false
   state.app.cachedPublicSettings.official_shop_enabled = true
+  state.app.cachedPublicSettings.cdkshop_menu_visible = true
   state.app.cachedPublicSettings.official_shop_name = ''
   state.app.cachedPublicSettings.external_shop_enabled = false
   state.app.cachedPublicSettings.external_shop_url = 'https://wzyp.cn/shop/best-ai'
@@ -104,11 +105,11 @@ describe('AppSidebar official product purchasing', () => {
     const { wrapper } = await mountSidebar()
     expect(wrapper.find('a[href="/admin/ledger"]').exists()).toBe(false)
   })
-  it.each([false, true])('hides the customer entry when closed without hiding admin management (admin: %s)', async isAdmin => {
+  it.each([false, true])('hides the customer entry when the CDK menu is hidden for users (admin: %s)', async isAdmin => {
     state.auth.isAdmin = isAdmin
-    state.app.cachedPublicSettings.official_shop_enabled = false
+    state.app.cachedPublicSettings.cdkshop_menu_visible = false
     const { wrapper } = await mountSidebar()
-    expect(wrapper.find('.sidebar-shop-entry').exists()).toBe(false)
+    expect(wrapper.find('.sidebar-shop-entry a[href="/shop"]').exists()).toBe(isAdmin)
     expect(wrapper.find('a[href="/admin/shop"]').exists()).toBe(isAdmin)
     expect(wrapper.find('a[href="/redeem"]').exists()).toBe(true)
     expect(wrapper.find('a[href="https://catfk.com/shop/DFMROLGS"]').exists()).toBe(true)
@@ -124,7 +125,7 @@ describe('AppSidebar official product purchasing', () => {
   })
 
   it('shows the external marketplace alone when the on-site shop is closed', async () => {
-    state.app.cachedPublicSettings.official_shop_enabled = false
+    state.app.cachedPublicSettings.cdkshop_menu_visible = false
     state.app.cachedPublicSettings.external_shop_enabled = true
     const { wrapper } = await mountSidebar()
     const entry = wrapper.get('.sidebar-shop-entry')
@@ -158,6 +159,7 @@ describe('AppSidebar official product purchasing', () => {
 
   it.each([false, true])('pins one customer entry above the theme divider (admin: %s)', async isAdmin => {
     state.auth.isAdmin = isAdmin
+    state.app.cachedPublicSettings.cdkshop_menu_visible = true
     const { wrapper } = await mountSidebar()
     const shop = wrapper.get('.sidebar-shop-entry')
     expect(wrapper.findAll('a[href="/shop"]')).toHaveLength(1)
