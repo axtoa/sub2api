@@ -5,6 +5,9 @@ export default { shop: {
   storefrontRewardLogin: '登录领取赠送余额',
   storefrontLoginTitle: '登录商城',
   storefrontSignedIn: '已登录',
+  storefrontLegacyOrders: '查看历史代购订单',
+  legacyOrdersTitle: '历史代购订单',
+  legacyOrdersHint: '这里保留原站内代购订单，新的购买请前往 AI 代购商城。',
   storefrontLoginLead: '登录后继续选购，符合条件的订单可获赠 Best AI 余额。',
   storefrontBackToShopping: '返回选购',
   storefrontEyebrow: '为你的 AI 日常，多一点选择',
@@ -32,7 +35,7 @@ export default { shop: {
   storefrontRewardGuest: '无需登录即可购买；如需获赠 Best AI 余额，请先登录再下单，支付完成后联系管理员核实发放。',
   homepageCatalogHint: '首页自动展示商城中按排序靠前的两件上架商品，商品、价格和奖励金额统一在「CDK 商品与库存」管理。仅开放外部商城时，首页展示外部商城入口。',
 
-  entry: '站内官方代购', externalEntry: '外部代购商城', adminEntry: '代购管理', title: '官方产品代购', adminTitle: '官方产品代购管理', officialEntry: '站内官方代购', cdkManagement: 'CDK 商品与库存', settingsTab: '代购设置',
+  entry: 'AI 代购商城', externalEntry: '外部代购商城', adminEntry: '代购管理', title: '官方产品代购', adminTitle: '官方产品代购管理', officialEntry: 'AI 代购商城', cdkManagement: 'CDK 商品与库存', settingsTab: '代购设置',
   optionsTitle: '选择代购渠道', optionsIntro: '选一种适合自己的购买方式；具体商品与价格以对应渠道为准。',
   officialOptionHint: '站内生成订单，处理进度可查', externalOptionHint: '前往独立商城选购，订单由商城处理', noChannels: '当前没有开放的代购渠道',
   homepageSetting: '首页展示代购', homepageSettingHint: '独立控制首页宣传区；至少开放一个代购渠道时才会出现。',

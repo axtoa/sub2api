@@ -44,8 +44,8 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/shop/options', name: 'ShopOptions',
-    component: () => import('@/features/shop/ShopOptionsPage.vue'),
-    meta: { requiresAuth: true, titleKey: 'shop.optionsTitle' }
+    redirect: to => ({ path: '/shop', query: to.query, hash: to.hash }),
+    meta: { requiresAuth: false }
   },
   {
     path: '/shop', name: 'Shop',
@@ -54,13 +54,13 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/shop/official', name: 'OfficialShop',
-    component: () => import('@/features/shop/ShopPage.vue'),
-    meta: { requiresAuth: true, titleKey: 'shop.officialEntry' }
+    redirect: to => ({ path: '/shop', query: to.query, hash: to.hash }),
+    meta: { requiresAuth: false }
   },
   {
     path: '/shop/orders/:id?', name: 'ShopOrders',
-    component: () => import('@/features/shop/ShopPage.vue'),
-    meta: { requiresAuth: true, titleKey: 'shop.myOrders' }
+    component: () => import('@/features/shop/ShopOrderHistoryPage.vue'),
+    meta: { requiresAuth: true, titleKey: 'shop.legacyOrdersTitle' }
   },
   {
     path: '/admin/shop', name: 'ShopAdmin',

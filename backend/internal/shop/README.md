@@ -1,15 +1,21 @@
 # Subscription Shop
 
-This module sells assisted subscriptions for users' own ChatGPT and Anthropic
-accounts. It is independent of gateway plans, balances, token usage and billing.
-There is no payment callback, automatic activation, session collection, anonymous
-checkout or transfer of gateway credit.
+This module retains the original assisted-subscription orders and administrator
+tools. New customer purchases use the standalone CDK storefront; the original
+AppLayout purchase form and channel-selection page have been retired. Existing
+order records, payment references and fulfillment actions remain available.
 
 ## Routes and Ownership
 
-- `/shop`: catalogue and checkout behind the existing login. The homepage keeps
-  its compact public product cards; its read-only catalogue API stays public.
-- `/shop/orders` and `/shop/orders/:id`: the authenticated user's own orders.
+- `/shop`: public CDK catalogue and checkout, with optional shop-themed login at
+  `/shop/login`. The console's AI Shop entry opens it in a new tab and shares the
+  existing session on same-origin deployments.
+- `/shop/options` and `/shop/official`: compatibility redirects to `/shop`,
+  preserving query parameters and the anchor.
+- `/shop/orders` and `/shop/orders/:id`: the authenticated user's original
+  assisted-purchase orders, still rendered in the console. Signed-in customers
+  can open these from the storefront's order-lookup section. These records are
+  separate from CDK orders, which use the storefront recovery flow.
 - `/admin/shop`: all shop orders, behind the existing administrator guard.
 - `/admin/shop/products`: product configuration, behind the same guard.
 - APIs use `/api/v1/shop/*` and `/api/v1/admin/shop/*` respectively.
@@ -19,16 +25,11 @@ Backend logic lives in `backend/internal/shop`, frontend pages and styles in
 assembly, locales, the homepage and sidebar entries. Existing gateway subscription
 APIs are not reused or changed.
 
-Homepage product cards open a new tab with an expiring, tab-local purchasing
-intent. The existing password, registration/email verification, two-factor and
-OAuth flows keep their authentication logic; the router returns this tab to the
-selected product after successful authentication. A one-time, non-sensitive
-completion signal asks only the originating homepage tab to enter the console.
-That tab verifies the shared session against the server first; it never trusts a
-notification as authentication. Ordinary logins and other open tabs are unaffected.
-Leaving the authentication journey cancels the intent. A missing/closed original
-tab does not prevent checkout. Failure to preserve/notify this optional intent
-does not change the existing authentication requirements.
+Homepage product cards and the console menu open the standalone storefront in a
+new tab. Shop login reuses the existing password, passkey, two-factor and OAuth
+implementations and returns to the selected product. The original console tab
+stays in place. Administrator routes and historical order ownership checks are
+unchanged; retiring the old purchase pages does not delete orders or tables.
 
 ## Database and Configuration
 
@@ -48,13 +49,14 @@ An empty target or contact email defaults to that account email. Orders retain
 the product, price, terms and external checkout URL from the time of ordering.
 Product edits or hiding a product do not alter previous orders.
 
-The switch at the top of shop management persists `official_shop_enabled` in
+The original assisted-purchase switch persists `official_shop_enabled` in
 the existing `settings` table. Migration `250_shop_entries_default_closed.sql`
 closes the on-site, external, and homepage shop entries on upgrade. Missing
 settings also resolve to disabled. Admin-only GET/PUT
-`/api/v1/admin/shop/settings` reads/changes it. Disabling hides the on-site
-customer sidebar entry and blocks public catalogue/new order requests. The
-homepage promotion has its own switch and appears only when at least one shop
+`/api/v1/admin/shop/settings` reads/changes it. Disabling blocks the legacy
+catalogue/new-order API requests. The CDK storefront's sales switch and the
+`cdkshop_menu_visible` console-entry setting remain independent of this legacy
+switch. The homepage promotion has its own switch and appears only when at least one shop
 channel is enabled.
 Existing orders, payment references, manual fulfillment and idempotent order
 retries remain available; administrator management stays accessible to reopen.

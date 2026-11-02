@@ -115,13 +115,13 @@ describe('AppSidebar official product purchasing', () => {
     expect(wrapper.find('a[href="https://catfk.com/shop/DFMROLGS"]').exists()).toBe(true)
   })
   it('uses short menu names while keeping the full page headings', () => {
-    expect(zhShop.shop.entry).toBe('站内官方代购')
+    expect(zhShop.shop.entry).toBe('AI 代购商城')
     expect(zhShop.shop.externalEntry).toBe('外部代购商城')
     expect(zhShop.shop.adminEntry).toBe('代购管理')
     expect(zhShop.shop.title).toBe('官方产品代购')
     expect(zhShop.shop.homepageTitle).toBe(zhShop.shop.title)
     expect(zhShop.shop.adminTitle).toBe('官方产品代购管理')
-    expect(enShop.shop.entry).toBe('On-site Official Purchasing')
+    expect(enShop.shop.entry).toBe('AI Shop')
   })
 
   it('shows the external marketplace alone when the on-site shop is closed', async () => {
@@ -169,8 +169,8 @@ describe('AppSidebar official product purchasing', () => {
     expect(controls?.classList.contains('border-t')).toBe(true)
     expect(controls?.querySelector('button[aria-label="nav.darkMode"]')).not.toBeNull()
     const link = shop.get('a')
-    expect(link.attributes('target')).toBeUndefined()
-    expect(link.attributes('rel')).toBeUndefined()
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('rel')).toBe('noopener noreferrer')
     expect(link.find('icon-stub[name="externalLink"]').exists()).toBe(false)
     const icon = link.getComponent(PlatformIcon)
     expect(icon.props()).toMatchObject({ platform: 'openai', size: 'md' })
@@ -198,11 +198,11 @@ describe('AppSidebar official product purchasing', () => {
     expect(wrapper.find('.sidebar-shop-entry').exists()).toBe(true)
   })
 
-  it('opens the on-site shop and other console links in the same tab', async () => {
+  it('opens the storefront in a new tab while keeping other console links in place', async () => {
     const { wrapper, router } = await mountSidebar()
     await wrapper.get('.sidebar-shop-entry a').trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/shop')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
     expect(wrapper.get('a[href="/profile"]').attributes('target')).toBeUndefined()
     expect(wrapper.get('a[href="/profile"]').findComponent(PlatformIcon).exists()).toBe(false)
     await wrapper.get('a[href="/profile"]').trigger('click')
@@ -219,19 +219,20 @@ describe('AppSidebar official product purchasing', () => {
     expect(link.classes()).toContain('sidebar-link-collapsed')
     expect(link.attributes('aria-label')).toContain('shop.entry')
     expect(link.get('.sidebar-label').attributes('aria-hidden')).toBe('true')
-    expect(link.attributes('target')).toBeUndefined()
+    expect(link.attributes('target')).toBe('_blank')
+    expect(link.attributes('aria-label')).toContain('shop.openInNewTab')
     expect(link.getComponent(PlatformIcon).props('platform')).toBe('openai')
     expect(link.getComponent(PlatformIcon).props('size')).toBe('md')
   })
 
-  it('closes the mobile menu after navigating to the on-site shop', async () => {
+  it('closes the mobile menu when opening the storefront without navigating the console', async () => {
     vi.useFakeTimers()
     state.app.mobileOpen = true
     const { wrapper, router } = await mountSidebar()
     await wrapper.get('.sidebar-shop-entry a').trigger('click')
     await vi.advanceTimersByTimeAsync(150)
     expect(state.app.setMobileOpen).toHaveBeenCalledWith(false)
-    expect(router.currentRoute.value.path).toBe('/shop')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
   })
 
   it('does not expose a customer entry when regular-user routes are disabled', async () => {

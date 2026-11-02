@@ -26,7 +26,11 @@
           </form></section>
         </div>
       </template>
-      <details v-if="!order" id="shop-order-lookup" class="cdk-recovery" :open="route.query.lookup === '1'"><summary>已有订单？查询 / 找回兑换码</summary><form class="shop-recovery-form" @submit.prevent="recoverOrder"><label>找回已有订单<input v-model.trim="recoverID" required autocomplete="off" placeholder="订单号" /></label><label>订单恢复码<input v-model.trim="recoverKey" required autocomplete="off" /></label><button class="shop-secondary" :disabled="busy">查询订单</button></form></details>
+      <details v-if="!order" id="shop-order-lookup" class="cdk-recovery" :open="route.query.lookup === '1'">
+        <summary>已有订单？查询 / 找回兑换码</summary>
+        <form class="shop-recovery-form" @submit.prevent="recoverOrder"><label>找回已有订单<input v-model.trim="recoverID" required autocomplete="off" placeholder="订单号" /></label><label>订单恢复码<input v-model.trim="recoverKey" required autocomplete="off" /></label><button class="shop-secondary" :disabled="busy">查询订单</button></form>
+        <router-link v-if="auth.isAuthenticated" class="shop-text-link" to="/shop/orders" target="_blank" rel="noopener noreferrer">{{ t('shop.storefrontLegacyOrders') }}</router-link>
+      </details>
       <div v-if="selected && selected.stock > 0 && storeEnabled && !order && !loading && !checkoutInView" class="cdk-mobile-summary">
         <div><strong>{{ selected.name }}</strong><span>¥{{ (selected.price_cents / 100).toFixed(2) }}</span></div>
         <button type="button" class="shop-primary" @click="goToCheckout">{{ t('shop.storefrontGoToCheckout') }}</button>

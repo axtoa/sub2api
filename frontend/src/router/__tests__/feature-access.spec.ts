@@ -8,7 +8,7 @@ type NavigationGuard = (
 
 const routerHarness = vi.hoisted(() => ({
   guard: null as NavigationGuard | null,
-  routes: [] as { path: string; meta?: Record<string, unknown> }[],
+  routes: [] as { path: string; meta?: Record<string, unknown>; redirect?: (to: { query: Record<string, string>; hash: string }) => unknown }[],
 }))
 
 const authStore = vi.hoisted(() => ({
@@ -131,12 +131,21 @@ describe('feature route guard', () => {
 
   it('allows guest access to the CDK catalogue while keeping account orders and administration protected', () => {
     expect(routerHarness.routes.find(route => route.path === '/shop/login')?.meta?.requiresAuth).toBe(false)
-    expect(routerHarness.routes.find(route => route.path === '/shop/options')?.meta?.requiresAuth).toBe(true)
+    expect(routerHarness.routes.find(route => route.path === '/shop/options')?.meta?.requiresAuth).toBe(false)
+    expect(routerHarness.routes.find(route => route.path === '/shop/official')?.meta?.requiresAuth).toBe(false)
     expect(routerHarness.routes.find(route => route.path === '/shop')?.meta?.requiresAuth).toBe(false)
     expect(routerHarness.routes.find(route => route.path === '/shop/orders/:id?')?.meta?.requiresAuth).toBe(true)
     for (const path of ['/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id']) {
       expect(routerHarness.routes.find(route => route.path === path)?.meta).toMatchObject({ requiresAuth: true, requiresAdmin: true })
     }
+  })
+
+  it.each(['/shop/options', '/shop/official'])('redirects the retired %s purchase page to the public storefront', path => {
+    const route = routerHarness.routes.find(route => route.path === path)!
+    expect(route.redirect).toBeTypeOf('function')
+    expect(route.redirect!({ query: { product: 'claude' }, hash: '#shop-product-details' })).toEqual({
+      path: '/shop', query: { product: 'claude' }, hash: '#shop-product-details',
+    })
   })
 
   it('returns signed-in shoppers to their selected product from the shop login route', async () => {
@@ -145,7 +154,7 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith('/shop?product=claude#shop-product-details')
   })
 
-  it.each(['/shop/options', '/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {
+  it.each(['/shop/orders/:id?', '/admin/shop', '/admin/shop/products', '/admin/shop/homepage', '/admin/shop/cdk', '/admin/shop/settings', '/admin/shop/orders/:id', '/admin/quality-monitor', '/admin/ledger', '/admin/upstream-balances'])('requires login for %s', async path => {
     authStore.isAuthenticated = false
     const meta = routerHarness.routes.find(route => route.path === path)!.meta!
     const { navigation, next } = runGuard(meta, path)

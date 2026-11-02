@@ -158,18 +158,20 @@
     <!-- Bottom Section -->
     <div class="mt-auto shrink-0">
       <div v-if="(cdkShopMenuVisible || externalShopURL) && (isAdmin || !appStore.backendModeEnabled)" class="sidebar-shop-entry p-3">
-        <router-link
+        <a
           v-if="cdkShopMenuVisible"
-          to="/shop"
+          :href="officialShopURL"
+          target="_blank"
+          rel="noopener noreferrer"
           class="sidebar-link"
           :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
-          :title="sidebarCollapsed ? officialShopName : undefined"
-          :aria-label="officialShopName"
-          @click="handleMenuItemClick('/shop')"
+          :title="officialShopName + ' · ' + t('shop.openInNewTab')"
+          :aria-label="officialShopName + ' · ' + t('shop.openInNewTab')"
+          @click="handleMenuItemClick(officialShopURL)"
         >
           <OpenAIIcon class="h-5 w-5 flex-shrink-0" />
           <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ officialShopName }}</span>
-        </router-link>
+        </a>
         <a v-if="externalShopURL"
           :href="externalShopURL"
           target="_blank"
@@ -240,6 +242,7 @@ import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { useTheme } from '@/composables/useTheme'
 import { cardShopLink, externalShopLink } from '@/utils/externalLinks'
+import { storefrontLink } from '@/features/shop/storefront'
 
 interface NavItem {
   path: string
@@ -291,6 +294,7 @@ const { canUseCreativeStudio, refreshBatchImageAccess } = useBatchImageAccess()
 const { isDark, toggleTheme } = useTheme()
 const cardShopURL = computed(() => cardShopLink(appStore.cachedPublicSettings))
 const externalShopURL = computed(() => externalShopLink(appStore.cachedPublicSettings))
+const officialShopURL = storefrontLink()
 const officialShopName = computed(() => appStore.cachedPublicSettings?.official_shop_name?.trim() || t('shop.entry'))
 const externalShopName = computed(() => appStore.cachedPublicSettings?.external_shop_name?.trim() || t('shop.externalEntry'))
 

@@ -47,6 +47,7 @@ describe('CDK storefront order access', () => {
     state.auth.isAuthenticated = authenticated
     wrapper = mountStorefront()
     await flushPromises()
+    expect(wrapper.findAllComponents(RouterLinkStub).some(link => link.props('to') === '/shop/orders')).toBe(authenticated)
     expect(wrapper.get('.shop-product .cdk-balance-reward').text()).toBe('赠 $5 Best AI 余额')
     expect(wrapper.get('.cdk-checkout-reward .cdk-balance-reward').text()).toBe('赠 $5 Best AI 余额')
     expect(wrapper.get('.cdk-checkout-reward .shop-caption').text()).toBe(authenticated ? 'shop.storefrontRewardTerms' : 'shop.storefrontRewardGuest')

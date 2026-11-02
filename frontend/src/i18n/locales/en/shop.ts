@@ -5,6 +5,9 @@ export default { shop: {
   storefrontRewardLogin: 'Sign in for balance rewards',
   storefrontLoginTitle: 'Sign in to the shop',
   storefrontSignedIn: 'Signed in',
+  storefrontLegacyOrders: 'View legacy purchase orders',
+  legacyOrdersTitle: 'Legacy Purchase Orders',
+  legacyOrdersHint: 'Your previous on-site purchase orders are kept here. Visit the AI Shop for new purchases.',
   storefrontLoginLead: 'Sign in to continue shopping and receive Best AI balance on eligible orders.',
   storefrontBackToShopping: 'Back to shopping',
   storefrontEyebrow: 'A little more choice for your AI day',
@@ -32,7 +35,7 @@ export default { shop: {
   storefrontRewardGuest: 'You can buy without signing in. To receive Best AI balance, sign in before ordering and contact an administrator after payment for verification and manual crediting.',
   homepageCatalogHint: 'The homepage shows the first two active products in shop order. Manage products, prices, and rewards under CDK Products & Inventory. When only the external shop is open, the homepage shows its link.',
 
-  entry: 'On-site Official Purchasing', externalEntry: 'External Purchase Marketplace', adminEntry: 'Shop Management', title: 'Official Product Purchasing', adminTitle: 'Official Product Shop Management', officialEntry: 'Official Purchasing', cdkManagement: 'CDK Products & Inventory', settingsTab: 'Shop Settings',
+  entry: 'AI Shop', externalEntry: 'External Purchase Marketplace', adminEntry: 'Shop Management', title: 'Official Product Purchasing', adminTitle: 'Official Product Shop Management', officialEntry: 'AI Shop', cdkManagement: 'CDK Products & Inventory', settingsTab: 'Shop Settings',
   optionsTitle: 'Choose a Purchase Channel', optionsIntro: 'Choose how to buy. Products and prices are set by each channel.',
   officialOptionHint: 'Create an order here and track its progress', externalOptionHint: 'Shop at the independent marketplace; it handles your order', noChannels: 'No purchasing channels are open right now',
   homepageSetting: 'Show Purchasing on Homepage', homepageSettingHint: 'Control the homepage promotion independently. It appears only while a purchasing channel is open.',
