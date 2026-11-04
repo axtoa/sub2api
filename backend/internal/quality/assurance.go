@@ -257,7 +257,7 @@ func (s *Store) AssuranceEvidence(ctx context.Context, since time.Time) ([]Assur
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []AssuranceEvidence{}
 	for rows.Next() {
 		var raw []byte

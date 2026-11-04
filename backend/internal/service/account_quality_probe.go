@@ -382,7 +382,7 @@ func (p *qualityProbeCapture) observe(line string) {
 		if finish != "" {
 			p.ended = true
 			p.result.FinishReason = finish
-			if finish != "stop" && !(p.options.Inspection && finish == "tool_calls") {
+			if finish != "stop" && (!p.options.Inspection || finish != "tool_calls") {
 				p.result.Reason = "incomplete"
 				if finish == "length" {
 					p.result.Reason = "truncated"
@@ -395,7 +395,7 @@ func (p *qualityProbeCapture) observe(line string) {
 	}
 	if stop := v.Get("delta.stop_reason").String(); stop != "" {
 		p.result.FinishReason = stop
-		if stop != "end_turn" && stop != "stop_sequence" && !(p.options.Inspection && stop == "tool_use") {
+		if stop != "end_turn" && stop != "stop_sequence" && (!p.options.Inspection || stop != "tool_use") {
 			p.result.Reason = "incomplete"
 			if stop == "max_tokens" {
 				p.result.Reason = "truncated"

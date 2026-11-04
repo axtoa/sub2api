@@ -436,7 +436,7 @@ func (s *Store) scoreRuns(ctx context.Context, since time.Time) (map[string][]Ru
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := map[string][]Run{}
 	for rows.Next() {
 		r, err := scanRun(rows)
