@@ -157,3 +157,26 @@
 .quality-answer-single { grid-template-columns: 1fr; }
 .quality-question { border-radius: 8px; background: var(--quality-soft); padding: 12px; }
 @media(max-width:630px) { .quality-header { align-items: stretch; }.quality-toolbar { width: 100%; }.quality-batch-controls { flex: 1; }.quality-batch-controls .primary { flex: 1; } }
+
+.quality-inspection { display:grid; gap:18px; min-width:0; }
+.quality-inspection-checks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:12px; border:1px solid var(--quality-line); border-radius:8px; }
+.quality-inspection-checks legend { padding:0 5px; font-size:12px; }
+.quality-inspection-reports { display:grid; gap:10px; }
+.quality-inspection-reports .quality-history-list { max-height:180px; overflow:auto; }
+.quality-inspection-report { display:grid; gap:12px; min-width:0; }
+.quality-inspection-result { display:grid; gap:8px; padding:12px; border:1px solid var(--quality-line); border-radius:8px; min-width:0; }
+.quality-inspection .quality-question { max-height:240px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:540px) { .quality-inspection-checks { grid-template-columns:1fr; } }
+
+.quality-inspection-image { display:block; width:240px; max-width:100%; border-radius:6px; }
+.quality-custom-entry, .quality-custom-questions, .quality-custom-question { display:grid; gap:12px; min-width:0; }
+.quality-custom-entry, .quality-custom-questions { border-top:1px solid var(--quality-line); padding-top:14px; }
+.quality-custom-question { padding:14px; border:1px solid var(--quality-line); border-radius:8px; background:var(--quality-soft); }
+.quality-custom-questions h3, .quality-external-tools h3 { margin:0; }
+.quality-external-tools { display:grid; gap:16px; min-width:0; }
+.quality-external-tools > label { display:grid; gap:8px; max-width:220px; }
+.quality-external-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.quality-external-tool { display:grid; gap:12px; padding:16px; border:1px solid var(--quality-line); border-radius:8px; min-width:0; }
+.quality-external-tool p { margin:0; }
+.quality-external-tool a { width:fit-content; align-self:end; }
+@media(max-width:600px) { .quality-external-grid { grid-template-columns:minmax(0,1fr); } }

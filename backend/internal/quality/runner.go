@@ -218,8 +218,21 @@ func (r *Runner) execute(ctx context.Context, job Run, cfg Settings) error {
 		return finish()
 	}
 	job.ProfileHash = profileHash(a, t, p, cfg.QuestionBank)
+	if job.Kind == "inspection" && job.Inspection != nil {
+		job.ProfileHash = inspectionProfileHash(a, t, p, cfg.QuestionBank, *job.Inspection)
+	}
 	if err = r.Store.Renew(ctx, job, p, job.ProfileHash); err != nil {
 		return err
+	}
+	if job.Kind == "inspection" {
+		if !job.Manual || job.Inspection == nil {
+			job.Result.Reason = "unsupported"
+			return finish()
+		}
+		if err = r.executeInspection(ctx, &job, t, cfg, p, a); err != nil {
+			return err
+		}
+		return finish()
 	}
 	if job.Kind == "availability" && !job.Manual {
 		m, metricErr := r.Store.Metrics(ctx, t, time.Now().Add(-15*time.Minute))

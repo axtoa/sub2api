@@ -70,6 +70,25 @@ describe('Quality account monitor',()=>{
     await buttonByText(wrapper,en.quality.defaults).trigger('click');await wrapper.get('#quality-settings').trigger('submit');await flushPromises()
     expect(qualityAPI.saveSettings).toHaveBeenCalledWith(expect.objectContaining({version:7,daily_requests:1000,cache_enabled:false}))
   })
+  it('saves reusable open questions without mutating active settings or starting a test',async()=>{
+    const saved={name:'Support task',prompt:'Explain a failed payment.',match:'manual' as const,expected:'Review clarity'}
+    const current={...structuredClone(snapshot),settings:{...settings,inspection_questions:[saved]}}
+    vi.mocked(qualityAPI.snapshot).mockResolvedValue(current)
+    const wrapper=render();await flushPromises()
+    await wrapper.get(`button[aria-label="${en.quality.settings}"]`).trigger('click')
+    await wrapper.get('.quality-custom-question input').setValue('Edited support task')
+    expect(current.settings.inspection_questions[0]!.name).toBe('Support task')
+    await wrapper.get('#quality-settings').trigger('submit');await flushPromises()
+    expect(qualityAPI.saveSettings).toHaveBeenCalledWith(expect.objectContaining({version:7,inspection_questions:[{...saved,name:'Edited support task'}]}))
+    expect(qualityAPI.run).not.toHaveBeenCalled()
+  })
+  it('opens external tools even before monitoring targets exist',async()=>{
+    vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),accounts:[],targets:[]})
+    const wrapper=render();await flushPromises()
+    await buttonByText(wrapper,en.quality.external.title).trigger('click')
+    expect(wrapper.get('[role="dialog"]').findAll('a[target="_blank"]')).toHaveLength(5)
+    expect(qualityAPI.run).not.toHaveBeenCalled()
+  })
   it('shows exact question, reference, raw answer and local explanation in the drawer',async()=>{
     const wrapper=render();await flushPromises();await wrapper.get('.quality-compact-facts button:last-child').trigger('click');await flushPromises()
     expect(wrapper.get('[role="dialog"]').text()).toContain('Count the paths. Return JSON.')

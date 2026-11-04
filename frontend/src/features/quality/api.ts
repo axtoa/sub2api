@@ -22,13 +22,23 @@ export interface QuestionTemplate { id: string; name: string; model: string; pro
 
 export interface QualitySettings extends QualityProfile {
   question_bank?: QuestionTemplate[]
+  inspection_questions?: InspectionQuestion[]
   auto_enabled: boolean
   daily_requests: number
   daily_tokens: number
   version: number
 }
 
+export interface InspectionQuestion { name: string; prompt: string; match: 'exact' | 'contains' | 'manual'; expected: string }
+export type InspectionCheckID = 'protocol_stream' | 'protocol_nonstream' | 'tools' | 'structured' | 'reasoning' | 'speed' | 'cache' | 'context' | 'vision' | 'custom'
+export interface InspectionOptions { mode: 'quick' | 'full'; checks: InspectionCheckID[]; questions?: InspectionQuestion[] }
+export interface InspectionCheck { id: InspectionCheckID; verdict: 'passed' | 'failed' | 'uncompleted' | 'unsupported' | 'unknown' | 'not_observed'; reason?: string; requests: number; sample_ids: string[]; median_first_token_ms: number | null; tokens_per_second: number | null; cache_ratio: number | null }
+
 export interface Probe {
+  protocol?: string
+  wire_valid?: boolean
+  finish_reason?: string
+  tool_calls?: Array<{ id: string; name: string; arguments: string }>
   error_param?: string
   native_output_limit?: boolean
   text: string
@@ -47,15 +57,17 @@ export interface Probe {
 }
 
 export interface QualityRun {
+  inspection?: InspectionOptions
   id: string
   target_id: string
-  kind: CheckKind
+  kind: CheckKind | 'inspection'
   status: 'queued' | 'running' | 'finished'
   manual: boolean
   verdict: string
   profile_hash: string
   profile?: QualityProfile
   result?: {
+    checks?: InspectionCheck[]
     reason: string
     correct: number
     graded: number
@@ -65,8 +77,11 @@ export interface QualityRun {
     first_token_ms: number | null
     duration_ms: number
     items: Array<{
+      image_data_url?: string
+      check_id?: InspectionCheckID
       question_id: string
       name?: string
+      match?: InspectionQuestion['match']
       grade_reason?: string
       family: string
       prompt: string
@@ -181,12 +196,16 @@ export const qualityAPI = {
     const { data } = await apiClient.post<{ items: QualityRun[] }>(`${base}/runs/status`, { ids })
     return data.items
   },
-  async history(id: string) {
-    const { data } = await apiClient.get<{ items: QualityRun[] }>(`${base}/targets/${id}/history`)
+  async inspect(target_id: string, options: InspectionOptions) {
+    const { data } = await apiClient.post<QualityRun>(`${base}/inspections`, { target_id, options })
+    return data
+  },
+  async history(id: string, kind?: CheckKind | 'inspection', signal?: AbortSignal) {
+    const { data } = await apiClient.get<{ items: QualityRun[] }>(`${base}/targets/${id}/history`, { params: kind ? { kind } : undefined, signal })
     return data.items
   },
-  async detail(id: string) {
-    const { data } = await apiClient.get<QualityRun>(`${base}/runs/${id}`)
+  async detail(id: string, signal?: AbortSignal) {
+    const { data } = await apiClient.get<QualityRun>(`${base}/runs/${id}`, { signal })
     return data
   },
 }

@@ -60,11 +60,26 @@ switch. The homepage promotion has its own switch and appears only when at least
 channel is enabled.
 Existing orders, payment references, manual fulfillment and idempotent order
 retries remain available; administrator management stays accessible to reopen.
+
 New-order transactions hold a shared lock on the switch until commit, so closing
 waits for already-started creations. Setting read failures block new orders;
 failed writes preserve the previous state. A successful update invalidates the
 existing HTML settings cache. Browser tabs
 refresh public settings on focus or a local cross-tab change notification.
+
+The CDK management tab (`/admin/shop/cdk`) supports editing saved products and
+viewing their code inventory. Product edits use admin-only
+`PUT /api/v1/cdkshop/admin/products/:id` with the reviewed `version`; stale edits
+return 409 and require reopening the editor. Names, specs, descriptions,
+redemption instructions, CNY prices, USD rewards and sale status can be changed.
+Existing orders retain their original name, price and reward snapshots.
+Admin-only `GET /api/v1/cdkshop/admin/products/:id/cdks` decrypts inventory on
+explicit request, with 50 codes per page and optional `available`, `reserved`
+or `delivered` status filters. The view shows full codes, copy controls, import
+times and associated order IDs. Closing it clears the loaded codes. Storage
+remains encrypted, responses prohibit caching, and public catalogue responses
+do not include codes. These endpoints belong to the standalone CDK service;
+deploy its updated binary along with the frontend. No schema change is needed.
 
 ## Manual Payment and Delivery
 

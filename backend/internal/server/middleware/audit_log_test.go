@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -60,6 +61,36 @@ func (r *auditCaptureRepository) Count(context.Context) (int64, error) { return 
 func (r *auditCaptureRepository) TruncateAll(context.Context) error    { return nil }
 func (r *auditCaptureRepository) DeleteBefore(context.Context, time.Time, int) (int64, error) {
 	return 0, nil
+}
+
+func TestWalletAccessTokenBodiesAreNeverCapturedInAudit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &auditCaptureRepository{}
+	svc := service.NewAuditLogService(repo, nil)
+	svc.Start()
+	router := gin.New()
+	router.Use(gin.HandlerFunc(NewAuditLogMiddleware(svc)))
+	for _, route := range []struct{ method, path string }{{"POST", "/api/v1/admin/upstream-balances"}, {"PUT", "/api/v1/admin/upstream-balances/:id"}} {
+		router.Handle(route.method, route.path, func(c *gin.Context) { c.Status(http.StatusBadRequest) })
+	}
+	for _, method := range []string{"POST", "PUT"} {
+		path := "/api/v1/admin/upstream-balances"
+		if method == "PUT" {
+			path += "/wallet-1"
+		}
+		// Even invalid JSON must not fall through to raw body logging.
+		req := httptest.NewRequest(method, path, strings.NewReader(`{"newapi_access_token":"wallet-audit-canary"`))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	svc.Stop()
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	require.Len(t, repo.logs, 2)
+	for _, entry := range repo.logs {
+		require.Equal(t, "<credential-bearing body omitted>", entry.RequestBody)
+		require.NotContains(t, entry.RequestBody, "wallet-audit-canary")
+	}
 }
 
 func TestPromptAuditAdminOperationsUseOmittedBodiesAndAllowlistedDetails(t *testing.T) {

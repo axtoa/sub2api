@@ -33,7 +33,13 @@
             <p v-if="wallet.estimated_balance != null && wallet.observation" class="balance-muted">{{ t('upstreamBalance.baseline') }} {{ money(wallet.observation.amount) }} {{ wallet.observation.currency }}</p>
             <p v-if="wallet.stale" class="balance-muted warn">{{ t('upstreamBalance.lastKnown') }}</p>
           </div>
-          <div><p class="balance-muted">{{ t('upstreamBalance.costLabel') }}</p><dl class="balance-metrics"><div v-for="metric in metrics" :key="metric"><dt>{{ t(`upstreamBalance.${metric}`) }}</dt><dd>{{ money(wallet[`${metric}_cost`]) }}</dd></div></dl></div>
+          <div>
+            <div class="balance-cost-head balance-muted">
+              <p>{{ t('upstreamBalance.costLabel') }}</p>
+              <p class="balance-lifetime-cost" :title="t('upstreamBalance.totalCostHint')">{{ t('upstreamBalance.totalCost') }} {{ money(wallet.total_cost) }}</p>
+            </div>
+            <dl class="balance-metrics"><div v-for="metric in metrics" :key="metric"><dt>{{ t(`upstreamBalance.${metric}`) }}</dt><dd>{{ money(wallet[`${metric}_cost`]) }}</dd></div></dl>
+          </div>
           <div>
             <p v-if="wallet.days_remaining != null" class="good">{{ t('upstreamBalance.estimateDays', { days: wallet.days_remaining }) }}</p>
             <p v-if="wallet.days_remaining != null" class="balance-muted">{{ t('upstreamBalance.forecastHint') }}</p>
@@ -45,10 +51,10 @@
             <p :class="needsAttention(wallet) ? 'warn' : 'good'">{{ t(`upstreamBalance.statuses.${wallet.stale && wallet.status === 'ok' ? 'stale' : wallet.status}`) }}</p>
             <p v-if="wallet.last_error" class="warn">{{ reason(wallet.last_error) }}</p>
             <p v-if="wallet.observation">{{ t(wallet.mode === 'manual' ? 'upstreamBalance.baselineTime' : 'upstreamBalance.queriedAt') }} · {{ datetime(wallet.observation.at) }}</p>
-            <p v-if="wallet.mode === 'sub2api'">{{ wallet.auto_enabled ? `${t('upstreamBalance.nextQuery')} · ${datetime(wallet.next_query_at)}` : t('upstreamBalance.autoOff') }}</p>
+            <p v-if="wallet.mode !== 'manual'">{{ wallet.auto_enabled ? `${t('upstreamBalance.nextQuery')} · ${datetime(wallet.next_query_at)}` : t('upstreamBalance.autoOff') }}</p>
           </div>
           <footer class="balance-footer">
-            <button v-if="wallet.mode === 'sub2api'" class="balance-button" :disabled="querying.has(wallet.id) || batch" @click="queryOne(wallet)">{{ t(querying.has(wallet.id) ? 'upstreamBalance.querying' : 'upstreamBalance.query') }}</button>
+            <button v-if="wallet.mode !== 'manual'" class="balance-button" :disabled="querying.has(wallet.id) || batch" @click="queryOne(wallet)">{{ t(querying.has(wallet.id) ? 'upstreamBalance.querying' : 'upstreamBalance.query') }}</button>
             <button v-else class="balance-button" @click="openCalibration(wallet)">{{ t('upstreamBalance.calibrate') }}</button>
             <div class="balance-actions"><button class="balance-link" @click="openWallet(wallet)">{{ t('upstreamBalance.edit') }}</button><button class="balance-link" @click="openHistory(wallet)">{{ t('upstreamBalance.history') }}</button><a v-if="safeURL(wallet.management_url)" class="balance-link" :href="wallet.management_url" target="_blank" rel="noopener noreferrer">{{ t('upstreamBalance.manage') }}</a></div>
           </footer>
@@ -57,15 +63,17 @@
     </section>
 
     <BaseDialog :show="dialog === 'wallet'" :title="t(editID ? 'upstreamBalance.edit' : 'upstreamBalance.add')" width="wide" panel-class="balance-theme" @close="closeDialog">
-      <form id="upstream-wallet-form" class="balance-form" @submit.prevent="saveWallet">
+      <form id="upstream-wallet-form" class="balance-form" @submit.prevent="saveWallet($event)">
         <div class="balance-form-grid">
           <label>{{ t('upstreamBalance.name') }}<input v-model="draft.name" maxlength="160" :placeholder="t('upstreamBalance.namePlaceholder')" required /></label>
           <label>{{ t('upstreamBalance.provider') }}<input v-model="draft.provider" maxlength="160" :placeholder="t('upstreamBalance.providerPlaceholder')" /></label>
-          <label>{{ t('upstreamBalance.mode') }}<select v-model="draft.mode"><option value="sub2api">{{ t('upstreamBalance.sub2api') }}</option><option value="manual">{{ t('upstreamBalance.manual') }}</option></select></label>
-          <label>{{ t('upstreamBalance.currency') }}<select v-model="draft.currency"><option v-for="currency in currencies" :key="currency">{{ currency }}</option></select></label>
+          <label>{{ t('upstreamBalance.mode') }}<select v-model="draft.mode"><option value="sub2api">{{ t('upstreamBalance.sub2api') }}</option><option value="newapi">{{ t('upstreamBalance.newapi') }}</option><option value="manual">{{ t('upstreamBalance.manual') }}</option></select></label>
+          <label>{{ t('upstreamBalance.currency') }}<select v-model="draft.currency" :disabled="draft.mode === 'newapi'"><option v-for="currency in currencies" :key="currency">{{ currency }}</option></select></label>
           <label>{{ t('upstreamBalance.threshold') }}<input v-model="thresholdDraft" inputmode="decimal" pattern="(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?" /></label>
-          <label v-if="draft.mode === 'sub2api'">{{ t('upstreamBalance.interval') }}<input v-model.number="draft.interval_minutes" type="number" min="5" max="1440" required /></label>
+          <label v-if="draft.mode !== 'manual'">{{ t('upstreamBalance.interval') }}<input v-model.number="draft.interval_minutes" type="number" min="5" max="1440" required /></label>
+          <label v-if="draft.mode === 'newapi'">{{ t('upstreamBalance.quotaPerUnit') }}<input v-model.number="draft.quota_per_unit" type="number" min="1" max="1000000000000" step="1" required /></label>
         </div>
+        <p v-if="draft.mode === 'newapi'" class="balance-muted">{{ t('upstreamBalance.newapiHint') }}</p>
         <fieldset class="balance-form">
           <legend>{{ t('upstreamBalance.accounts') }} · {{ t('upstreamBalance.selectedCount', { count: draft.account_ids.length }) }}</legend>
           <p class="balance-muted">{{ t('upstreamBalance.accountsHint') }}</p>
@@ -73,9 +81,26 @@
           <input v-model="accountSearch" type="search" :aria-label="t('upstreamBalance.accountSearch')" :placeholder="t('upstreamBalance.accountSearch')" />
           <div class="balance-accounts"><label v-for="account in availableAccounts" :key="account.id" class="balance-check" :class="{ unavailable: taken(account) }"><input v-model="draft.account_ids" type="checkbox" :value="account.id" :disabled="taken(account) || accountsLoading" /><span>{{ account.name }} <span class="balance-muted">· {{ account.platform }} / {{ account.type }}{{ taken(account) ? ` · ${t('upstreamBalance.usedElsewhere')}` : '' }}</span></span></label><p v-if="!accountsLoading && !availableAccounts.length" class="balance-muted">{{ t('upstreamBalance.noAccounts') }}</p></div>
         </fieldset>
-        <template v-if="draft.mode === 'sub2api'">
-          <label>{{ t('upstreamBalance.queryAccount') }}<select v-model="draft.query_account_id" required><option :value="null" disabled>{{ t('upstreamBalance.chooseAccount') }}</option><option v-for="account in queryAccounts" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
-          <p class="balance-muted">{{ t('upstreamBalance.sourceHint') }}</p>
+        <template v-if="draft.mode !== 'manual'">
+          <label>{{ t(draft.mode === 'newapi' && draft.newapi_auth === 'account' ? 'upstreamBalance.accountAuth.source' : 'upstreamBalance.queryAccount') }}<select v-model="draft.query_account_id" required><option :value="null" disabled>{{ t('upstreamBalance.chooseAccount') }}</option><option v-for="account in queryAccounts" :key="account.id" :value="account.id">{{ account.name }}</option></select></label>
+          <p class="balance-muted">{{ t(draft.mode === 'newapi' && draft.newapi_auth === 'account' ? 'upstreamBalance.accountAuth.sourceHint' : 'upstreamBalance.sourceHint') }}</p>
+          <details v-if="draft.mode === 'newapi'" class="balance-credential-settings" :open="draft.newapi_auth === 'account'">
+            <summary>{{ t('upstreamBalance.accountAuth.title') }}</summary>
+            <div class="balance-form">
+              <p class="balance-muted">{{ t('upstreamBalance.accountAuth.hint') }}</p>
+              <label>{{ t('upstreamBalance.accountAuth.method') }}<select v-model="draft.newapi_auth" :disabled="busy"><option value="key">{{ t('upstreamBalance.accountAuth.key') }}</option><option value="account" :disabled="!credentialStorageAvailable">{{ t('upstreamBalance.accountAuth.account') }}</option></select></label>
+              <p v-if="!credentialStorageAvailable" class="balance-message warning">{{ t('upstreamBalance.accountAuth.storageUnavailable') }}</p>
+              <p v-if="tokenCleared" class="balance-muted">{{ t('upstreamBalance.accountAuth.cleared') }}</p>
+              <template v-if="draft.newapi_auth === 'account'">
+                <p class="balance-message warning">{{ t('upstreamBalance.accountAuth.permissionHint') }}</p>
+                <p class="balance-muted">{{ t(tokenCleared ? 'upstreamBalance.accountAuth.cleared' : selectedWallet?.newapi_has_access_token ? 'upstreamBalance.accountAuth.configured' : 'upstreamBalance.accountAuth.notConfigured') }}</p>
+                <label>{{ t('upstreamBalance.accountAuth.token') }}<input v-model="accessTokenDraft" type="password" maxlength="4096" autocomplete="off" autocapitalize="off" :spellcheck="false" :required="needsAccessToken" :disabled="busy || !credentialStorageAvailable" :placeholder="t(selectedWallet?.newapi_has_access_token ? 'upstreamBalance.accountAuth.keepPlaceholder' : 'upstreamBalance.accountAuth.tokenPlaceholder')" /></label>
+                <label>{{ t('upstreamBalance.accountAuth.userID') }}<input v-model="userIDDraft" inputmode="numeric" pattern="[1-9][0-9]*" maxlength="16" :disabled="busy" /></label>
+                <p class="balance-muted">{{ t('upstreamBalance.accountAuth.userIDHint') }}</p>
+              </template>
+              <button v-if="selectedWallet?.newapi_has_access_token && !tokenCleared" type="button" class="balance-link" :disabled="busy" @click="clearAccessToken">{{ t('upstreamBalance.accountAuth.clear') }}</button>
+            </div>
+          </details>
           <label class="balance-check"><input v-model="draft.auto_enabled" type="checkbox" />{{ t('upstreamBalance.autoEnabled') }}</label><p class="balance-muted">{{ t('upstreamBalance.intervalHint') }}</p>
         </template>
         <template v-else>
@@ -87,7 +112,7 @@
         <label>{{ t('upstreamBalance.note') }}<textarea v-model="draft.note" rows="2" maxlength="2000" /></label>
         <p v-if="dialogError" class="balance-message error" role="alert">{{ dialogError }}</p>
       </form>
-      <template #footer><button class="balance-button" :disabled="busy" @click="closeDialog">{{ t('upstreamBalance.cancel') }}</button><button class="balance-button primary" type="submit" form="upstream-wallet-form" :disabled="busy || accountsLoading || accountsFailed">{{ t(busy ? 'upstreamBalance.saving' : 'upstreamBalance.save') }}</button></template>
+      <template #footer><button class="balance-button" :disabled="busy" @click="closeDialog">{{ t('upstreamBalance.cancel') }}</button><button v-if="draft.mode !== 'manual'" class="balance-button" type="submit" form="upstream-wallet-form" name="query_after_save" :disabled="busy || accountsLoading || accountsFailed">{{ t('upstreamBalance.accountAuth.saveAndQuery') }}</button><button class="balance-button primary" type="submit" form="upstream-wallet-form" :disabled="busy || accountsLoading || accountsFailed">{{ t(busy ? 'upstreamBalance.saving' : 'upstreamBalance.save') }}</button></template>
     </BaseDialog>
     <BaseDialog :show="dialog === 'calibrate'" :title="t('upstreamBalance.calibrate')" panel-class="balance-theme" @close="closeDialog">
       <form id="upstream-calibrate-form" class="balance-form" @submit.prevent="calibrate"><h2>{{ selectedWallet?.name }}</h2><label>{{ t('upstreamBalance.initialBalance') }} · {{ selectedWallet?.currency }}<input v-model="initialDraft" inputmode="decimal" pattern="-?(0|[1-9][0-9]{0,8})(\.[0-9]{1,6})?" required /></label><p class="balance-muted">{{ t('upstreamBalance.calibrationHint') }}</p><p v-if="dialogError" class="balance-message error" role="alert">{{ dialogError }}</p></form>
@@ -107,25 +132,28 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import { balanceAPI, type AccountOption, type Delivery, type Event, type Settings, type Wallet, type WalletInput } from './api'
+import { balanceAPI, type AccountOption, type Delivery, type Event as WalletEvent, type Settings, type Wallet, type WalletInput } from './api'
 import { actualTotals, currencies, money, safeURL } from './display'
 import './balance.css'
 
 const { t, te } = useI18n()
 const wallets = ref<Wallet[]>([]), loading = ref(false), ready = ref(false), error = ref(''), notice = ref(''), timezone = ref('Asia/Shanghai')
+const credentialStorageAvailable = ref(false), accessTokenDraft = ref(''), userIDDraft = ref(''), tokenCleared = ref(false)
 const search = ref(''), filter = ref('all'), filters = ['all', 'low', 'attention', 'manualOnly', 'autoOnly'], metrics = ['today', 'week', 'month'] as const
 const lowCount = computed(() => wallets.value.filter(w => w.low && !w.stale).length), totals = computed(() => actualTotals(wallets.value))
-const automaticWallets = computed(() => wallets.value.filter(w => w.mode === 'sub2api'))
+const automaticWallets = computed(() => wallets.value.filter(w => w.mode !== 'manual'))
 function needsAttention(w: Wallet) { return w.stale || w.usage_incomplete || ['failed', 'unsupported', 'source_changed'].includes(w.status) }
 const visibleWallets = computed(() => wallets.value.filter(w => {
   const matches = `${w.name} ${w.provider} ${w.accounts.map(a => a.name).join(' ')}`.toLowerCase().includes(search.value.trim().toLowerCase())
-  return matches && (filter.value === 'all' || (filter.value === 'low' && w.low && !w.stale) || (filter.value === 'attention' && needsAttention(w)) || (filter.value === 'manualOnly' && w.mode === 'manual') || (filter.value === 'autoOnly' && w.mode === 'sub2api'))
+  return matches && (filter.value === 'all' || (filter.value === 'low' && w.low && !w.stale) || (filter.value === 'attention' && needsAttention(w)) || (filter.value === 'manualOnly' && w.mode === 'manual') || (filter.value === 'autoOnly' && w.mode !== 'manual'))
 }))
 const querying = ref(new Set<string>()), batch = ref(false), batchDone = ref(0), batchTotal = ref(0)
 const dialog = ref<'' | 'wallet' | 'calibrate' | 'settings' | 'history'>(''), dialogError = ref(''), busy = ref(false), editID = ref(''), selectedWallet = ref<Wallet | null>(null)
 const accounts = ref<AccountOption[]>([]), accountsLoading = ref(false), accountsFailed = ref(false), accountSearch = ref('')
-function emptyDraft(): WalletInput { return { name: '', provider: '', mode: 'sub2api', query_account_id: null, account_ids: [], currency: 'USD', auto_enabled: true, interval_minutes: 30, estimate_enabled: false, low_threshold: null, management_url: '', note: '', version: 0, initial_balance: null } }
-const draft = ref(emptyDraft()), thresholdDraft = ref(''), initialDraft = ref(''), settingsDraft = ref<Settings | null>(null), recipientsDraft = ref(''), deliveries = ref<Delivery[]>([]), history = ref<Event[]>([]), historyLoading = ref(false)
+function emptyDraft(): WalletInput { return { name: '', provider: '', mode: 'sub2api', quota_per_unit: 500000, query_account_id: null, account_ids: [], currency: 'USD', auto_enabled: true, interval_minutes: 30, estimate_enabled: false, low_threshold: null, management_url: '', note: '', version: 0, initial_balance: null } }
+const draft = ref(emptyDraft()), thresholdDraft = ref(''), initialDraft = ref(''), settingsDraft = ref<Settings | null>(null), recipientsDraft = ref(''), deliveries = ref<Delivery[]>([]), history = ref<WalletEvent[]>([]), historyLoading = ref(false)
+const needsAccessToken = computed(() => !selectedWallet.value?.newapi_has_access_token || tokenCleared.value || selectedWallet.value.query_account_id !== draft.value.query_account_id)
+function clearAccessToken() { accessTokenDraft.value = ''; tokenCleared.value = true; draft.value.newapi_auth = 'key'; userIDDraft.value = '' }
 const requiresBaseline = computed(() => !selectedWallet.value || selectedWallet.value.mode !== 'manual' || selectedWallet.value.currency !== draft.value.currency || !selectedWallet.value.observation || [...selectedWallet.value.account_ids].sort().join(',') !== [...draft.value.account_ids].sort().join(','))
 function taken(a: AccountOption) { return !!a.wallet_id && a.wallet_id !== editID.value }
 const availableAccounts = computed(() => {
@@ -134,6 +162,8 @@ const availableAccounts = computed(() => {
 })
 const queryAccounts = computed(() => accounts.value.filter(a => draft.value.account_ids.includes(a.id) && a.type === 'apikey'))
 watch(() => [draft.value.mode, draft.value.currency, draft.value.account_ids.join(',')], () => {
+  if (draft.value.mode === 'newapi') { draft.value.currency = 'USD'; draft.value.newapi_auth ||= 'key' }
+  else { accessTokenDraft.value = ''; userIDDraft.value = ''; delete draft.value.newapi_auth; delete draft.value.newapi_user_id }
   if (draft.value.currency !== 'USD' || !draft.value.account_ids.length) draft.value.estimate_enabled = false
   if (!accountsLoading.value && draft.value.query_account_id && !queryAccounts.value.some(a => a.id === draft.value.query_account_id)) draft.value.query_account_id = null
 })
@@ -145,15 +175,17 @@ let pending: { action: string; body: string; key: string } | undefined
 function requestKey(action: string, value: unknown) { const body = JSON.stringify(value); if (!pending || pending.action !== action || pending.body !== body) pending = { action, body, key: crypto.randomUUID() }; return pending.key }
 async function refresh() {
   const current = ++revision; controller?.abort(); controller = new AbortController(); loading.value = true; error.value = ''
-  try { const data = await balanceAPI.list(controller.signal); if (disposed || current !== revision) return; wallets.value = data.items; timezone.value = data.timezone; ready.value = true }
+  try { const data = await balanceAPI.list(controller.signal); if (disposed || current !== revision) return; wallets.value = data.items; timezone.value = data.timezone; credentialStorageAvailable.value = data.credential_storage_available === true; ready.value = true }
   catch { if (!disposed && current === revision) error.value = t('upstreamBalance.loadError') }
   finally { if (!disposed && current === revision) loading.value = false }
 }
 function startDialog(kind: typeof dialog.value) { ++dialogRevision; dialog.value = kind; dialogError.value = ''; notice.value = ''; pending = undefined }
-function closeDialog() { if (busy.value) return; ++dialogRevision; dialog.value = ''; dialogError.value = '' }
+function closeDialog() { if (busy.value) return; ++dialogRevision; dialog.value = ''; dialogError.value = ''; accessTokenDraft.value = ''; userIDDraft.value = ''; delete draft.value.newapi_access_token; pending = undefined }
 async function openWallet(wallet?: Wallet) {
   startDialog('wallet'); const current = dialogRevision; editID.value = wallet?.id ?? ''; selectedWallet.value = wallet ?? null; accountSearch.value = ''; initialDraft.value = ''; thresholdDraft.value = wallet?.low_threshold ?? ''
-  draft.value = wallet ? { name: wallet.name, provider: wallet.provider, mode: wallet.mode, query_account_id: wallet.query_account_id, account_ids: [...wallet.account_ids], currency: wallet.currency, auto_enabled: wallet.auto_enabled, interval_minutes: wallet.interval_minutes, estimate_enabled: wallet.estimate_enabled, low_threshold: wallet.low_threshold, management_url: wallet.management_url, note: wallet.note, version: wallet.version, initial_balance: null } : emptyDraft()
+  draft.value = wallet ? { name: wallet.name, provider: wallet.provider, mode: wallet.mode, quota_per_unit: wallet.quota_per_unit || 500000, query_account_id: wallet.query_account_id, account_ids: [...wallet.account_ids], currency: wallet.currency, auto_enabled: wallet.auto_enabled, interval_minutes: wallet.interval_minutes, estimate_enabled: wallet.estimate_enabled, low_threshold: wallet.low_threshold, management_url: wallet.management_url, note: wallet.note, version: wallet.version, initial_balance: null } : emptyDraft()
+  if (draft.value.mode === 'newapi') draft.value.newapi_auth = wallet?.newapi_auth || 'key'
+  accessTokenDraft.value = ''; tokenCleared.value = false; userIDDraft.value = wallet?.newapi_user_id ? String(wallet.newapi_user_id) : ''
   accountsLoading.value = true; accountsFailed.value = false
   try { const data = await balanceAPI.accounts(); if (!disposed && current === dialogRevision) accounts.value = data }
   catch { if (!disposed && current === dialogRevision) { accountsFailed.value = true; dialogError.value = t('upstreamBalance.loadError') } }
@@ -162,16 +194,28 @@ async function openWallet(wallet?: Wallet) {
 function openCalibration(wallet: Wallet) { startDialog('calibrate'); selectedWallet.value = wallet; initialDraft.value = '' }
 async function perform(action: string, body: unknown, fn: (key: string) => Promise<unknown>) {
   if (busy.value) return; busy.value = true; dialogError.value = ''
-  try { await fn(requestKey(action, body)); if (disposed) return; busy.value = false; closeDialog(); notice.value = t('upstreamBalance.saved'); await refresh() }
+  try { const result = await fn(requestKey(action, body)); if (disposed) return; busy.value = false; closeDialog(); notice.value = t('upstreamBalance.saved'); await refresh(); return result }
   catch (err) { if (!disposed) dialogError.value = requestError(err) }
   finally { busy.value = false }
 }
-async function saveWallet() {
+async function saveWallet(event?: Event) {
   if (accountsLoading.value || accountsFailed.value) return
   const body: WalletInput = { ...draft.value, account_ids: [...draft.value.account_ids].sort((a, b) => a - b), low_threshold: thresholdDraft.value.trim() || null, initial_balance: draft.value.mode === 'manual' ? initialDraft.value.trim() || null : null }
   if (body.mode === 'manual') { body.query_account_id = null; body.auto_enabled = false }
-  if (!body.name.trim() || (body.mode === 'sub2api' && !body.query_account_id) || (body.mode === 'manual' && requiresBaseline.value && !body.initial_balance) || (body.management_url && !safeURL(body.management_url))) { dialogError.value = t('upstreamBalance.invalid'); return }
-  await perform(`save:${editID.value}`, body, key => balanceAPI.save(editID.value, body, key))
+  if (body.mode === 'newapi') {
+    body.newapi_auth = draft.value.newapi_auth || 'key'
+    body.newapi_user_id = userIDDraft.value.trim() ? Number(userIDDraft.value) : 0
+    if (!Number.isSafeInteger(body.newapi_user_id) || body.newapi_user_id < 0 || (userIDDraft.value && !/^[1-9][0-9]*$/.test(userIDDraft.value))) { dialogError.value = t('upstreamBalance.accountAuth.invalidUserID'); return }
+    if (body.newapi_auth === 'account') {
+      if (!credentialStorageAvailable.value || (needsAccessToken.value && !accessTokenDraft.value.trim())) { dialogError.value = t('upstreamBalance.accountAuth.required'); return }
+      if (accessTokenDraft.value.trim()) body.newapi_access_token = accessTokenDraft.value.trim()
+    } else { body.newapi_user_id = 0 }
+    if (tokenCleared.value && !body.newapi_access_token) body.newapi_access_token = ''
+  }
+  if (!body.name.trim() || (body.mode !== 'manual' && !body.query_account_id) || (body.mode === 'manual' && requiresBaseline.value && !body.initial_balance) || (body.management_url && !safeURL(body.management_url))) { dialogError.value = t('upstreamBalance.invalid'); return }
+  const queryAfterSave = (event as SubmitEvent | undefined)?.submitter?.getAttribute('name') === 'query_after_save'
+  const result = await perform(`save:${editID.value}`, body, key => balanceAPI.save(editID.value, body, key)) as Wallet | undefined
+  if (result && queryAfterSave && !disposed) await queryOne(result)
 }
 async function calibrate() { const w = selectedWallet.value; if (w) { const body = { amount: initialDraft.value.trim(), version: w.version }; await perform(`calibrate:${w.id}`, body, key => balanceAPI.calibrate(w.id, body.amount, body.version, key)) } }
 async function queryOne(wallet: Wallet, quiet = false) {

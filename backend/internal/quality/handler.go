@@ -310,7 +310,7 @@ func (h *Handler) Run(c *gin.Context) {
 	if !bind(c, &req) {
 		return
 	}
-	if !validKind(req.Kind) || len(req.TargetIDs) == 0 || len(req.TargetIDs) > 100 {
+	if !validKind(req.Kind) || req.Kind == "inspection" || len(req.TargetIDs) == 0 || len(req.TargetIDs) > 100 {
 		response.BadRequest(c, "请选择检测类型与最多 100 个账号模型")
 		return
 	}
@@ -396,7 +396,12 @@ func (h *Handler) History(c *gin.Context) {
 	if !authorized(c) || !validID(c) {
 		return
 	}
-	items, err := h.Runner.Store.History(c.Request.Context(), c.Param("id"), 60)
+	kind := c.Query("kind")
+	if kind != "" && !validKind(kind) {
+		response.BadRequest(c, "检测类型无效")
+		return
+	}
+	items, err := h.Runner.Store.historyKind(c.Request.Context(), c.Param("id"), 60, kind)
 	if respondError(c, err) {
 		return
 	}

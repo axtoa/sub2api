@@ -67,6 +67,7 @@ func RegisterAdminRoutes(
 		quality.POST("/targets", h.Quality.CreateTargets)
 		quality.PUT("/targets/:id", h.Quality.SaveTarget)
 		quality.GET("/targets/:id/history", h.Quality.History)
+		quality.POST("/inspections", h.Quality.Inspect)
 		quality.POST("/runs", h.Quality.Run)
 		quality.POST("/runs/status", h.Quality.RunStatuses)
 		quality.GET("/runs/:id", h.Quality.Detail)

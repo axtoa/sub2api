@@ -42,11 +42,12 @@ type QuestionTemplate struct {
 
 type Settings struct {
 	Profile
-	QuestionBank  []QuestionTemplate `json:"question_bank,omitempty"`
-	AutoEnabled   bool               `json:"auto_enabled"`
-	DailyRequests int                `json:"daily_requests"`
-	DailyTokens   int64              `json:"daily_tokens"`
-	Version       int                `json:"version"`
+	QuestionBank        []QuestionTemplate   `json:"question_bank,omitempty"`
+	InspectionQuestions []InspectionQuestion `json:"inspection_questions,omitempty"`
+	AutoEnabled         bool                 `json:"auto_enabled"`
+	DailyRequests       int                  `json:"daily_requests"`
+	DailyTokens         int64                `json:"daily_tokens"`
+	Version             int                  `json:"version"`
 }
 
 func DefaultSettings() Settings {
@@ -79,6 +80,9 @@ func (p Profile) Validate() error {
 }
 
 func (s Settings) Validate() error {
+	if err := validateInspectionQuestions(s.InspectionQuestions); err != nil {
+		return err
+	}
 	if err := validateQuestionBank(s.QuestionBank); err != nil {
 		return err
 	}
@@ -134,46 +138,51 @@ type Metrics struct {
 }
 
 type Run struct {
-	ID          string     `json:"id"`
-	TargetID    string     `json:"target_id"`
-	Kind        string     `json:"kind"`
-	Status      string     `json:"status"`
-	Manual      bool       `json:"manual"`
-	Verdict     string     `json:"verdict"`
-	ProfileHash string     `json:"profile_hash"`
-	Profile     *Profile   `json:"profile,omitempty"`
-	Result      *Result    `json:"result,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	StartedAt   *time.Time `json:"started_at"`
-	FinishedAt  *time.Time `json:"finished_at"`
+	Inspection  *InspectionOptions `json:"inspection,omitempty"`
+	ID          string             `json:"id"`
+	TargetID    string             `json:"target_id"`
+	Kind        string             `json:"kind"`
+	Status      string             `json:"status"`
+	Manual      bool               `json:"manual"`
+	Verdict     string             `json:"verdict"`
+	ProfileHash string             `json:"profile_hash"`
+	Profile     *Profile           `json:"profile,omitempty"`
+	Result      *Result            `json:"result,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	StartedAt   *time.Time         `json:"started_at"`
+	FinishedAt  *time.Time         `json:"finished_at"`
 }
 
 type Result struct {
-	Reason           string   `json:"reason"`
-	Correct          int      `json:"correct"`
-	Graded           int      `json:"graded"`
-	Planned          int      `json:"planned"`
-	Requests         int      `json:"requests"`
-	BudgetTokens     int64    `json:"budget_tokens"`
-	FirstTokenMs     *int64   `json:"first_token_ms"`
-	DurationMs       int64    `json:"duration_ms"`
-	Items            []Sample `json:"items"`
-	CachePrefix      string   `json:"cache_prefix,omitempty"`
-	CacheReported    bool     `json:"cache_reported"`
-	CacheInputTokens int64    `json:"cache_input_tokens"`
-	CacheReadTokens  int64    `json:"cache_read_tokens"`
+	Checks           []InspectionCheck `json:"checks,omitempty"`
+	Reason           string            `json:"reason"`
+	Correct          int               `json:"correct"`
+	Graded           int               `json:"graded"`
+	Planned          int               `json:"planned"`
+	Requests         int               `json:"requests"`
+	BudgetTokens     int64             `json:"budget_tokens"`
+	FirstTokenMs     *int64            `json:"first_token_ms"`
+	DurationMs       int64             `json:"duration_ms"`
+	Items            []Sample          `json:"items"`
+	CachePrefix      string            `json:"cache_prefix,omitempty"`
+	CacheReported    bool              `json:"cache_reported"`
+	CacheInputTokens int64             `json:"cache_input_tokens"`
+	CacheReadTokens  int64             `json:"cache_read_tokens"`
 }
 
 type Sample struct {
-	QuestionID  string                      `json:"question_id"`
-	Family      string                      `json:"family"`
-	Prompt      string                      `json:"prompt"`
-	Expected    string                      `json:"expected"`
-	Explanation string                      `json:"explanation"`
-	Name        string                      `json:"name,omitempty"`
-	GradeReason string                      `json:"grade_reason,omitempty"`
-	Correct     *bool                       `json:"correct"`
-	Probe       *service.QualityProbeResult `json:"probe"`
+	Match        string                      `json:"match,omitempty"`
+	ImageDataURL string                      `json:"image_data_url,omitempty"`
+	CheckID      string                      `json:"check_id,omitempty"`
+	QuestionID   string                      `json:"question_id"`
+	Family       string                      `json:"family"`
+	Prompt       string                      `json:"prompt"`
+	Expected     string                      `json:"expected"`
+	Explanation  string                      `json:"explanation"`
+	Name         string                      `json:"name,omitempty"`
+	GradeReason  string                      `json:"grade_reason,omitempty"`
+	Correct      *bool                       `json:"correct"`
+	Probe        *service.QualityProbeResult `json:"probe"`
 }
 
 type Budget struct {
@@ -189,7 +198,7 @@ type Budget struct {
 }
 
 func validKind(kind string) bool {
-	return kind == "availability" || kind == "quality" || kind == "cache"
+	return kind == "availability" || kind == "quality" || kind == "cache" || kind == "inspection"
 }
 
 func profileHash(a *service.Account, t Target, p Profile, bank ...[]QuestionTemplate) string {

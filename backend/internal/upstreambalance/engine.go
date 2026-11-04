@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/google/uuid"
 )
 
@@ -38,7 +39,12 @@ func NewEngine(db *sql.DB, accounts AccountSource, mailer Mailer, cfg *config.Co
 	if e != nil {
 		loc = time.UTC
 	}
-	return &Engine{Store: &Store{DB: db, Location: loc}, Accounts: accounts, Probe: &Probe{Config: cfg}, Mailer: mailer, done: make(chan struct{}), slots: make(chan struct{}, 3)}
+	s := &Store{DB: db, Location: loc, Accounts: accounts, ProbeConfig: cfg}
+	// An ephemeral key would make saved credentials unreadable after restart.
+	if cfg != nil && cfg.Totp.EncryptionKeyConfigured {
+		s.Cipher, _ = repository.NewAESEncryptor(cfg)
+	}
+	return &Engine{Store: s, Accounts: accounts, Probe: &Probe{Config: cfg}, Mailer: mailer, done: make(chan struct{}), slots: make(chan struct{}, 3)}
 }
 func (e *Engine) Start() {
 	e.start.Do(func() {
@@ -81,7 +87,7 @@ func (e *Engine) List(ctx context.Context, now time.Time) ([]Wallet, error) {
 	}
 	for i := range items {
 		w := &items[i]
-		if w.Mode == "sub2api" && w.Observation != nil && w.QueryAccountID != nil {
+		if w.Mode != "manual" && w.Observation != nil && w.QueryAccountID != nil {
 			a, err := e.Accounts.GetByID(ctx, *w.QueryAccountID)
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
@@ -111,7 +117,7 @@ func (e *Engine) Query(ctx context.Context, id string, manual bool) (Wallet, err
 	if err != nil {
 		return w, err
 	}
-	if w.Mode != "sub2api" || w.QueryAccountID == nil {
+	if w.Mode == "manual" || w.QueryAccountID == nil {
 		return w, invalid("手动钱包请使用校准余额")
 	}
 	if !manual && (!w.AutoEnabled || w.NextQueryAt.After(time.Now())) {
@@ -174,7 +180,7 @@ func (e *Engine) Query(ctx context.Context, id string, manual bool) (Wallet, err
 	return result, getErr
 }
 func (e *Engine) Tick(ctx context.Context, now time.Time) error {
-	rows, err := e.Store.DB.QueryContext(ctx, `SELECT id FROM upstream_wallets WHERE config->>'mode'='sub2api' AND config->>'auto_enabled'='true' AND next_query_at<=$1 AND (lease_until IS NULL OR lease_until<$1) ORDER BY next_query_at LIMIT 20`, now)
+	rows, err := e.Store.DB.QueryContext(ctx, `SELECT id FROM upstream_wallets WHERE config->>'mode' IN ('sub2api','newapi') AND config->>'auto_enabled'='true' AND next_query_at<=$1 AND (lease_until IS NULL OR lease_until<$1) ORDER BY next_query_at LIMIT 20`, now)
 	if err != nil {
 		return err
 	}

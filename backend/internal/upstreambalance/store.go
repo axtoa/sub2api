@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"math/big"
 	"reflect"
 	"time"
@@ -14,20 +16,23 @@ import (
 )
 
 type Store struct {
-	DB       *sql.DB
-	Location *time.Location
+	DB          *sql.DB
+	Location    *time.Location
+	Cipher      service.SecretEncryptor
+	Accounts    AccountSource
+	ProbeConfig *config.Config
 }
 type querier interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 type scanner interface{ Scan(...any) error }
 
-const walletColumns = `id,config,version,observation,source_identity,status,last_error,last_attempt_at,next_query_at,failures`
+const walletColumns = `id,config,version,observation,source_identity,status,last_error,last_attempt_at,next_query_at,failures,access_token_encrypted`
 
 func scanWallet(row scanner) (Wallet, error) {
 	var w Wallet
 	var c, o []byte
-	e := row.Scan(&w.ID, &c, &w.Version, &o, &w.Identity, &w.Status, &w.LastError, &w.LastAttemptAt, &w.NextQueryAt, &w.Failures)
+	e := row.Scan(&w.ID, &c, &w.Version, &o, &w.Identity, &w.Status, &w.LastError, &w.LastAttemptAt, &w.NextQueryAt, &w.Failures, &w.accessTokenEncrypted)
 	if e != nil {
 		return w, e
 	}
@@ -39,6 +44,8 @@ func scanWallet(row scanner) (Wallet, error) {
 	}
 	w.Accounts = []AccountOption{}
 	w.TodayCost, w.WeekCost, w.MonthCost, w.SinceBaselineCost = "0.000000", "0.000000", "0.000000", "0.000000"
+	w.TotalCost = "0.000000"
+	w.HasAccessToken = w.accessTokenEncrypted != ""
 	return w, e
 }
 func (s *Store) Get(ctx context.Context, id string) (Wallet, error) {
@@ -111,31 +118,35 @@ func (s *Store) List(ctx context.Context, now time.Time) ([]Wallet, error) {
 	month := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, s.Location)
 	// Read existing per-request account-cost snapshots. Never write usage or
 	// substitute actual_cost (which is the amount billed to our customer).
+	// Lifetime spending includes all retained history for the linked accounts,
+	// including usage before wallet creation. Only baseline estimates are capped.
 	rows, e = tx.QueryContext(ctx, `SELECT l.wallet_id,l.account_id,
       COALESCE(SUM(COALESCE(u.account_stats_cost,u.total_cost)::numeric * COALESCE(u.account_rate_multiplier,1)::numeric) FILTER(WHERE u.created_at >= $1),0)::text,
       COALESCE(SUM(COALESCE(u.account_stats_cost,u.total_cost)::numeric * COALESCE(u.account_rate_multiplier,1)::numeric) FILTER(WHERE u.created_at >= $2),0)::text,
       COALESCE(SUM(COALESCE(u.account_stats_cost,u.total_cost)::numeric * COALESCE(u.account_rate_multiplier,1)::numeric) FILTER(WHERE u.created_at >= $3),0)::text,
-      COALESCE(SUM(COALESCE(u.account_stats_cost,u.total_cost)::numeric * COALESCE(u.account_rate_multiplier,1)::numeric) FILTER(WHERE u.created_at >= (w.observation->>'at')::timestamptz),0)::text
+      COALESCE(SUM(COALESCE(u.account_stats_cost,u.total_cost)::numeric * COALESCE(u.account_rate_multiplier,1)::numeric) FILTER(WHERE u.created_at >= (w.observation->>'at')::timestamptz
+	    AND u.created_at >= GREATEST($4::timestamptz - INTERVAL '90 days', LEAST($1,$2,$3,CASE WHEN w.config->>'mode'='manual' AND w.config->>'estimate_enabled'='true' THEN COALESCE((w.observation->>'at')::timestamptz,$1) ELSE $1 END))),0)::text,
+      COALESCE(SUM(COALESCE(u.account_stats_cost,u.total_cost)::numeric * COALESCE(u.account_rate_multiplier,1)::numeric),0)::text
       FROM upstream_wallet_accounts l JOIN upstream_wallets w ON w.id=l.wallet_id JOIN usage_logs u ON u.account_id=l.account_id
-	  WHERE u.created_at >= GREATEST($4::timestamptz - INTERVAL '90 days', LEAST($1,$2,$3,CASE WHEN w.config->>'mode'='manual' AND w.config->>'estimate_enabled'='true' THEN COALESCE((w.observation->>'at')::timestamptz,$1) ELSE $1 END)) AND u.created_at <= $4
+	  WHERE u.created_at <= $4
       GROUP BY l.wallet_id,l.account_id`, today, week, month, now)
 	if e != nil {
 		return nil, e
 	}
 	defer func() { _ = rows.Close() }()
-	sums := map[string][4]*big.Rat{}
+	sums := map[string][5]*big.Rat{}
 	for rows.Next() {
-		var id, a, b, c, d string
+		var id, a, b, c, d, lifetime string
 		var accountID int64
-		if e = rows.Scan(&id, &accountID, &a, &b, &c, &d); e != nil {
+		if e = rows.Scan(&id, &accountID, &a, &b, &c, &d, &lifetime); e != nil {
 			return nil, e
 		}
 		if i, ok := indices[id]; ok {
 			total, exists := sums[id]
 			if !exists {
-				total = [4]*big.Rat{new(big.Rat), new(big.Rat), new(big.Rat), new(big.Rat)}
+				total = [5]*big.Rat{new(big.Rat), new(big.Rat), new(big.Rat), new(big.Rat), new(big.Rat)}
 			}
-			for n, value := range []string{a, b, c, d} {
+			for n, value := range []string{a, b, c, d, lifetime} {
 				total[n].Add(total[n], numeric(value))
 			}
 			sums[id] = total
@@ -149,6 +160,7 @@ func (s *Store) List(ctx context.Context, now time.Time) ([]Wallet, error) {
 	for id, total := range sums {
 		i := indices[id]
 		items[i].TodayCost, items[i].WeekCost, items[i].MonthCost, items[i].SinceBaselineCost = total[0].FloatString(6), total[1].FloatString(6), total[2].FloatString(6), total[3].FloatString(6)
+		items[i].TotalCost = total[4].FloatString(6)
 	}
 	return items, rows.Err()
 }
@@ -245,7 +257,7 @@ func (s *Store) Save(ctx context.Context, id string, in Input, actor int64) (Wal
 			return w, e
 		}
 		found := 0
-		queryValid := in.Mode != "sub2api"
+		queryValid := in.Mode == "manual"
 		for rows.Next() {
 			var a int64
 			var kind string
@@ -266,7 +278,10 @@ func (s *Store) Save(ctx context.Context, id string, in Input, actor int64) (Wal
 		if found != len(in.AccountIDs) || !queryValid {
 			return w, invalid("关联账号不存在，或查询来源不是 API Key 账号")
 		}
-		reset := before == nil || before.Mode != in.Mode || before.Currency != in.Currency || !reflect.DeepEqual(before.AccountIDs, in.AccountIDs) || !reflect.DeepEqual(before.QueryAccountID, in.QueryAccountID)
+		if e = s.updateCredential(ctx, &w, in); e != nil {
+			return w, e
+		}
+		reset := before == nil || before.Mode != in.Mode || before.Currency != in.Currency || before.QuotaPerUnit != in.QuotaPerUnit || before.NewAPIAuth != in.NewAPIAuth || before.NewAPIUserID != in.NewAPIUserID || before.accessTokenEncrypted != w.accessTokenEncrypted || !reflect.DeepEqual(before.AccountIDs, in.AccountIDs) || !reflect.DeepEqual(before.QueryAccountID, in.QueryAccountID)
 		if in.Mode == "manual" && (reset || w.Observation == nil) && in.InitialBalance == nil {
 			return w, invalid("新建、切换币种或关联账号后，请重新校准手动余额")
 		}
@@ -293,8 +308,8 @@ func (s *Store) Save(ctx context.Context, id string, in Input, actor int64) (Wal
 		if w.Observation != nil {
 			o, _ = json.Marshal(w.Observation)
 		}
-		_, e = tx.ExecContext(ctx, `INSERT INTO upstream_wallets(id,config,version,observation,source_identity,status,last_error,last_attempt_at,next_query_at,failures) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-        ON CONFLICT(id) DO UPDATE SET config=EXCLUDED.config,version=EXCLUDED.version,observation=EXCLUDED.observation,source_identity=EXCLUDED.source_identity,status=EXCLUDED.status,last_error=EXCLUDED.last_error,last_attempt_at=EXCLUDED.last_attempt_at,next_query_at=EXCLUDED.next_query_at,failures=EXCLUDED.failures,lease_id=NULL,lease_until=NULL`, w.ID, c, w.Version, o, w.Identity, w.Status, w.LastError, w.LastAttemptAt, w.NextQueryAt, w.Failures)
+		_, e = tx.ExecContext(ctx, `INSERT INTO upstream_wallets(id,config,version,observation,source_identity,status,last_error,last_attempt_at,next_query_at,failures,access_token_encrypted) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        ON CONFLICT(id) DO UPDATE SET config=EXCLUDED.config,version=EXCLUDED.version,observation=EXCLUDED.observation,source_identity=EXCLUDED.source_identity,status=EXCLUDED.status,last_error=EXCLUDED.last_error,last_attempt_at=EXCLUDED.last_attempt_at,next_query_at=EXCLUDED.next_query_at,failures=EXCLUDED.failures,access_token_encrypted=EXCLUDED.access_token_encrypted,lease_id=NULL,lease_until=NULL`, w.ID, c, w.Version, o, w.Identity, w.Status, w.LastError, w.LastAttemptAt, w.NextQueryAt, w.Failures, w.accessTokenEncrypted)
 		if e != nil {
 			return w, e
 		}

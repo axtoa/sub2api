@@ -23,6 +23,9 @@ type Config struct {
 	Name            string  `json:"name"`
 	Provider        string  `json:"provider"`
 	Mode            string  `json:"mode"`
+	QuotaPerUnit    int64   `json:"quota_per_unit,omitempty"`
+	NewAPIAuth      string  `json:"newapi_auth,omitempty"` // key (default) or account
+	NewAPIUserID    int64   `json:"newapi_user_id,omitempty"`
 	QueryAccountID  *int64  `json:"query_account_id"`
 	AccountIDs      []int64 `json:"account_ids"`
 	Currency        string  `json:"currency"`
@@ -38,6 +41,7 @@ type Input struct {
 	Version        int     `json:"version"`
 	InitialBalance *string `json:"initial_balance"`
 	RequestKey     string  `json:"request_key"`
+	AccessToken    *string `json:"newapi_access_token,omitempty"` // write-only: nil keeps, empty clears
 }
 type Calibration struct {
 	Amount     string `json:"amount"`
@@ -53,24 +57,27 @@ type Observation struct {
 type Wallet struct {
 	ID string `json:"id"`
 	Config
-	Version           int             `json:"version"`
-	Observation       *Observation    `json:"observation"`
-	Status            string          `json:"status"`
-	LastError         string          `json:"last_error"`
-	LastAttemptAt     *time.Time      `json:"last_attempt_at"`
-	NextQueryAt       time.Time       `json:"next_query_at"`
-	Identity          string          `json:"-"`
-	Failures          int             `json:"-"`
-	Accounts          []AccountOption `json:"accounts"`
-	TodayCost         string          `json:"today_cost"`
-	WeekCost          string          `json:"week_cost"`
-	MonthCost         string          `json:"month_cost"`
-	SinceBaselineCost string          `json:"since_baseline_cost"`
-	EstimatedBalance  *string         `json:"estimated_balance"`
-	DaysRemaining     *string         `json:"days_remaining"`
-	Stale             bool            `json:"stale"`
-	Low               bool            `json:"low"`
-	UsageIncomplete   bool            `json:"usage_incomplete"`
+	HasAccessToken       bool `json:"newapi_has_access_token"`
+	accessTokenEncrypted string
+	Version              int             `json:"version"`
+	Observation          *Observation    `json:"observation"`
+	Status               string          `json:"status"`
+	LastError            string          `json:"last_error"`
+	LastAttemptAt        *time.Time      `json:"last_attempt_at"`
+	NextQueryAt          time.Time       `json:"next_query_at"`
+	Identity             string          `json:"-"`
+	Failures             int             `json:"-"`
+	Accounts             []AccountOption `json:"accounts"`
+	TodayCost            string          `json:"today_cost"`
+	WeekCost             string          `json:"week_cost"`
+	MonthCost            string          `json:"month_cost"`
+	TotalCost            string          `json:"total_cost"`
+	SinceBaselineCost    string          `json:"since_baseline_cost"`
+	EstimatedBalance     *string         `json:"estimated_balance"`
+	DaysRemaining        *string         `json:"days_remaining"`
+	Stale                bool            `json:"stale"`
+	Low                  bool            `json:"low"`
+	UsageIncomplete      bool            `json:"usage_incomplete"`
 }
 type AccountOption struct {
 	ID        int64  `json:"id"`
@@ -124,8 +131,25 @@ func currency(s string) bool {
 }
 func (c *Config) validate() error {
 	c.Name, c.Provider, c.Note = strings.TrimSpace(c.Name), strings.TrimSpace(c.Provider), strings.TrimSpace(c.Note)
-	if c.Name == "" || utf8.RuneCountInString(c.Name) > 160 || utf8.RuneCountInString(c.Provider) > 160 || utf8.RuneCountInString(c.Note) > 2000 || !currency(c.Currency) || (c.Mode != "sub2api" && c.Mode != "manual") || c.IntervalMinutes < 5 || c.IntervalMinutes > 1440 || len(c.AccountIDs) > 200 {
+	if c.Name == "" || utf8.RuneCountInString(c.Name) > 160 || utf8.RuneCountInString(c.Provider) > 160 || utf8.RuneCountInString(c.Note) > 2000 || !currency(c.Currency) || (c.Mode != "sub2api" && c.Mode != "newapi" && c.Mode != "manual") || c.IntervalMinutes < 5 || c.IntervalMinutes > 1440 || len(c.AccountIDs) > 200 {
 		return invalid("请核对钱包名称、模式、币种及查询周期（5–1440 分钟）")
+	}
+	if c.Mode == "newapi" {
+		if c.NewAPIAuth == "" {
+			c.NewAPIAuth = "key"
+		}
+		if (c.NewAPIAuth != "key" && c.NewAPIAuth != "account") || c.NewAPIUserID < 0 || c.NewAPIUserID > 9007199254740991 {
+			return invalid("请核对 New API 查询方式和用户 ID")
+		}
+		if c.QuotaPerUnit == 0 {
+			c.QuotaPerUnit = 500000
+		}
+		if c.Currency != "USD" || c.QuotaPerUnit < 1 || c.QuotaPerUnit > 1000000000000 {
+			return invalid("New API 查询使用 USD，请设置有效的每美元额度单位")
+		}
+	} else {
+		c.QuotaPerUnit = 0
+		c.NewAPIAuth, c.NewAPIUserID = "", 0
 	}
 	ids := map[int64]bool{}
 	for _, id := range c.AccountIDs {
@@ -138,7 +162,7 @@ func (c *Config) validate() error {
 	if c.AccountIDs == nil {
 		c.AccountIDs = []int64{}
 	}
-	if c.Mode == "sub2api" {
+	if c.Mode != "manual" {
 		if c.QueryAccountID == nil || !ids[*c.QueryAccountID] {
 			return invalid("请从关联账号中选择查询来源")
 		}
@@ -208,7 +232,7 @@ func numeric(s string) *big.Rat {
 	return r
 }
 func (w *Wallet) decorate(now time.Time) {
-	w.Stale = w.Observation != nil && w.Mode == "sub2api" && (w.Status != "ok" || now.Sub(w.Observation.At) > time.Duration(w.IntervalMinutes*2)*time.Minute)
+	w.Stale = w.Observation != nil && w.Mode != "manual" && (w.Status != "ok" || now.Sub(w.Observation.At) > time.Duration(w.IntervalMinutes*2)*time.Minute)
 	if w.Observation == nil {
 		return
 	}

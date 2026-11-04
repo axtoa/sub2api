@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,8 @@ func probeError(code string) error { return errors.New(code) }
 
 // Upstream JSON numbers may contain more than six decimals or exponent
 // notation. Normalize at the boundary with decimal arithmetic, not float64.
+var upstreamQuotaPattern = regexp.MustCompile(`^-?[0-9]{1,24}(\.[0-9]{1,30})?([eE][+-]?[0-9]{1,2})?$`)
+
 var upstreamNumberPattern = regexp.MustCompile(`^-?[0-9]{1,12}(\.[0-9]{1,30})?([eE][+-]?[0-9]{1,2})?$`)
 
 func upstreamAmount(s string) (string, error) {
@@ -45,6 +48,9 @@ func upstreamAmount(s string) (string, error) {
 	return r.FloatString(6), nil
 }
 func probeURL(raw string, cfg *config.Config) (string, error) {
+	return balanceProbeURL(raw, cfg, "sub2api")
+}
+func balanceProbeURL(raw string, cfg *config.Config, mode string) (string, error) {
 	u, e := url.Parse(strings.TrimSpace(raw))
 	if e != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Hostname() == "" {
 		return "", probeError("invalid_url")
@@ -53,7 +59,14 @@ func probeURL(raw string, cfg *config.Config) (string, error) {
 	if u.Scheme != "https" {
 		return "", probeError("invalid_url")
 	}
-	u.Path = strings.TrimSuffix(strings.TrimRight(u.Path, "/"), "/v1") + "/v1/usage"
+	base := strings.TrimSuffix(strings.TrimRight(u.Path, "/"), "/v1")
+	u.Path = base + "/v1/usage"
+	if mode == "newapi" {
+		u.Path = base + "/api/usage/token/"
+	}
+	if mode == "newapi_account" {
+		u.Path = base + "/api/user/self"
+	}
 	u.RawPath = ""
 	opts := urlvalidator.ValidationOptions{AllowPrivate: false}
 	if cfg != nil && cfg.Security.URLAllowlist.Enabled {
@@ -65,13 +78,30 @@ func probeURL(raw string, cfg *config.Config) (string, error) {
 	if e != nil {
 		return "", probeError("url_rejected")
 	}
+	if mode == "newapi" {
+		normalized = strings.TrimRight(normalized, "/") + "/"
+	}
 	return normalized, nil
 }
 func (p *Probe) Query(ctx context.Context, a *service.Account) (*Observation, error) {
-	if a == nil || a.Type != service.AccountTypeAPIKey || a.GetCredential("api_key") == "" {
+	return p.QueryWallet(ctx, a, Config{Mode: "sub2api"})
+}
+func (p *Probe) QueryWallet(ctx context.Context, a *service.Account, wallet Config) (*Observation, error) {
+	return p.queryWallet(ctx, a, wallet, "")
+}
+func (p *Probe) queryWallet(ctx context.Context, a *service.Account, wallet Config, accessToken string) (*Observation, error) {
+	accountAuth := wallet.Mode == "newapi" && wallet.NewAPIAuth == "account"
+	if a == nil || a.Type != service.AccountTypeAPIKey || (!accountAuth && a.GetCredential("api_key") == "") {
 		return nil, probeError("invalid_account")
 	}
-	target, e := probeURL(a.GetCredential("base_url"), p.Config)
+	mode, token := wallet.Mode, a.GetCredential("api_key")
+	if accountAuth {
+		if accessToken == "" {
+			return nil, probeError("credential_missing")
+		}
+		mode, token = "newapi_account", accessToken
+	}
+	target, e := balanceProbeURL(a.GetCredential("base_url"), p.Config, mode)
 	if e != nil {
 		return nil, e
 	}
@@ -86,7 +116,10 @@ func (p *Probe) Query(ctx context.Context, a *service.Account) (*Observation, er
 	if e != nil {
 		return nil, probeError("invalid_url")
 	}
-	req.Header.Set("Authorization", "Bearer "+a.GetCredential("api_key"))
+	req.Header.Set("Authorization", "Bearer "+token)
+	if accountAuth && wallet.NewAPIUserID > 0 {
+		req.Header.Set("New-Api-User", strconv.FormatInt(wallet.NewAPIUserID, 10))
+	}
 	req.Header.Set("Accept", "application/json")
 	// No model requests, header override scripts, rate sync, account extra writes or stop-scheduling hooks.
 	send := p.Send
@@ -124,6 +157,12 @@ func (p *Probe) Query(ctx context.Context, a *service.Account) (*Observation, er
 	body, e := io.ReadAll(io.LimitReader(resp.Body, (512<<10)+1))
 	if e != nil || len(body) > 512<<10 {
 		return nil, probeError("invalid_response")
+	}
+	if wallet.Mode == "newapi" {
+		if accountAuth {
+			return parseNewAPIAccountObservation(body, wallet.QuotaPerUnit, wallet.NewAPIUserID, time.Now().UTC())
+		}
+		return parseNewAPIObservation(body, wallet.QuotaPerUnit, time.Now().UTC())
 	}
 	return parseObservation(body, time.Now().UTC())
 }
@@ -177,4 +216,77 @@ func parseObservation(body []byte, now time.Time) (*Observation, error) {
 		return nil, probeError("invalid_response")
 	}
 	return &Observation{Amount: n, Currency: unit, Scope: scope, At: now}, nil
+}
+
+// New API token quota is not wallet money. User quota is opt-in per API key.
+func parseNewAPIObservation(body []byte, quotaPerUnit int64, now time.Time) (*Observation, error) {
+	var v struct {
+		Code    *bool `json:"code"`
+		Success *bool `json:"success"`
+		Data    *struct {
+			Available json.Number `json:"total_available"`
+			Unlimited bool        `json:"unlimited_quota"`
+			UserQuota *struct {
+				Available json.Number `json:"total_available"`
+			} `json:"user_quota"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &v) != nil || v.Data == nil || (v.Code == nil && v.Success == nil) || (v.Code != nil && !*v.Code) || (v.Success != nil && !*v.Success) {
+		return nil, probeError("invalid_response")
+	}
+	value, scope := v.Data.Available.String(), "key_quota"
+	if v.Data.UserQuota != nil {
+		value, scope = v.Data.UserQuota.Available.String(), "wallet"
+	} else if v.Data.Unlimited {
+		return nil, probeError("wallet_quota_unavailable")
+	}
+	if value == "" || !upstreamQuotaPattern.MatchString(value) {
+		return nil, probeError("invalid_response")
+	}
+	return newAPIQuotaObservation(value, scope, quotaPerUnit, now)
+}
+
+func parseNewAPIAccountObservation(body []byte, ratio, userID int64, now time.Time) (*Observation, error) {
+	var v struct {
+		Success *bool `json:"success"`
+		Data    *struct {
+			ID    int64       `json:"id"`
+			Quota json.Number `json:"quota"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &v) != nil || v.Success == nil {
+		return nil, probeError("invalid_response")
+	}
+	if !*v.Success {
+		return nil, probeError("authentication_failed")
+	}
+	if v.Data == nil {
+		return nil, probeError("invalid_response")
+	}
+	if userID > 0 && v.Data.ID != userID {
+		return nil, probeError("credential_user_mismatch")
+	}
+	return newAPIQuotaObservation(v.Data.Quota.String(), "wallet", ratio, now)
+}
+
+func newAPIQuotaObservation(value, scope string, quotaPerUnit int64, now time.Time) (*Observation, error) {
+	if value == "" || !upstreamQuotaPattern.MatchString(value) {
+		return nil, probeError("invalid_response")
+	}
+	if quotaPerUnit == 0 {
+		quotaPerUnit = 500000
+	}
+	if quotaPerUnit < 1 || quotaPerUnit > 1000000000000 {
+		return nil, probeError("invalid_response")
+	}
+	raw, ok := new(big.Rat).SetString(value)
+	if !ok {
+		return nil, probeError("invalid_response")
+	}
+	converted := raw.Quo(raw, big.NewRat(quotaPerUnit, 1)).FloatString(6)
+	amount, err := upstreamAmount(converted)
+	if err != nil {
+		return nil, err
+	}
+	return &Observation{Amount: amount, Currency: "USD", Scope: scope, At: now}, nil
 }

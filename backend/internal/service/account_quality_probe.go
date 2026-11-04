@@ -22,6 +22,14 @@ import (
 type qualityProbeContextKey struct{}
 
 type QualityProbeOptions struct {
+	ImageDataURL      string
+	Inspection        bool
+	NonStream         bool
+	Structured        bool
+	Tools             bool
+	ToolCallID        string
+	ToolArguments     string
+	ToolResult        string
 	Prompt            string
 	Prefix            string
 	CacheKey          string
@@ -30,33 +38,47 @@ type QualityProbeOptions struct {
 	NativeOutputLimit bool
 }
 
+type QualityToolCall struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
 type QualityProbeResult struct {
-	Text              string `json:"text"`
-	Model             string `json:"model"`
-	HTTPStatus        int    `json:"http_status"`
-	Complete          bool   `json:"complete"`
-	Reason            string `json:"reason"`
-	ErrorParam        string `json:"error_param,omitempty"`
-	NativeOutputLimit bool   `json:"native_output_limit,omitempty"`
-	DurationMs        int64  `json:"duration_ms"`
-	FirstTokenMs      *int64 `json:"first_token_ms"`
-	InputTokens       int64  `json:"input_tokens"`
-	OutputTokens      int64  `json:"output_tokens"`
-	CacheReadTokens   int64  `json:"cache_read_tokens"`
-	CacheWriteTokens  int64  `json:"cache_write_tokens"`
-	UsageReported     bool   `json:"usage_reported"`
-	CacheReported     bool   `json:"cache_reported"`
+	Protocol          string            `json:"protocol,omitempty"`
+	WireValid         bool              `json:"wire_valid"`
+	FinishReason      string            `json:"finish_reason,omitempty"`
+	ToolCalls         []QualityToolCall `json:"tool_calls,omitempty"`
+	Text              string            `json:"text"`
+	Model             string            `json:"model"`
+	HTTPStatus        int               `json:"http_status"`
+	Complete          bool              `json:"complete"`
+	Reason            string            `json:"reason"`
+	ErrorParam        string            `json:"error_param,omitempty"`
+	NativeOutputLimit bool              `json:"native_output_limit,omitempty"`
+	DurationMs        int64             `json:"duration_ms"`
+	FirstTokenMs      *int64            `json:"first_token_ms"`
+	InputTokens       int64             `json:"input_tokens"`
+	OutputTokens      int64             `json:"output_tokens"`
+	CacheReadTokens   int64             `json:"cache_read_tokens"`
+	CacheWriteTokens  int64             `json:"cache_write_tokens"`
+	UsageReported     bool              `json:"usage_reported"`
+	CacheReported     bool              `json:"cache_reported"`
 }
 
 type qualityProbeCapture struct {
-	options      QualityProbeOptions
-	result       QualityProbeResult
-	start        time.Time
-	ended        bool
-	limited      bool
-	inputSeen    bool
-	outputSeen   bool
-	usageInvalid bool
+	options            QualityProbeOptions
+	result             QualityProbeResult
+	start              time.Time
+	ended              bool
+	limited            bool
+	inputSeen          bool
+	outputSeen         bool
+	usageInvalid       bool
+	wireInvalid        bool
+	observedEvents     int
+	inspectionStarted  bool
+	inspectionTerminal bool
 }
 
 func qualityCapture(ctx context.Context) *qualityProbeCapture {
@@ -78,11 +100,15 @@ func QualityProbeReservation(platform string, opts QualityProbeOptions) int64 {
 	if opts.NativeOutputLimit {
 		outputReservation = max(outputReservation, 32768)
 	}
-	return int64(len(system) + len(opts.Prompt) + len(opts.Prefix) + outputReservation + 1024)
+	imageReservation := 0
+	if opts.ImageDataURL != "" {
+		imageReservation = 4096
+	}
+	return int64(imageReservation + len(system) + len(opts.Prompt) + len(opts.Prefix) + outputReservation + 1024)
 }
 
 func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int64, model string, opts QualityProbeOptions) (*QualityProbeResult, error) {
-	if model == "" || len(model) > 100 || len(opts.Prompt)+len(opts.Prefix) > 100000 || opts.MaxOutputTokens < 64 || opts.MaxOutputTokens > 8192 {
+	if model == "" || len(model) > 100 || len(opts.Prompt)+len(opts.Prefix)+len(opts.ToolArguments)+len(opts.ToolResult)+len(opts.ImageDataURL) > 100000 || opts.MaxOutputTokens < 64 || opts.MaxOutputTokens > 8192 {
 		return nil, fmt.Errorf("invalid quality probe")
 	}
 	account, err := s.accountRepo.GetByID(ctx, accountID)
@@ -102,7 +128,8 @@ func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int6
 	err = s.TestAccountConnection(c, accountID, model, opts.Prompt, AccountTestModeDefault)
 	r := &capture.result
 	r.DurationMs = time.Since(capture.start).Milliseconds()
-	r.Complete = err == nil && capture.ended && !capture.limited && strings.TrimSpace(r.Text) != "" && r.Reason == ""
+	r.WireValid = capture.observedEvents > 0 && !capture.wireInvalid && capture.ended
+	r.Complete = err == nil && capture.ended && !capture.limited && (strings.TrimSpace(r.Text) != "" || (opts.Inspection && len(r.ToolCalls) > 0)) && r.Reason == ""
 	if !r.Complete && r.Reason == "" {
 		switch {
 		case ctx.Err() != nil:
@@ -156,6 +183,7 @@ func applyQualityProbePayload(ctx context.Context, payload map[string]any, proto
 		return
 	}
 	o := p.options
+	p.result.Protocol = protocol
 	prompt := o.Prompt
 	switch protocol {
 	case "anthropic":
@@ -188,6 +216,9 @@ func applyQualityProbePayload(ctx context.Context, payload map[string]any, proto
 		if o.ReasoningEffort != "" {
 			payload["reasoning_effort"] = o.ReasoningEffort
 		}
+	}
+	if o.Inspection {
+		applyChannelInspectionPayload(payload, protocol, o)
 	}
 }
 
@@ -245,13 +276,20 @@ func (p *qualityProbeCapture) observe(line string) {
 	}
 	raw := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 	if raw == "[DONE]" {
+		if p.options.Inspection && p.result.Protocol == "chat" && !p.inspectionTerminal {
+			p.wireInvalid = true
+		}
 		p.ended = true
 		return
 	}
 	if !gjson.Valid(raw) {
+		p.wireInvalid = true
 		return
 	}
 	v := gjson.Parse(raw)
+	if p.options.Inspection {
+		p.observeInspection(v)
+	}
 	event := v.Get("type").String()
 	if model := v.Get("model").String(); model != "" {
 		p.result.Model = model
@@ -294,7 +332,8 @@ func (p *qualityProbeCapture) observe(line string) {
 		finish := choice.Get("finish_reason").String()
 		if finish != "" {
 			p.ended = true
-			if finish != "stop" {
+			p.result.FinishReason = finish
+			if finish != "stop" && !(p.options.Inspection && finish == "tool_calls") {
 				p.result.Reason = "incomplete"
 				if finish == "length" {
 					p.result.Reason = "truncated"
@@ -305,10 +344,13 @@ func (p *qualityProbeCapture) observe(line string) {
 			}
 		}
 	}
-	if stop := v.Get("delta.stop_reason").String(); stop != "" && stop != "end_turn" && stop != "stop_sequence" {
-		p.result.Reason = "incomplete"
-		if stop == "max_tokens" {
-			p.result.Reason = "truncated"
+	if stop := v.Get("delta.stop_reason").String(); stop != "" {
+		p.result.FinishReason = stop
+		if stop != "end_turn" && stop != "stop_sequence" && !(p.options.Inspection && stop == "tool_use") {
+			p.result.Reason = "incomplete"
+			if stop == "max_tokens" {
+				p.result.Reason = "truncated"
+			}
 		}
 	}
 	if status := v.Get("response.status").String(); status != "" && status != "completed" && p.ended && p.result.Reason == "" {
@@ -391,7 +433,7 @@ func (p *qualityProbeCapture) observeError(raw []byte) {
 		param = openAIResponsesRejectedParamFromMessage(strings.ToLower(gjson.GetBytes(raw, "error.message").String()))
 	}
 	switch param {
-	case "model", "max_output_tokens", "max_completion_tokens", "max_tokens", "stream_options", "stream_options.include_usage", "reasoning", "reasoning.effort", "reasoning_effort", "prompt_cache_key":
+	case "model", "max_output_tokens", "max_completion_tokens", "max_tokens", "stream_options", "stream_options.include_usage", "reasoning", "reasoning.effort", "reasoning_effort", "prompt_cache_key", "tools", "tool_choice", "response_format", "text.format", "output_config", "stream":
 		p.result.ErrorParam = param
 	}
 }

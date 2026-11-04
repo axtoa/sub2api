@@ -28,6 +28,8 @@
 .balance-theme .warn { color:var(--balance-warn); }
 .balance-amount { font-size:28px; line-height:1.4; font-weight:600; letter-spacing:-.5px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
 .balance-amount small { font-size:12px; margin-left:5px; font-weight:400; letter-spacing:0; }
+.balance-cost-head { display:flex; align-items:baseline; justify-content:space-between; gap:4px 8px; flex-wrap:wrap; }
+.balance-lifetime-cost { margin-left:auto !important; text-align:right; font-size:11px; font-variant-numeric:tabular-nums; }
 .balance-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:10px 0; border-block:1px solid var(--balance-line); }
 .balance-metrics dt { color:var(--balance-muted); font-size:11px; }
 .balance-metrics dd { font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
@@ -49,6 +51,11 @@
 .balance-form label { display:grid; gap:5px; font-size:12px; }
 .balance-form fieldset { border:1px solid var(--balance-line); border-radius:6px; padding:12px; }
 .balance-form legend { font-size:12px; color:var(--balance-muted); padding:0 5px; }
+.balance-credential-settings { border:1px solid var(--balance-line); border-radius:6px; padding:12px; }
+.balance-credential-settings summary { cursor:pointer; font-size:12px; }
+.balance-credential-settings[open] > .balance-form { margin-top:12px; }
+.balance-credential-settings .balance-link { justify-self:start; font-size:12px; color:var(--balance-green); }
+.balance-message.warning { color:var(--balance-warn); }
 .balance-form .balance-check { display:flex; align-items:center; gap:7px; }
 .balance-theme :is(input:not([type=checkbox]),select,textarea) { min-width:0; width:100%; padding:7px 9px; min-height:36px; border:1px solid var(--balance-line); border-radius:5px; background:var(--balance-bg); color:var(--balance-fg); font:inherit; }
 .balance-theme input[type=checkbox] { width:14px; height:14px; accent-color:var(--balance-green); flex-shrink:0; }

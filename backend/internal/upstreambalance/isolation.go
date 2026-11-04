@@ -87,7 +87,14 @@ func (e *Engine) observe(ctx context.Context, w Wallet) (observation *Observatio
 		return nil, "", "invalid_account"
 	}
 	identity = sourceIdentity(a)
-	observation, err = e.Probe.Query(ctx, a)
+	token := ""
+	if w.Mode == "newapi" && w.NewAPIAuth == "account" {
+		token, err = accountCredential(e.Store.Cipher, w, a)
+		if err != nil {
+			return nil, identity, err.Error()
+		}
+	}
+	observation, err = e.Probe.queryWallet(ctx, a, w.Config, token)
 	if err != nil {
 		return nil, identity, err.Error()
 	}

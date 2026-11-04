@@ -234,6 +234,23 @@
 .cdk-admin-item-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .cdk-admin-item-info { min-width: 0; overflow-wrap: anywhere; }
 .cdk-admin-item-actions { margin-top: 16px; }
+.cdk-admin-dialog .modal-body { min-width: 0; }
+.cdk-product-edit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cdk-product-edit .shop-caption { margin: 0; }
+.cdk-inventory-toolbar { align-items: end; }
+.cdk-inventory-toolbar label { display: grid; gap: 6px; font-size: 12px; }
+.cdk-inventory-toolbar .shop-caption { margin: 0; }
+.cdk-inventory-row { padding: 16px 0; border-bottom: 1px solid var(--shop-line); min-width: 0; }
+.cdk-inventory-code { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.cdk-inventory-code code { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; font-size: 13px; user-select: all; }
+.cdk-inventory-code button { flex-shrink: 0; }
+.cdk-inventory-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--shop-muted); }
+.cdk-inventory-order { font-size: 12px; color: var(--shop-muted); overflow-wrap: anywhere; margin: 8px 0 0; }
+.cdk-inventory-pagination { justify-content: center; margin-top: 20px; }
+@media (max-width: 720px) {
+  .cdk-product-edit { grid-template-columns: minmax(0, 1fr); }
+  .cdk-inventory-code { flex-direction: column; }
+}
 .best-shop .shop-delete-product { color: var(--shop-danger); }
 .cdk-admin-products > .shop-section-heading { margin-bottom: 0; }
 .cdk-import { display: grid; gap: 8px; font-size: 12px; }

@@ -487,6 +487,9 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	}
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
+	if p := qualityCapture(ctx); p != nil && p.options.Inspection && p.options.NonStream {
+		req.Header.Set("Accept", "application/json")
+	}
 	account.ApplyHeaderOverrides(req.Header)
 
 	// Get proxy URL
@@ -515,6 +518,9 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	}
 
 	// Process SSE stream
+	if handled, probeErr := consumeChannelInspectionResponse(ctx, resp); handled {
+		return probeErr
+	}
 	return s.processClaudeStream(c, resp.Body)
 }
 
@@ -837,6 +843,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	}
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
+	if p := qualityCapture(ctx); p != nil && p.options.Inspection && p.options.NonStream {
+		req.Header.Set("Accept", "application/json")
+	}
 	credentialAccount.ApplyHeaderOverrides(req.Header)
 
 	// Get proxy URL
@@ -882,6 +891,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	}
 
 	// Process SSE stream
+	if handled, probeErr := consumeChannelInspectionResponse(ctx, resp); handled {
+		return probeErr
+	}
 	return s.processOpenAIStream(c, resp.Body)
 }
 
@@ -2044,6 +2056,9 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	req.Header.Set("Authorization", "Bearer "+authToken)
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
+	if p := qualityCapture(ctx); p != nil && p.options.Inspection && p.options.NonStream {
+		req.Header.Set("Accept", "application/json")
+	}
 	account.ApplyHeaderOverrides(req.Header)
 
 	proxyURL := ""
@@ -2070,6 +2085,9 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Chat Completions API (/v1/chat/completions) returned %d: %s", resp.StatusCode, string(body)))
 	}
 
+	if handled, probeErr := consumeChannelInspectionResponse(ctx, resp); handled {
+		return probeErr
+	}
 	return s.processOpenAIChatCompletionsStream(c, resp.Body)
 }
 

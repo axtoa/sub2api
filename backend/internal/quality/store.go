@@ -165,23 +165,29 @@ func (s *Store) DeleteTarget(ctx context.Context, id string) error {
 	return err
 }
 
-const runColumns = `id,target_id,kind,status,manual,verdict,profile_hash,config_snapshot,result,created_at,started_at,finished_at`
+const runColumns = `id,target_id,kind,status,manual,verdict,profile_hash,config_snapshot,result,created_at,started_at,finished_at,inspection_options`
 
 func scanRun(row scanner) (Run, error) {
 	var r Run
-	var configRaw, resultRaw []byte
-	err := row.Scan(&r.ID, &r.TargetID, &r.Kind, &r.Status, &r.Manual, &r.Verdict, &r.ProfileHash, &configRaw, &resultRaw, &r.CreatedAt, &r.StartedAt, &r.FinishedAt)
+	var configRaw, resultRaw, inspectionRaw []byte
+	err := row.Scan(&r.ID, &r.TargetID, &r.Kind, &r.Status, &r.Manual, &r.Verdict, &r.ProfileHash, &configRaw, &resultRaw, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &inspectionRaw)
 	if err == nil && len(configRaw) > 0 {
 		err = json.Unmarshal(configRaw, &r.Profile)
 	}
 	if err == nil && len(resultRaw) > 0 {
 		err = json.Unmarshal(resultRaw, &r.Result)
 	}
+	if err == nil && len(inspectionRaw) > 0 {
+		err = json.Unmarshal(inspectionRaw, &r.Inspection)
+	}
 	return r, err
 }
 
 func (s *Store) History(ctx context.Context, targetID string, limit int) ([]Run, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+runColumns+` FROM quality_monitor_runs WHERE target_id=$1 ORDER BY created_at DESC LIMIT $2`, targetID, limit)
+	return s.historyKind(ctx, targetID, limit, "")
+}
+func (s *Store) historyKind(ctx context.Context, targetID string, limit int, kind string) ([]Run, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+runColumns+` FROM quality_monitor_runs WHERE target_id=$1 AND ($3='' OR kind=$3) ORDER BY created_at DESC LIMIT $2`, targetID, limit, kind)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +204,7 @@ func (s *Store) History(ctx context.Context, targetID string, limit int) ([]Run,
 }
 
 func (s *Store) Queue(ctx context.Context, id, kind string, manual bool) (Run, error) {
-	if !validKind(kind) {
+	if !validKind(kind) || kind == "inspection" {
 		return Run{}, invalid("检测类型无效")
 	}
 	r, err := scanRun(s.DB.QueryRowContext(ctx, `INSERT INTO quality_monitor_runs(id,target_id,kind,status,manual)

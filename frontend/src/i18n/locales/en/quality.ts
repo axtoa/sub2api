@@ -1,5 +1,44 @@
 export default {
   quality: {
+    inspection: 'Channel inspection',
+    custom: {
+      title: 'Custom questions', enable: 'Include custom questions',
+      hint: 'Up to 8 questions, one request each, with up to 4,000 characters per prompt. Automatic checks compare case-sensitive text. Expected answers and keywords stay on this server and are not sent upstream.',
+      match: 'Grading method', exact: 'Exact match', contains: 'Contains every keyword', manual: 'Manual review',
+      keywords: 'Keywords (one per line, all required)', reference: 'Reference answer or review notes (optional)',
+      manualHint: 'Open questions retain the response for review and do not count as automatically passed or incorrect.',
+      reuseHint: 'Run custom questions alone or alongside built-in checks. Save reusable questions in Monitoring settings and load them here. Changes in this run do not overwrite saved questions.',
+      loadSaved: 'Load saved questions', review: 'Review needed', invalid: 'Enter a name, prompt, and the answer or keywords required for automatic grading.',
+    },
+    external: {
+      title: 'External evaluations', filter: 'Model family', open: 'Open evaluation', channel: 'Channel test', benchmark: 'Capability benchmark',
+      hint: 'Open third-party tools manually. No keys, account details, or reports are sent automatically. Tests may consume upstream credits; use a temporary key with a small limit.',
+      sourceHint: 'Descriptions reference public site information (2026-11-04). Check each site for current support. External results are references, not official certifications. Capability benchmarks do not verify your configured channel.',
+      descriptions: {
+        cctest: 'Claude and ChatGPT protocol, tool, multimodal, and model-consistency probes, with independent reports.',
+        oktest: 'Streaming, tool calls, multi-turn stability, and usage checks before integrating chat or agents.',
+        ztest: 'Endpoint tests and ongoing monitoring by model, including availability, latency, and history.',
+        llmtest: 'Cross-checks protocol behavior, answers, and identity-consistency signals to surface suspicious channels.',
+        artificialanalysis: 'Public model intelligence, speed, and cost benchmarks for setting expectations; does not directly test your channel.',
+      },
+    },
+    inspector: {
+      intro: 'Inspect one account and model for protocol compatibility, features, and actual performance. Reports stay on this server.',
+      mode: 'Inspection preset', quick: 'Quick inspection', full: 'Full inspection', projects: 'Checks', start: 'Start inspection',
+      cost: 'Up to {count} paid requests. Uses the current output limit ({output} tokens; Codex OAuth uses its native limit). Cache checks send a fixed prefix of about {prefix} KB.',
+      contextHint: 'Long-text retrieval sends about {kb} KB. This tests the selected length and task, not the maximum context window.',
+      billingHint: 'Consumes upstream quota and records manual usage separately. Actual cost depends on the model and provider. Unsupported checks are skipped.',
+      pending: 'Queued or running. Closing this window does not stop the job. Reopen to view the report. Failed requests are not automatically replayed.',
+      reports: 'Inspection reports', export: 'Export report', summary: '{requests} / up to {planned} requests · {tokens} budget tokens · {duration} seconds in requests',
+      identityHint: 'Model names and usage are upstream-reported. Results measure compatibility and task performance, not official origin, model identity, or billing authenticity.',
+      nativeProtocol: 'This OAuth channel requires its native streaming protocol; this check is not supported.',
+      requests: '{count} requests', median: 'Median time to first token',
+      speedHint: 'Speed uses a few sequential samples. Tokens per second uses upstream-reported output usage; unavailable usage or duration is not estimated. This is not an all-day reliability measure.',
+      submitError: 'Submission was not confirmed. Refresh reports before retrying; no automatic resubmission to avoid duplicate charges.',
+      checks: { protocol_stream: 'Streaming protocol', protocol_nonstream: 'Non-streaming protocol', tools: 'Tool call and result round trip', structured: 'Structured output', reasoning: 'Random reasoning tasks', speed: 'Speed and consecutive requests', cache: 'Cache validation', context: 'Long-text retrieval', vision: 'Image understanding', custom: 'Custom questions' },
+      verdicts: { passed: 'Passed', failed: 'Anomaly', uncompleted: 'Incomplete', unsupported: 'Unsupported', unknown: 'Unknown', not_observed: 'No cache hit observed' },
+    },
+
     nativeLimit: 'Native upstream limit (OAuth)',
     recentCount: 'Last {count} probes', last24Hours: '24h availability', available: 'Available', manualValidation: 'Manual check',
     samplePassed: 'Sample passed', awaitingFirst: 'Awaiting first check · manual checks available', completed: 'Completed',
@@ -63,6 +102,8 @@ export default {
     matchReason: 'The response matches the reference for this sample only.', mismatchReason: 'The answer differs from the reference. Review the question and response; one wrong answer does not prove degradation.', incompleteReason: 'The response was incomplete or inconclusive, not an incorrect capability answer.',
     families: { connectivity: 'Basic availability', path_count: 'Grid path count', conditional_records: 'Conditional records', weighted_xor: 'Weighted XOR constraints' },
     reasons: {
+      manual_review: 'Open questions need manual review of the responses and are not automatically graded.',
+      protocol_invalid: 'The upstream response does not match the requested protocol.',
       scheduled_test: 'Reused a recent successful scheduled test for this model', record_missing: 'Run removed or account deleted',
       answer_format: 'Response format cannot be graded; not counted as incorrect', truncated: 'Output truncated; try a higher output limit',
       response_too_large: 'Response exceeds the probe read limit', empty_response: 'Upstream ended without a text response', content_filtered: 'Content filtered upstream; capability not graded',

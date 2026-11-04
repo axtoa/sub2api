@@ -77,7 +77,7 @@ func (h *Handler) List(c *gin.Context) {
 	now := time.Now()
 	items, e := h.Engine.List(c.Request.Context(), now)
 	if !failed(c, e) {
-		response.Success(c, gin.H{"items": items, "server_time": now, "timezone": h.Engine.Store.Location.String()})
+		response.Success(c, gin.H{"items": items, "server_time": now, "timezone": h.Engine.Store.Location.String(), "credential_storage_available": h.Engine.Store.Cipher != nil})
 	}
 }
 func (h *Handler) Options(c *gin.Context) {

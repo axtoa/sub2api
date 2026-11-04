@@ -56,6 +56,10 @@ func testDB(t *testing.T) *sql.DB {
 	require.NoError(t, e)
 	_, e = pool.Exec(string(b))
 	require.NoError(t, e)
+	b, e = migrations.FS.ReadFile("252_upstream_wallet_credentials.sql")
+	require.NoError(t, e)
+	_, e = pool.Exec(string(b))
+	require.NoError(t, e)
 	_, e = pool.Exec(`CREATE TABLE accounts(id BIGINT PRIMARY KEY,name TEXT,platform TEXT,type TEXT,status TEXT,deleted_at TIMESTAMPTZ);
       INSERT INTO accounts VALUES(1,'Claude 主号','anthropic','apikey','active',NULL),(2,'GPT 主号','openai','apikey','active',NULL),(3,'OAuth 账号','openai','oauth','active',NULL);
       CREATE TABLE usage_logs(account_id BIGINT,created_at TIMESTAMPTZ,total_cost NUMERIC,account_stats_cost NUMERIC,account_rate_multiplier NUMERIC,actual_cost NUMERIC);`)
@@ -168,6 +172,68 @@ func TestPostgresWalletIdentityIdempotencyAndEstimation(t *testing.T) {
 	require.NoError(t, e.Store.DB.QueryRow(`SELECT COUNT(*) FROM upstream_wallets`).Scan(&count))
 	require.Equal(t, 1, count)
 }
+func TestPostgresLifetimeCostIncludesAllRetainedLinkedHistory(t *testing.T) {
+	e := engine(t)
+	ctx := context.Background()
+	w, err := e.Store.Save(ctx, "", manualInput(), 42)
+	require.NoError(t, err)
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	_, err = e.Store.DB.Exec(`UPDATE upstream_wallets SET observation=jsonb_set(observation,'{at}',to_jsonb($1::timestamptz)) WHERE id=$2`, now.Add(-2*time.Hour), w.ID)
+	require.NoError(t, err)
+	otherInput := manualInput()
+	otherInput.AccountIDs = []int64{3}
+	other, err := e.Store.Save(ctx, "", otherInput, 42)
+	require.NoError(t, err)
+	emptyInput := manualInput()
+	emptyInput.AccountIDs = []int64{}
+	emptyInput.EstimateEnabled = false
+	empty, err := e.Store.Save(ctx, "", emptyInput, 42)
+	require.NoError(t, err)
+	_, err = e.Store.DB.Exec(`INSERT INTO usage_logs VALUES
+	  (1,$1::timestamptz - INTERVAL '120 days',100,2,0.5,500),
+	  (2,$1::timestamptz - INTERVAL '400 days',4,NULL,2,500),
+	  (1,$1::timestamptz - INTERVAL '200 days',0.000001,NULL,NULL,500),
+	  (2,$1::timestamptz - INTERVAL '1 hour',100,3,2,500),
+	  (1,$1::timestamptz + INTERVAL '1 hour',100,50,1,500),
+	  (3,$1::timestamptz,100,9,1,500)`, now)
+	require.NoError(t, err)
+	items, err := e.Store.List(ctx, now)
+	require.NoError(t, err)
+	require.Len(t, items, 3)
+	byID := map[string]Wallet{}
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	got := byID[w.ID]
+	require.Equal(t, "15.000001", got.TotalCost)
+	require.Equal(t, "6.000000", got.TodayCost)
+	require.Equal(t, "6.000000", got.WeekCost)
+	require.Equal(t, "6.000000", got.MonthCost)
+	require.Equal(t, "6.000000", got.SinceBaselineCost)
+	require.Equal(t, "9.000000", byID[other.ID].TotalCost)
+	require.Equal(t, "0.000000", byID[empty.ID].TotalCost)
+	// A baseline older than 90 days must not expand the estimation window.
+	_, err = e.Store.DB.Exec(`UPDATE upstream_wallets SET observation=jsonb_set(observation,'{at}',to_jsonb($1::timestamptz)) WHERE id=$2`, now.Add(-365*24*time.Hour), w.ID)
+	require.NoError(t, err)
+	items, err = e.Store.List(ctx, now)
+	require.NoError(t, err)
+	for _, item := range items {
+		if item.ID == w.ID {
+			require.Equal(t, "15.000001", item.TotalCost)
+			require.Equal(t, "6.000000", item.SinceBaselineCost)
+		}
+	}
+	_, err = e.Store.Calibrate(ctx, w.ID, Calibration{Amount: "200", Version: w.Version, RequestKey: uuid.NewString()}, 42)
+	require.NoError(t, err)
+	items, err = e.Store.List(ctx, now)
+	require.NoError(t, err)
+	for _, item := range items {
+		if item.ID == w.ID {
+			require.Equal(t, "15.000001", item.TotalCost)
+		}
+	}
+}
+
 func TestPostgresQueryManualBypassFailuresAndSourceChanges(t *testing.T) {
 	e := engine(t)
 	ctx := context.Background()
@@ -208,6 +274,38 @@ func TestPostgresQueryManualBypassFailuresAndSourceChanges(t *testing.T) {
 	b, _ := json.Marshal(options)
 	require.NotContains(t, string(b), "fake-test-key")
 	require.NotContains(t, string(b), "credentials")
+}
+
+func TestPostgresNewAPIQueryAndConversionChanges(t *testing.T) {
+	e := engine(t)
+	ctx := context.Background()
+	in := input()
+	in.Mode = "newapi"
+	w, err := e.Store.Save(ctx, "", in, 42)
+	require.NoError(t, err)
+	calls := 0
+	e.Probe.Send = func(req *http.Request, _ string) (*http.Response, error) {
+		calls++
+		require.Equal(t, "/api/usage/token/", req.URL.Path)
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"code":true,"data":{"unlimited_quota":true,"user_quota":{"total_available":1000000}}}`))}, nil
+	}
+	w, err = e.Query(ctx, w.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, "2.000000", w.Observation.Amount)
+	items, err := e.List(ctx, time.Now())
+	require.NoError(t, err)
+	require.False(t, items[0].Stale)
+	edited := Input{Config: w.Config, Version: w.Version, RequestKey: uuid.NewString()}
+	edited.QuotaPerUnit = 1000000
+	edited.AutoEnabled = true
+	w, err = e.Store.Save(ctx, w.ID, edited, 42)
+	require.NoError(t, err)
+	require.Nil(t, w.Observation)
+	require.NoError(t, e.Tick(ctx, time.Now()))
+	w, err = e.Store.Get(ctx, w.ID)
+	require.NoError(t, err)
+	require.Equal(t, "1.000000", w.Observation.Amount)
+	require.Equal(t, 2, calls)
 }
 func TestPostgresQueryLeaseAndConcurrentConfigEdit(t *testing.T) {
 	e := engine(t)

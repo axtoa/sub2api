@@ -12,7 +12,7 @@ export function actualTotals(wallets: Wallet[]) {
   const totals = new Map<string, bigint>()
   for (const w of wallets) {
     const o = w.observation
-    if (w.mode !== 'sub2api' || w.status !== 'ok' || w.stale || !o || o.scope !== 'wallet' || o.currency === 'CREDIT') continue
+    if (w.mode === 'manual' || w.status !== 'ok' || w.stale || !o || o.scope !== 'wallet' || o.currency === 'CREDIT') continue
     if (!/^-?\d+(\.\d{1,6})?$/.test(o.amount)) continue
     const [whole, fraction = ''] = o.amount.replace('-', '').split('.')
     const micros = (BigInt(whole) * 1000000n + BigInt(fraction.padEnd(6, '0'))) * (o.amount.startsWith('-') ? -1n : 1n)

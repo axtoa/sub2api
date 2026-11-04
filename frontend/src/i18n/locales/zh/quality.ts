@@ -1,5 +1,44 @@
 export default {
   quality: {
+    inspection: '渠道检验',
+    custom: {
+      title: '自定义问题', enable: '加入自定义问题',
+      hint: '最多 8 题，每题单独请求。问题最多 4000 字；自动判定仅比较文本，区分大小写。标准答案和关键词留在本站，不会随问题发给上游。',
+      match: '判定方式', exact: '精确匹配', contains: '包含全部关键词', manual: '人工查看',
+      keywords: '关键词（每行一个，需全部包含）', reference: '参考答案或评审说明（选填）',
+      manualHint: '开放题保留回答供你查看，显示待人工查看，不计为自动通过或答错。',
+      reuseHint: '可只运行自定义问题，也可与内置检验一起运行。常用问题可在「检测设置」中编辑并保存，之后载入复用；本轮修改不会覆盖常用问题。',
+      loadSaved: '载入已保存的问题', review: '待复核', invalid: '请填写题目名称、问题，以及自动判定所需的答案或关键词。',
+    },
+    external: {
+      title: '外部测评', filter: '适用模型', open: '打开测评', channel: '渠道检测', benchmark: '能力基准',
+      hint: '打开第三方网站手动检测，不会自动传递本站 Key、账号资料或检测报告。第三方检测可能消耗上游额度，建议使用低额度临时测试 Key。',
+      sourceHint: '功能介绍参考各站公开说明（2026-11-04），支持范围以对方页面为准。第三方结论仅供交叉参考，不能当作官方认证。能力基准不验证你所配置的渠道。',
+      descriptions: {
+        cctest: '提供 Claude、ChatGPT 的协议、工具调用、多模态与模型一致性信号检测，可查看独立报告。',
+        oktest: '关注流式、工具调用、多轮稳定性和用量异常，适合接入聊天或 Agent 前核对兼容性。',
+        ztest: '提供接口检测和分模型持续监测，可参考可用性、延迟及历史表现。',
+        llmtest: '综合协议、问答表现和身份一致性信号，辅助发现可疑渠道。',
+        artificialanalysis: '查看模型能力、速度与成本的公开基准，用于对照预期表现，不直接检测你的渠道。',
+      },
+    },
+    inspector: {
+      intro: '选择一个账号模型，单独检验协议、功能和实际表现。只发送检验请求，报告保存在本站。',
+      mode: '检验方案', quick: '快速检测', full: '完整检测', projects: '检验项目', start: '开始检验',
+      cost: '本轮最多 {count} 次真实请求；每次输出上限沿用当前设置（{output} token，Codex OAuth 使用原生限制）。缓存验证会发送约 {prefix} KB 固定前缀。',
+      contextHint: '长文本检索输入约 {kb} KB，仅代表本次长度和题目的表现，不等同于验证模型最大上下文。',
+      billingHint: '会消耗上游额度，手动用量独立统计。实际费用取决于模型和上游计费；不支持的项目会跳过。',
+      pending: '任务已排队或正在执行。关闭窗口后任务继续，可重新打开查看报告；不会自动重发失败请求。',
+      reports: '检验报告', export: '导出报告', summary: '已请求 {requests} / 最多 {planned} 次 · 预算计入 {tokens} token · 请求总耗时 {duration} 秒',
+      identityHint: '模型名称和用量由上游报告。检测结果用于判断兼容性与实际表现，不能证明官方来源、真实模型身份或计费真实性。',
+      nativeProtocol: '该 OAuth 渠道使用原生流式协议，本项目暂不支持。',
+      requests: '{count} 次请求', median: '首字延迟中位数',
+      speedHint: '速度来自本轮少量顺序采样，token/s 使用上游报告的输出用量；没有足够用量或时长时不估算，不代表全天稳定性。',
+      submitError: '提交未确认，请刷新报告核对；为避免重复消费，不会自动再次提交。',
+      checks: { protocol_stream: '流式协议', protocol_nonstream: '非流式协议', tools: '工具调用与结果回传', structured: '结构化输出', reasoning: '随机推理题', speed: '速度与连续请求', cache: '缓存验证', context: '长文本检索', vision: '图片识别', custom: '自定义问题' },
+      verdicts: { passed: '通过', failed: '异常', uncompleted: '未完成', unsupported: '不支持', unknown: '无法判断', not_observed: '未观察到命中' },
+    },
+
     nativeLimit: '上游原生限制（OAuth）',
     recentCount: '最近 {count} 次探测', last24Hours: '24h 可用率', available: '可用', manualValidation: '手动验证',
     samplePassed: '抽检通过', awaitingFirst: '等待首次检测，可立即手动触发', completed: '已完成',
@@ -63,6 +102,8 @@ export default {
     matchReason: '回答与本题标准答案一致，仅代表本次题目表现。', mismatchReason: '回答结果与标准答案不同，请对照题目和原始回答；单题错误不能证明降智。', incompleteReason: '本次响应未完成或不可判定，不作为能力答错。',
     families: { connectivity: '基础可用性', path_count: '网格路径计数', conditional_records: '条件记录统计', weighted_xor: '异或约束计算' },
     reasons: {
+      manual_review: '含开放题，请查看原始回答并人工复核，未计为自动通过或答错。',
+      protocol_invalid: '上游响应不符合请求的协议格式',
       scheduled_test: '近期同模型定时连接测试成功，已复用结果', record_missing: '检测记录已清理或账号已删除',
       answer_format: '回答格式无法判定，未作为能力答错', truncated: '输出被截断，可提高输出上限后重试',
       response_too_large: '响应超出检测读取上限', empty_response: '上游结束但没有文本回复', content_filtered: '上游内容过滤，未进行能力判分',

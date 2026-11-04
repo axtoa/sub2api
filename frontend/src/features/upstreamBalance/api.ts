@@ -1,7 +1,8 @@
 import { apiClient } from '@/api/client'
 
 export interface WalletConfig {
-  name: string; provider: string; mode: 'sub2api' | 'manual'; query_account_id: number | null; account_ids: number[]
+  name: string; provider: string; mode: 'sub2api' | 'newapi' | 'manual'; quota_per_unit?: number; query_account_id: number | null; account_ids: number[]
+  newapi_auth?: 'key' | 'account'; newapi_user_id?: number
   currency: string; auto_enabled: boolean; interval_minutes: number; estimate_enabled: boolean
   low_threshold: string | null; management_url: string; note: string
 }
@@ -9,12 +10,13 @@ export interface AccountOption { id: number; name: string; platform: string; typ
 export interface Observation { amount: string; currency: string; scope: 'wallet' | 'key_quota' | 'subscription' | 'manual'; at: string }
 export interface Wallet extends WalletConfig {
   id: string; version: number; observation: Observation | null; status: string; last_error: string
+  newapi_has_access_token?: boolean
   last_attempt_at: string | null; next_query_at: string; accounts: AccountOption[]
-  today_cost: string; week_cost: string; month_cost: string; since_baseline_cost: string
+  today_cost: string; week_cost: string; month_cost: string; total_cost: string; since_baseline_cost: string
   estimated_balance: string | null; days_remaining: string | null; stale: boolean; low: boolean; usage_incomplete: boolean
 }
-export interface WalletInput extends WalletConfig { version: number; initial_balance: string | null }
-export interface Snapshot { items: Wallet[]; server_time: string; timezone: string }
+export interface WalletInput extends WalletConfig { version: number; initial_balance: string | null; newapi_access_token?: string }
+export interface Snapshot { items: Wallet[]; server_time: string; timezone: string; credential_storage_available?: boolean }
 export interface Settings { email_enabled: boolean; recipients: string[]; version: number }
 export interface Delivery { day: string; recipient: string; status: 'sending' | 'sent' | 'failed' }
 export interface SettingsResponse { settings: Settings; deliveries: Delivery[]; timezone: string }
