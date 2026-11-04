@@ -60,6 +60,10 @@ func RegisterAdminRoutes(
 
 		quality := admin.Group("/quality-monitor")
 		quality.GET("/snapshot", h.Quality.Snapshot)
+		quality.GET("/assurance", h.Quality.Assurance)
+		quality.PUT("/assurance", h.Quality.SaveAssurance)
+		quality.GET("/scores", h.Quality.Scores)
+		quality.POST("/assurance/evidence", h.Quality.SaveAssuranceEvidence)
 		quality.POST("/sync", h.Quality.SyncAccounts)
 		quality.PUT("/accounts/:id", h.Quality.SaveAccount)
 		quality.PUT("/settings", h.Quality.SaveSettings)

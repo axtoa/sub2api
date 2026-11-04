@@ -4,6 +4,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -222,4 +225,55 @@ func TestQualityFinalTextAndDoneCompatibility(t *testing.T) {
 	require.Equal(t, "max_output_tokens", capture.result.ErrorParam)
 	capture.observeError([]byte(`{"error":{"param":"secret-token"}}`))
 	require.NotContains(t, capture.result.ErrorParam, "secret")
+}
+
+func TestQualityAuditFinalRequestAndReasoningEvidence(t *testing.T) {
+	account := &Account{ID: 17, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1, Extra: map[string]any{"openai_responses_mode": "force_chat_completions"}, Credentials: map[string]any{"api_key": "never-store-this", "base_url": "https://example.com"}}
+	repo := &openAIAccountTestRepo{mockAccountRepoForGemini: mockAccountRepoForGemini{accountsByID: map[int64]*Account{17: account}}}
+	upstream := &queuedHTTPUpstream{responses: []*http.Response{newJSONResponse(200, `data: {"choices":[{"delta":{"content":"answer"},"finish_reason":"stop"}]}
+data: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":5,"total_tokens":105,"completion_tokens_details":{"reasoning_tokens":10}}}
+data: [DONE]
+`)}}
+	svc := &AccountTestService{accountRepo: repo, httpUpstream: upstream, cfg: &config.Config{}}
+	result, err := svc.RunQualityProbe(context.Background(), 17, "text-model", QualityProbeOptions{Audit: true, Inspection: true, Prompt: "synthetic", MaxOutputTokens: 256})
+	require.NoError(t, err)
+	require.True(t, result.Complete)
+	require.True(t, result.ControlledInput)
+	raw, err := io.ReadAll(upstream.requests[0].Body)
+	require.NoError(t, err)
+	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(raw)), result.RequestHash, "fingerprint covers bytes actually sent")
+	require.Equal(t, len(raw), result.RequestBytes)
+	require.EqualValues(t, 10, *result.ReasoningTokens)
+	require.EqualValues(t, 105, *result.TotalTokens)
+	require.Contains(t, result.UsageAnomalies, "reasoning_exceeds_output")
+	report, err := json.Marshal(result)
+	require.NoError(t, err)
+	require.NotContains(t, string(report), "never-store-this")
+}
+
+func TestQualityAuditIsolationAndOptionalReasoning(t *testing.T) {
+	for _, protocol := range []string{"chat", "responses", "anthropic"} {
+		capture := &qualityProbeCapture{options: QualityProbeOptions{Audit: true, Inspection: true, Prompt: "test", MaxOutputTokens: 256}}
+		ctx := context.WithValue(context.Background(), qualityProbeContextKey{}, capture)
+		payload := map[string]any{"system": "our connection-test persona", "instructions": "our connection-test persona"}
+		applyQualityProbePayload(ctx, payload, protocol)
+		require.True(t, capture.result.ControlledInput)
+		if protocol == "anthropic" {
+			require.Equal(t, "Answer the user's verification task exactly.", payload["system"])
+		}
+		if protocol == "responses" {
+			require.Equal(t, "Answer the user's verification task exactly.", payload["instructions"])
+		}
+		capture.options.NativeOutputLimit = true
+		applyQualityProbePayload(ctx, payload, protocol)
+	}
+	capture := &qualityProbeCapture{start: time.Now()}
+	capture.observe(`data: {"choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+	require.Nil(t, capture.result.ReasoningTokens, "missing reasoning is not zero")
+	capture.observe(`data: {"choices":[],"usage":{"completion_tokens_details":{"reasoning_tokens":0}}}`)
+	require.NotNil(t, capture.result.ReasoningTokens)
+	require.Zero(t, *capture.result.ReasoningTokens)
+	payload := map[string]any{"instructions": "keep"}
+	applyQualityProbePayload(context.Background(), payload, "responses")
+	require.Equal(t, map[string]any{"instructions": "keep"}, payload, "ordinary gateway payloads are untouched")
 }

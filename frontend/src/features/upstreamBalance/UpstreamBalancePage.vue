@@ -54,8 +54,12 @@
             <p v-if="wallet.mode !== 'manual'">{{ wallet.auto_enabled ? `${t('upstreamBalance.nextQuery')} · ${datetime(wallet.next_query_at)}` : t('upstreamBalance.autoOff') }}</p>
           </div>
           <footer class="balance-footer">
-            <button v-if="wallet.mode !== 'manual'" class="balance-button" :disabled="querying.has(wallet.id) || batch" @click="queryOne(wallet)">{{ t(querying.has(wallet.id) ? 'upstreamBalance.querying' : 'upstreamBalance.query') }}</button>
-            <button v-else class="balance-button" @click="openCalibration(wallet)">{{ t('upstreamBalance.calibrate') }}</button>
+            <div class="balance-tools">
+              <button v-if="wallet.mode !== 'manual'" class="balance-button" :disabled="querying.has(wallet.id) || batch" @click="queryOne(wallet)">{{ t(querying.has(wallet.id) ? 'upstreamBalance.querying' : 'upstreamBalance.query') }}</button>
+              <button v-else class="balance-button" @click="openCalibration(wallet)">{{ t('upstreamBalance.calibrate') }}</button>
+              <a v-if="walletURL(wallet)" class="balance-button" :href="walletURL(wallet)" :title="walletURL(wallet)" target="_blank" rel="noopener noreferrer">{{ t('upstreamBalance.openUpstream') }} ↗</a>
+              <button v-else class="balance-button" disabled :title="t('upstreamBalance.noUpstreamURL')">{{ t('upstreamBalance.openUpstream') }} ↗</button>
+            </div>
             <div class="balance-actions"><button class="balance-link" @click="openWallet(wallet)">{{ t('upstreamBalance.edit') }}</button><button class="balance-link" @click="openHistory(wallet)">{{ t('upstreamBalance.history') }}</button><a v-if="safeURL(wallet.management_url)" class="balance-link" :href="wallet.management_url" target="_blank" rel="noopener noreferrer">{{ t('upstreamBalance.manage') }}</a></div>
           </footer>
         </article>
@@ -133,7 +137,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { balanceAPI, type AccountOption, type Delivery, type Event as WalletEvent, type Settings, type Wallet, type WalletInput } from './api'
-import { actualTotals, currencies, money, safeURL } from './display'
+import { actualTotals, currencies, money, safeURL, walletURL } from './display'
 import './balance.css'
 
 const { t, te } = useI18n()

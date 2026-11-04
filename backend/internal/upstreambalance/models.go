@@ -80,16 +80,29 @@ type Wallet struct {
 	UsageIncomplete      bool            `json:"usage_incomplete"`
 }
 type AccountOption struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
-	Platform  string `json:"platform"`
-	Type      string `json:"type"`
-	Status    string `json:"status"`
-	WalletID  string `json:"wallet_id"`
-	TodayCost string `json:"today_cost,omitempty"`
-	WeekCost  string `json:"week_cost,omitempty"`
-	MonthCost string `json:"month_cost,omitempty"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Platform    string `json:"platform"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+	WalletID    string `json:"wallet_id"`
+	UpstreamURL string `json:"upstream_url,omitempty"`
+	TodayCost   string `json:"today_cost,omitempty"`
+	WeekCost    string `json:"week_cost,omitempty"`
+	MonthCost   string `json:"month_cost,omitempty"`
 }
+
+// Only expose the navigable API base address, without credentials or URL parameters.
+func upstreamNavigationURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil || strings.ContainsAny(raw, "\\\r\n\t") {
+		return ""
+	}
+	u.RawQuery, u.Fragment, u.RawFragment = "", "", ""
+	u.ForceQuery = false
+	return u.String()
+}
+
 type Settings struct {
 	EmailEnabled bool     `json:"email_enabled"`
 	Recipients   []string `json:"recipients"`

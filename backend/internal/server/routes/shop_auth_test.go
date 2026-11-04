@@ -59,7 +59,7 @@ func TestShopAndExistingPanelRoutesUseRealAuthentication(t *testing.T) {
 		{"GET", "/api/v1/admin/ledger/resources"}, {"POST", "/api/v1/admin/ledger/resources"}, {"PUT", "/api/v1/admin/ledger/resources/resource"}, {"POST", "/api/v1/admin/ledger/resources/resource/renew"},
 		{"GET", "/api/v1/admin/ledger/history/entry"}, {"GET", "/api/v1/admin/ledger/settings"}, {"PUT", "/api/v1/admin/ledger/settings"},
 		{"POST", "/api/v1/admin/quality-monitor/sync"}, {"PUT", "/api/v1/admin/quality-monitor/accounts/1"},
-		{"GET", "/api/v1/admin/quality-monitor/snapshot"}, {"PUT", "/api/v1/admin/quality-monitor/settings"},
+		{"GET", "/api/v1/admin/quality-monitor/assurance"}, {"PUT", "/api/v1/admin/quality-monitor/assurance"}, {"GET", "/api/v1/admin/quality-monitor/scores"}, {"POST", "/api/v1/admin/quality-monitor/assurance/evidence"}, {"GET", "/api/v1/admin/quality-monitor/snapshot"}, {"PUT", "/api/v1/admin/quality-monitor/settings"},
 		{"GET", "/api/v1/admin/quality-monitor/accounts"}, {"POST", "/api/v1/admin/quality-monitor/targets"},
 		{"PUT", "/api/v1/admin/quality-monitor/targets/target"}, {"GET", "/api/v1/admin/quality-monitor/targets/target/history"},
 		{"POST", "/api/v1/admin/quality-monitor/inspections"}, {"POST", "/api/v1/admin/quality-monitor/runs/status"}, {"POST", "/api/v1/admin/quality-monitor/runs"}, {"GET", "/api/v1/admin/quality-monitor/runs/run"},

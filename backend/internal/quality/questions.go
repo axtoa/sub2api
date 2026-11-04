@@ -30,6 +30,10 @@ func newQuestion(index int, light bool) (Question, error) {
 	if _, err := io.ReadFull(rand.Reader, seed[:]); err != nil {
 		return Question{}, err
 	}
+	return questionFromSeed(index, light, seed), nil
+}
+
+func questionFromSeed(index int, light bool, seed [16]byte) Question {
 	rng := mathrand.New(mathrand.NewPCG(binary.LittleEndian.Uint64(seed[:8]), binary.LittleEndian.Uint64(seed[8:])))
 	q := Question{ID: uuid.NewString()}
 	if light {
@@ -116,7 +120,7 @@ func newQuestion(index int, light bool) (Question, error) {
 		q.Explanation = "本地计算两数之和。"
 	}
 	q.Explanation += fmt.Sprintf(" 标准结果为 %d。", q.Answer)
-	return q, nil
+	return q
 }
 
 // Strict local grading has no paid judge, duplicate-key ambiguity or execution

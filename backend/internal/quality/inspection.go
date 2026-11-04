@@ -17,6 +17,7 @@ import (
 )
 
 type InspectionOptions struct {
+	Audit     *AuditOptions        `json:"audit,omitempty"`
 	Mode      string               `json:"mode"`
 	Checks    []string             `json:"checks"`
 	Questions []InspectionQuestion `json:"questions,omitempty"`
@@ -76,7 +77,7 @@ type InspectionCheck struct {
 	CacheRatio         *float64 `json:"cache_ratio"`
 }
 
-var inspectionCheckIDs = []string{"protocol_stream", "protocol_nonstream", "tools", "structured", "reasoning", "speed", "cache", "context", "vision", "custom"}
+var inspectionCheckIDs = []string{"protocol_stream", "protocol_nonstream", "tools", "structured", "reasoning", "speed", "cache", "context", "vision", "custom", "usage_audit", "stability_audit"}
 
 func (o *InspectionOptions) validate() error {
 	if o.Mode != "quick" && o.Mode != "full" {
@@ -104,6 +105,16 @@ func (o *InspectionOptions) validate() error {
 	if seen["custom"] != (len(o.Questions) > 0) {
 		return invalid("自定义检验需要选择项目并填写至少一道题")
 	}
+	if seen["usage_audit"] || seen["stability_audit"] {
+		if o.Audit == nil {
+			o.Audit = &AuditOptions{}
+		}
+		if err := o.Audit.validate(); err != nil {
+			return err
+		}
+	} else if o.Audit != nil {
+		return invalid("请先勾选用量审计或一致性检验")
+	}
 	// Stable ordering makes request counts and reports reproducible.
 	o.Checks = nil
 	for _, id := range inspectionCheckIDs {
@@ -115,6 +126,9 @@ func (o *InspectionOptions) validate() error {
 }
 
 func (o InspectionOptions) count(id string) int {
+	if id == "usage_audit" || id == "stability_audit" {
+		return inspectionCount(id, o.Mode) * (1 + len(o.Audit.References))
+	}
 	if id == "custom" {
 		return len(o.Questions)
 	}
@@ -123,6 +137,10 @@ func (o InspectionOptions) count(id string) int {
 
 func inspectionCount(id, mode string) int {
 	switch id {
+	case "usage_audit":
+		return 6
+	case "stability_audit":
+		return 9
 	case "tools":
 		return 2
 	case "cache":
@@ -181,6 +199,9 @@ func (h *Handler) Inspect(c *gin.Context) {
 		response.BadRequest(c, "当前账号模型不支持检验")
 		return
 	}
+	if respondError(c, h.Runner.prepareAudit(c.Request.Context(), &req.Options, target)) {
+		return
+	}
 	job, err := h.Runner.Store.QueueInspection(c.Request.Context(), target.ID, req.Options)
 	if !respondError(c, err) {
 		h.Runner.Wake()
@@ -225,6 +246,15 @@ func (r *Runner) executeInspection(ctx context.Context, job *Run, t Target, cfg 
 		check := &job.Result.Checks[ci]
 		if fatal != "" {
 			check.Reason = fatal
+			continue
+		}
+		if check.ID == "usage_audit" || check.ID == "stability_audit" {
+			if err := r.executeAudit(ctx, job, t, cfg, p, check, ensure); err != nil {
+				return err
+			}
+			if job.Result.Reason == "configuration_changed" {
+				fatal = job.Result.Reason
+			}
 			continue
 		}
 		// Codex OAuth uses a native streaming-only endpoint. Do not claim a JSON
@@ -478,6 +508,10 @@ func inspectionObjectMatches(raw, nonce string, value int) bool {
 }
 
 func inspectionProfileHash(a *service.Account, t Target, p Profile, bank []QuestionTemplate, o InspectionOptions) string {
-	raw, _ := json.Marshal([]any{"inspection-v1", profileHash(a, t, p, bank), o})
+	return inspectionHashFromBase(profileHash(a, t, p, bank), o)
+}
+
+func inspectionHashFromBase(base string, o InspectionOptions) string {
+	raw, _ := json.Marshal([]any{"inspection-v1", base, o})
 	return fmt.Sprintf("%x", sha256.Sum256(raw))
 }

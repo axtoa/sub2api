@@ -15,6 +15,16 @@
           <InspectionQuestionEditor v-model="questions" :max-questions="8 - selectedQuestions.length" :disabled="submitting" />
         </template>
       </div>
+      <div class="quality-custom-entry">
+        <label v-for="id in auditChecks" :key="id" class="quality-check"><input v-model="checks" :value="id" type="checkbox" :disabled="submitting" />{{ t('quality.inspector.checks.' + id) }}</label>
+        <template v-if="hasAudit">
+          <p class="quality-caption">{{ t('quality.audit.setupHint') }}</p>
+          <p v-if="referenceError" class="quality-message warning">{{ t('quality.audit.loadError') }}</p>
+          <fieldset class="quality-inspection-checks"><legend>{{ t('quality.assurance.references') }}</legend><label v-for="reference in compatibleReferences" :key="reference.id" class="quality-check"><input v-model="referenceIDs" type="checkbox" :value="reference.id" :disabled="submitting || (!referenceIDs.includes(reference.id) && referenceIDs.length >= 3)" />{{ reference.name }} · {{ t('quality.assurance.sources.' + reference.source) }}</label></fieldset>
+          <p v-if="!compatibleReferences.length" class="quality-caption">{{ t('quality.audit.noSavedReferences') }}</p>
+          <div class="quality-form-grid"><label>{{ t('quality.audit.historicalRun') }}<input v-model="historicalRunID" :disabled="submitting" maxlength="36" /></label><label>{{ t('quality.audit.seedOptional') }}<input v-model="seed" :disabled="submitting" maxlength="64" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" /></label></div>
+        </template>
+      </div>
       <p class="quality-caption">{{ t('quality.inspector.cost', { count: requestCount, output: profile.max_output_tokens, prefix: profile.cache_prefix_kb }) }}</p>
       <p v-if="checks.includes('context')" class="quality-caption">{{ t('quality.inspector.contextHint', { kb: mode === 'full' ? 32 : 8 }) }}</p>
       <p class="quality-caption">{{ t('quality.inspector.billingHint') }}</p>
@@ -51,6 +61,7 @@
           <p v-if="!sample.probe.usage_reported" class="quality-caption">{{ t('quality.usageMissing') }}</p>
         </details>
       </section>
+      <AuditEvidence v-if="run.result?.audit" :run="run" />
       <details v-if="run.result?.cache_prefix" class="quality-protocol"><summary>{{ t('quality.cachePrefix') }}</summary><pre class="quality-question">{{ run.result.cache_prefix }}</pre></details>
       <p v-if="run.profile_hash" class="quality-caption">{{ t('quality.fingerprint') }}: {{ run.profile_hash }}</p>
     </article>
@@ -58,17 +69,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import InspectionQuestionEditor from './InspectionQuestionEditor.vue'
+import AuditEvidence from './AuditEvidence.vue'
 import InspectionQuestionPicker from './InspectionQuestionPicker.vue'
 import { questionSnapshot, validInspectionQuestions } from './inspectionQuestions'
-import { qualityAPI, type InspectionCheckID, type InspectionOptions, type InspectionQuestion, type InspectionQuestionTemplate, type QualityRun, type QualitySettings, type QualityTarget } from './api'
+import { qualityAPI, type InspectionCheckID, type InspectionOptions, type InspectionQuestion, type InspectionQuestionTemplate, type AuditReference, type QualityRun, type QualitySettings, type QualityTarget } from './api'
 import { runTone, verdictKey } from './display'
 
 const props = defineProps<{ targets: QualityTarget[]; settings: QualitySettings }>()
 const { t, te } = useI18n()
 const checkIDs: InspectionCheckID[] = ['protocol_stream', 'protocol_nonstream', 'tools', 'structured', 'reasoning', 'speed', 'cache', 'context', 'vision']
+const auditChecks: InspectionCheckID[] = ['usage_audit','stability_audit']
+const referenceIDs = ref<string[]>([]), references = ref<AuditReference[]>([]), historicalRunID = ref(''), seed = ref(''), referenceError = ref(false)
+const hasAudit = computed(() => checks.value.some(id => auditChecks.includes(id)))
+const compatibleReferences = computed(() => references.value.filter(reference => {
+  const primary = props.targets.find(target => target.id === targetID.value), target = props.targets.find(target => target.id === reference.target_id)
+  return primary && target && primary.account_id !== target.account_id && primary.platform === target.platform && primary.model === target.model
+}))
 const mode = ref<InspectionOptions['mode']>('quick')
 const checks = ref<InspectionCheckID[]>(checkIDs.slice(0, 6))
 const customEnabled = ref(false), questions = ref<InspectionQuestion[]>([])
@@ -80,11 +99,11 @@ const submitting = ref(false), loading = ref(false), error = ref('')
 const profile = computed(() => props.targets.find(target => target.id === targetID.value)?.overrides ?? props.settings)
 const reportTarget = computed(() => props.targets.find(target => target.id === run.value?.target_id))
 const active = computed(() => reports.value.find(report => report.status !== 'finished'))
-const requestCount = computed(() => checks.value.reduce((sum, id) => sum + (id === 'tools' ? 2 : id === 'cache' ? 3 : id === 'reasoning' ? mode.value === 'full' ? 4 : 2 : id === 'speed' ? mode.value === 'full' ? 5 : 2 : 1), 0) + (customEnabled.value ? allQuestions.value.length : 0))
+const requestCount = computed(() => checks.value.reduce((sum, id) => sum + (id === 'usage_audit' ? 6 * (1 + referenceIDs.value.length) : id === 'stability_audit' ? 9 * (1 + referenceIDs.value.length) : id === 'tools' ? 2 : id === 'cache' ? 3 : id === 'reasoning' ? mode.value === 'full' ? 4 : 2 : id === 'speed' ? mode.value === 'full' ? 5 : 2 : 1), 0) + (customEnabled.value ? allQuestions.value.length : 0))
 let timer: ReturnType<typeof setTimeout> | undefined, disposed = false, revision = 0, controller: AbortController | undefined
 function choosePreset() { checks.value = mode.value === 'full' ? [...checkIDs] : checkIDs.slice(0, 6) }
 function date(value: string) { return new Date(value).toLocaleString() }
-function reason(code: string) { return code === 'native_protocol' ? t('quality.inspector.nativeProtocol') : te(`quality.reasons.${code}`) ? t(`quality.reasons.${code}`) : t('quality.unknown') }
+function reason(code: string) { return te('quality.audit.reasons.' + code) ? t('quality.audit.reasons.' + code) : code === 'native_protocol' ? t('quality.inspector.nativeProtocol') : te(`quality.reasons.${code}`) ? t(`quality.reasons.${code}`) : t('quality.unknown') }
 function samples(id: InspectionCheckID) { return run.value?.result?.items?.filter(item => item.check_id === id) ?? [] }
 function poll() { clearTimeout(timer); if (!disposed && active.value && !document.hidden) timer = setTimeout(() => refreshReports(), 3000) }
 async function refreshReports(preferred?: string) {
@@ -111,6 +130,7 @@ async function start() {
   try {
     const options: InspectionOptions = { mode: mode.value, checks: [...checks.value] }
     if (customEnabled.value) { options.checks.push('custom'); options.questions = allQuestions.value.map(questionSnapshot) }
+    if (hasAudit.value) options.audit = {seed:seed.value, reference_ids:[...referenceIDs.value], historical_run_id:historicalRunID.value || undefined}
     const job = await qualityAPI.inspect(id, options)
     if (disposed || targetID.value !== id) return
     reports.value.unshift(job); run.value = job; await refreshReports(job.id)
@@ -124,7 +144,8 @@ function exportReport() {
   link.href = url; link.download = `channel-inspection-${run.value.id}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 function visibilityChanged() { if (document.hidden) clearTimeout(timer); else if (active.value) void refreshReports() }
-watch(targetID, () => { run.value = null; reports.value = []; if (targetID.value) void refreshReports() }, { immediate: true })
+watch(targetID, () => { referenceIDs.value = []; run.value = null; reports.value = []; if (targetID.value) void refreshReports() }, { immediate: true })
+onMounted(async () => { try { const config = await qualityAPI.assurance(); if (!disposed) references.value = config.references } catch { if (!disposed) referenceError.value = true } })
 document.addEventListener('visibilitychange', visibilityChanged)
 onUnmounted(() => { disposed = true; revision++; clearTimeout(timer); controller?.abort(); document.removeEventListener('visibilitychange', visibilityChanged) })
 </script>

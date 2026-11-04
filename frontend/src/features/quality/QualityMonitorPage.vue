@@ -15,6 +15,7 @@
         <p v-if="!snapshot.settings.auto_enabled" class="quality-caption">{{ t('quality.automaticOff') }}</p>
         <p v-if="snapshot.budget.limited" class="quality-message warning">{{ t('quality.budgetLimited') }}</p>
         <div v-if="batchJobs.length" class="quality-batch-progress" role="status" aria-live="polite"><div><strong>{{ t('quality.batchProgress', {done:batchFinished,total:batchJobs.length}) }}</strong><span class="quality-caption">{{ t('quality.batchWaiting',{count:batchJobs.filter(j=>j.status!=='finished').length}) }}</span><button class="quality-text-button" @click="batchJobs=[]">{{ t('quality.hideProgress') }}</button></div><progress :value="batchFinished" :max="batchJobs.length" /><p v-if="batchFailed" class="quality-caption">{{ t('quality.batchFailures',{count:batchFailed}) }}</p></div>
+        <QualityAssurance :targets="targets" :accounts="accounts" />
         <div class="quality-filters">
           <details ref="groupPicker" class="quality-group-picker"><summary>{{ selectedGroupName }}<Icon name="chevronDown" size="sm" /></summary><div class="quality-group-popover"><input v-model="groupSearch" :placeholder="t('quality.searchGroups')" :aria-label="t('quality.searchGroups')" /><div class="quality-group-options"><button v-for="group in visibleGroups" :key="group.id" :aria-pressed="groupID === group.id" @click="chooseGroup(group.id)"><span>{{ group.name }}</span><span>{{ groupCount(group.id) }}</span></button><p v-if="!visibleGroups.length" class="quality-caption">{{ t('quality.noMatches') }}</p></div></div></details>
           <input v-model="search" :placeholder="t('quality.search')" :aria-label="t('quality.search')" />
@@ -68,6 +69,7 @@ import QualityQuestionBank from './QualityQuestionBank.vue'
 import QualityAccountCard from './QualityAccountCard.vue'
 import QualityEvidence from './QualityEvidence.vue'
 import ChannelInspection from './ChannelInspection.vue'
+import QualityAssurance from './QualityAssurance.vue'
 import ExternalQualityTools from './ExternalQualityTools.vue'
 import InspectionQuestionBank from './InspectionQuestionBank.vue'
 import { attention, profileOf, qualityAPI } from './api'

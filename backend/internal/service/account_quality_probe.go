@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,6 +24,8 @@ import (
 type qualityProbeContextKey struct{}
 
 type QualityProbeOptions struct {
+	Audit             bool
+	AuditNative       bool
 	ImageDataURL      string
 	Inspection        bool
 	NonStream         bool
@@ -45,6 +49,12 @@ type QualityToolCall struct {
 }
 
 type QualityProbeResult struct {
+	UsageAnomalies    []string          `json:"usage_anomalies,omitempty"`
+	RequestHash       string            `json:"request_hash,omitempty"`
+	ControlledInput   bool              `json:"controlled_input"`
+	RequestBytes      int               `json:"request_bytes,omitempty"`
+	ReasoningTokens   *int64            `json:"reasoning_tokens"`
+	TotalTokens       *int64            `json:"total_tokens"`
 	Protocol          string            `json:"protocol,omitempty"`
 	WireValid         bool              `json:"wire_valid"`
 	FinishReason      string            `json:"finish_reason,omitempty"`
@@ -119,6 +129,7 @@ func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int6
 		return &QualityProbeResult{Reason: "unsupported"}, nil
 	}
 	opts.NativeOutputLimit = account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth
+	opts.AuditNative = account.Type != AccountTypeAPIKey
 	capture := &qualityProbeCapture{options: opts, start: time.Now()}
 	capture.result.NativeOutputLimit = opts.NativeOutputLimit
 	ctx = context.WithValue(ctx, qualityProbeContextKey{}, capture)
@@ -127,6 +138,20 @@ func (s *AccountTestService) RunQualityProbe(ctx context.Context, accountID int6
 	c.Request = (&http.Request{Header: make(http.Header)}).WithContext(ctx)
 	err = s.TestAccountConnection(c, accountID, model, opts.Prompt, AccountTestModeDefault)
 	r := &capture.result
+	if capture.usageInvalid {
+		r.UsageAnomalies = append(r.UsageAnomalies, "invalid_token_count")
+	}
+	if r.UsageReported {
+		if r.ReasoningTokens != nil && *r.ReasoningTokens > r.OutputTokens {
+			r.UsageAnomalies = append(r.UsageAnomalies, "reasoning_exceeds_output")
+		}
+		if r.Protocol != "anthropic" && r.CacheReadTokens > r.InputTokens {
+			r.UsageAnomalies = append(r.UsageAnomalies, "cache_exceeds_input")
+		}
+		if r.Protocol != "anthropic" && r.TotalTokens != nil && *r.TotalTokens != r.InputTokens+r.OutputTokens {
+			r.UsageAnomalies = append(r.UsageAnomalies, "total_inconsistent")
+		}
+	}
 	r.DurationMs = time.Since(capture.start).Milliseconds()
 	r.WireValid = capture.observedEvents > 0 && !capture.wireInvalid && capture.ended
 	r.Complete = err == nil && capture.ended && !capture.limited && (strings.TrimSpace(r.Text) != "" || (opts.Inspection && len(r.ToolCalls) > 0)) && r.Reason == ""
@@ -183,6 +208,9 @@ func applyQualityProbePayload(ctx context.Context, payload map[string]any, proto
 		return
 	}
 	o := p.options
+	if o.Audit {
+		p.result.ControlledInput = false
+	}
 	p.result.Protocol = protocol
 	prompt := o.Prompt
 	switch protocol {
@@ -219,6 +247,27 @@ func applyQualityProbePayload(ctx context.Context, payload map[string]any, proto
 	}
 	if o.Inspection {
 		applyChannelInspectionPayload(payload, protocol, o)
+	}
+	if o.Audit && !o.NativeOutputLimit && !o.AuditNative {
+		// Remove our connection-test persona from controlled comparisons. Native
+		// OAuth instructions remain untouched and are explicitly noncomparable.
+		const instruction = "Answer the user's verification task exactly."
+		switch protocol {
+		case "anthropic":
+			payload["system"] = instruction
+		case "responses":
+			payload["instructions"] = instruction
+		}
+		p.result.ControlledInput = true
+	}
+	// This is the final body at all three account-test call sites. Headers and
+	// credentials are deliberately excluded; only synthetic request bytes hash.
+	if o.Audit {
+		raw, err := json.Marshal(payload)
+		if err == nil {
+			p.result.RequestHash = fmt.Sprintf("%x", sha256.Sum256(raw))
+			p.result.RequestBytes = len(raw)
+		}
 	}
 }
 
@@ -392,6 +441,20 @@ func (p *qualityProbeCapture) observe(line string) {
 		}
 		if n := u.Get("cache_creation_input_tokens"); n.Exists() {
 			p.result.CacheWriteTokens = qualityMaxTokens(p.result.CacheWriteTokens, p.usageToken(n))
+		}
+		for _, key := range []string{"output_tokens_details.reasoning_tokens", "completion_tokens_details.reasoning_tokens"} {
+			if n := u.Get(key); n.Exists() {
+				value := p.usageToken(n)
+				if p.result.ReasoningTokens == nil || value > *p.result.ReasoningTokens {
+					p.result.ReasoningTokens = &value
+				}
+			}
+		}
+		if n := u.Get("total_tokens"); n.Exists() {
+			value := p.usageToken(n)
+			if p.result.TotalTokens == nil || value > *p.result.TotalTokens {
+				p.result.TotalTokens = &value
+			}
 		}
 		p.result.UsageReported = p.inputSeen && p.outputSeen && !p.usageInvalid
 	}

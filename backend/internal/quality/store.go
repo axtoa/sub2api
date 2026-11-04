@@ -391,9 +391,13 @@ func (s *Store) Metrics(ctx context.Context, t Target, since time.Time) (Metrics
 }
 
 func (s *Store) Cleanup(ctx context.Context) error {
+	// Keep the complete 30-day comparison window, and retain any report with
+	// an administrative attestation until that evidence can be reviewed.
 	_, err := s.DB.ExecContext(ctx, `DELETE FROM quality_monitor_runs WHERE id IN (
- SELECT id FROM (SELECT id,COALESCE(finished_at,created_at) AS checked_at,ROW_NUMBER() OVER(PARTITION BY target_id,kind ORDER BY COALESCE(finished_at,created_at) DESC) AS n
- FROM quality_monitor_runs WHERE status='finished') h WHERE (n>180 AND checked_at<NOW()-INTERVAL '24 hours') OR checked_at<NOW()-INTERVAL '30 days' LIMIT 1000)`)
+ SELECT r.id FROM quality_monitor_runs r WHERE r.status='finished'
+ AND COALESCE(r.finished_at,r.created_at)<NOW()-INTERVAL '30 days'
+ AND NOT EXISTS (SELECT 1 FROM quality_assurance_evidence e WHERE e.run_id=r.id)
+ ORDER BY COALESCE(r.finished_at,r.created_at) LIMIT 1000)`)
 	return err
 }
 

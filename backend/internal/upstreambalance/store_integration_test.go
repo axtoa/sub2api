@@ -62,6 +62,8 @@ func testDB(t *testing.T) *sql.DB {
 	require.NoError(t, e)
 	_, e = pool.Exec(`CREATE TABLE accounts(id BIGINT PRIMARY KEY,name TEXT,platform TEXT,type TEXT,status TEXT,deleted_at TIMESTAMPTZ);
       INSERT INTO accounts VALUES(1,'Claude 主号','anthropic','apikey','active',NULL),(2,'GPT 主号','openai','apikey','active',NULL),(3,'OAuth 账号','openai','oauth','active',NULL);
+      ALTER TABLE accounts ADD COLUMN credentials JSONB DEFAULT '{}';
+      UPDATE accounts SET credentials='{"base_url":"https://relay.example/v1?key=private-url-key#secret","api_key":"private-model-key"}' WHERE id=1;
       CREATE TABLE usage_logs(account_id BIGINT,created_at TIMESTAMPTZ,total_cost NUMERIC,account_stats_cost NUMERIC,account_rate_multiplier NUMERIC,actual_cost NUMERIC);`)
 	require.NoError(t, e)
 	return pool
@@ -274,6 +276,11 @@ func TestPostgresQueryManualBypassFailuresAndSourceChanges(t *testing.T) {
 	b, _ := json.Marshal(options)
 	require.NotContains(t, string(b), "fake-test-key")
 	require.NotContains(t, string(b), "credentials")
+	require.NotContains(t, string(b), "private-url-key")
+	require.NotContains(t, string(b), "private-model-key")
+	require.NotContains(t, string(b), "#secret")
+	require.Equal(t, "https://relay.example/v1", options[0].UpstreamURL)
+	require.Equal(t, "https://relay.example/v1", items[0].Accounts[0].UpstreamURL)
 }
 
 func TestPostgresNewAPIQueryAndConversionChanges(t *testing.T) {

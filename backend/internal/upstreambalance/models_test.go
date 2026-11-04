@@ -21,6 +21,20 @@ func exampleConfig() Config {
 func exampleAccount() *service.Account {
 	return &service.Account{ID: 1, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"api_key": "fake-test-key", "base_url": "https://relay.example/v1"}}
 }
+func TestUpstreamNavigationURL(t *testing.T) {
+	for _, c := range []struct{ raw, want string }{
+		{"https://relay.example/v1", "https://relay.example/v1"},
+		{"http://127.0.0.1:8080/api", "http://127.0.0.1:8080/api"},
+		{"https://relay.example/prefix/v1?key=private#secret", "https://relay.example/prefix/v1"},
+		{"https://user:secret@relay.example", ""},
+		{"javascript:alert(1)", ""},
+		{"//relay.example", ""},
+		{"https://relay.example\\@evil.example", ""},
+		{"", ""},
+	} {
+		require.Equal(t, c.want, upstreamNavigationURL(c.raw))
+	}
+}
 func TestConfigAndExactAmounts(t *testing.T) {
 	for _, v := range []string{"0", "-0.000001", "999999999.123456"} {
 		n, e := amount(v, true)

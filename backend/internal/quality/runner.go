@@ -494,7 +494,7 @@ func (r *Runner) probe(ctx context.Context, a *service.Account, model string, op
 		if a.Platform == service.PlatformAnthropic {
 			actual += result.CacheReadTokens + result.CacheWriteTokens
 		}
-		confirmed = result.Complete
+		confirmed = result.Complete && len(result.UsageAnomalies) == 0
 	}
 	if !confirmed {
 		actual = max(actual, reserved)

@@ -39,11 +39,33 @@ export interface ExternalTool {
   review?: 'public' | 'unconfirmed'; reviewed_at?: string; reference_url?: string
 }
 export interface ExternalTools { items: ExternalTool[]; version: number }
-export type InspectionCheckID = 'protocol_stream' | 'protocol_nonstream' | 'tools' | 'structured' | 'reasoning' | 'speed' | 'cache' | 'context' | 'vision' | 'custom'
-export interface InspectionOptions { mode: 'quick' | 'full'; checks: InspectionCheckID[]; questions?: InspectionQuestion[] }
+export type InspectionCheckID = 'protocol_stream' | 'protocol_nonstream' | 'tools' | 'structured' | 'reasoning' | 'speed' | 'cache' | 'context' | 'vision' | 'custom' | 'usage_audit' | 'stability_audit'
+export interface InspectionOptions { mode: 'quick' | 'full'; checks: InspectionCheckID[]; questions?: InspectionQuestion[]; audit?: AuditOptions }
 export interface InspectionCheck { id: InspectionCheckID; verdict: 'passed' | 'failed' | 'uncompleted' | 'unsupported' | 'unknown' | 'not_observed'; reason?: string; requests: number; sample_ids: string[]; median_first_token_ms: number | null; tokens_per_second: number | null; cache_ratio: number | null }
 
+export interface ScorePolicy {
+  scenario: 'chat' | 'agent' | 'cost'; weights: Record<string, number>; min_samples: number; min_runs: number; min_span_minutes: number; billing_tolerance_percent: number; min_coverage: number
+  fresh_hours: number; slow_ms: number; failure_percent: number; usage_tolerance_percent: number; required_checks: InspectionCheckID[]
+}
+export interface AuditReference { id: string; target_id: string; name: string; source: 'official' | 'trusted' | 'other' }
+export interface ManualTokenReference { id: string; name: string; model: string; protocol: 'chat' | 'responses' | 'anthropic'; request_hash: string; input_tokens: number; captured_at: string }
+export interface AssuranceSettings { manual_references?: ManualTokenReference[]; version: number; policy: ScorePolicy; references: AuditReference[] }
+export interface AuditOptions { seed: string; reference_ids?: string[]; historical_run_id?: string; references?: Array<AuditReference & { account_id: number; model: string; config_hash: string }> }
+export interface AuditComparison { reference: string; pair: number; status: string; primary_input: number; reference_input: number; difference: number; extra_percent: number | null; reported_share_percent: number | null }
+export interface AuditResult { manual_references?: ManualTokenReference[]; fits?: Array<{reference: string; samples: number; input_min: number; input_max: number; fixed_extra: number; growth_extra: number; rmse: number}>; version: string; seed: string; tolerance_percent: number; samples: Array<{lane: string; check_id: string; pair: number; prompt: string; expected: string; correct: boolean | null; probe: Probe | null; reason?: string}>; comparisons: AuditComparison[] }
+export interface AssuranceEvidence { id?: string; run_id: string; kind: 'billing' | 'identity' | 'privacy'; status: 'suspected' | 'confirmed' | 'cleared'; note: string; receipt: string; currency: string; expected: number; actual: number; attributable: boolean; created_at?: string }
+export interface ScoreDimension { id: string; value: number | null; samples: number; passed: number; p95_ms: number | null }
+export interface QualityScore { comparison_set?: string[]; span_minutes?: number; trend?: {recent_correct: number; recent_samples: number; previous_correct: number; previous_samples: number; declined: boolean}; target_id: string; account_id: number; account_name: string; platform: string; model: string; cohort: string; score: number | null; coverage: number; samples: number; runs: number; excluded: number; truncated: boolean; rank: number | null; state: string; last_at: string | null; dimensions: ScoreDimension[]; issues: Array<{code: string; severity: string; check?: string; run_ids: string[]}>; evidence: AssuranceEvidence[]; run_ids: string[] }
+export interface ScoreBoard { version: string; generated_at: string; days: number; policy: ScorePolicy; items: QualityScore[] }
+export const scoreDimensions = ['availability', 'capability', 'compatibility', 'latency', 'integrity', 'billing'] as const
+
 export interface Probe {
+  usage_anomalies?: string[]
+  request_hash?: string
+  controlled_input?: boolean
+  request_bytes?: number
+  reasoning_tokens?: number | null
+  total_tokens?: number | null
   protocol?: string
   wire_valid?: boolean
   finish_reason?: string
@@ -76,6 +98,7 @@ export interface QualityRun {
   profile_hash: string
   profile?: QualityProfile
   result?: {
+    audit?: AuditResult
     checks?: InspectionCheck[]
     reason: string
     correct: number
@@ -170,6 +193,18 @@ export interface AccountChoice { id: number; name: string; platform: string; sta
 
 const base = '/admin/quality-monitor'
 export const qualityAPI = {
+  async assurance(signal?: AbortSignal) {
+    const { data } = await apiClient.get<AssuranceSettings>(`${base}/assurance`, { signal }); return data
+  },
+  async saveAssurance(settings: AssuranceSettings) {
+    const { data } = await apiClient.put<AssuranceSettings>(`${base}/assurance`, settings); return data
+  },
+  async scores(days = 7, scenario?: ScorePolicy['scenario'], signal?: AbortSignal) {
+    const { data } = await apiClient.get<ScoreBoard>(`${base}/scores`, { params: { days, scenario }, signal }); return data
+  },
+  async saveEvidence(evidence: AssuranceEvidence) {
+    const { data } = await apiClient.post<AssuranceEvidence>(`${base}/assurance/evidence`, evidence); return data
+  },
   async sync(initial = false) {
     const { data } = await apiClient.post<{ created: number }>(`${base}/sync`, { initial })
     return data

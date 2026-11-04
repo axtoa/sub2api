@@ -47,7 +47,7 @@ func qualityTestDB(t *testing.T) *sql.DB {
 	require.NoError(t, err)
 	pool.SetMaxOpenConns(10)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	for _, name := range []string{"001_init.sql", "033_ops_monitoring_vnext.sql", "066_add_scheduled_test_tables.sql", "077_add_usage_log_requested_model.sql", "079_ops_error_logs_add_endpoint_fields.sql", "244_quality_monitor.sql", "244_quality_monitor.sql", "245_quality_monitor_accounts.sql", "245_quality_monitor_accounts.sql", "251_channel_inspection.sql", "251_channel_inspection.sql", "253_inspection_question_bank.sql", "253_inspection_question_bank.sql", "254_quality_external_tools.sql", "254_quality_external_tools.sql", "255_quality_external_rankings.sql", "255_quality_external_rankings.sql", "256_quality_external_resources.sql", "256_quality_external_resources.sql", "257_quality_business_resources.sql", "257_quality_business_resources.sql"} {
+	for _, name := range []string{"001_init.sql", "033_ops_monitoring_vnext.sql", "066_add_scheduled_test_tables.sql", "077_add_usage_log_requested_model.sql", "079_ops_error_logs_add_endpoint_fields.sql", "244_quality_monitor.sql", "244_quality_monitor.sql", "245_quality_monitor_accounts.sql", "245_quality_monitor_accounts.sql", "251_channel_inspection.sql", "251_channel_inspection.sql", "253_inspection_question_bank.sql", "253_inspection_question_bank.sql", "254_quality_external_tools.sql", "254_quality_external_tools.sql", "255_quality_external_rankings.sql", "255_quality_external_rankings.sql", "256_quality_external_resources.sql", "256_quality_external_resources.sql", "257_quality_business_resources.sql", "257_quality_business_resources.sql", "258_quality_assurance.sql", "258_quality_assurance.sql"} {
 		migration, err := migrations.FS.ReadFile(name)
 		require.NoError(t, err)
 		// pg_trgm is already installed in public in the preview database; only
@@ -218,7 +218,7 @@ func TestQualityPostgresCleanupKeepsDailyProbeDenominator(t *testing.T) {
 	require.NoError(t, s.Cleanup(ctx))
 	var retained int
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM quality_monitor_runs`).Scan(&retained))
-	require.Equal(t, 201, retained, "all probes completed in the statistics window survive cleanup, including delayed jobs")
+	require.Equal(t, 211, retained, "the complete 30-day assessment window survives cleanup, including delayed jobs")
 	targets, err := s.Targets(ctx)
 	require.NoError(t, err)
 	require.NoError(t, s.Enrich(ctx, targets, time.Now().Add(-24*time.Hour)))

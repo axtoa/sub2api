@@ -24,3 +24,15 @@ export function actualTotals(wallets: Wallet[]) {
   })
 }
 export function safeURL(value: string) { try { const u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password } catch { return false } }
+
+export function walletURL(wallet: Wallet) {
+  const source = wallet.query_account_id != null
+    ? wallet.accounts.find(account => account.id === wallet.query_account_id)
+    : wallet.accounts.find(account => account.upstream_url)
+  try {
+    const url = new URL(source?.upstream_url ?? '')
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return ''
+    url.search = ''; url.hash = ''
+    return url.href
+  } catch { return '' }
+}

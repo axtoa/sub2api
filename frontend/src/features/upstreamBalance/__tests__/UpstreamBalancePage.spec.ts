@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import Page from '../UpstreamBalancePage.vue'
 import { balanceAPI, type Wallet } from '../api'
-import { actualTotals, money, safeURL } from '../display'
+import { actualTotals, money, safeURL, walletURL } from '../display'
 import en from '@/i18n/locales/en/upstreamBalance'
 
 function lookup(key: string) { return key.split('.').reduce<unknown>((value, part) => value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined, en) }
@@ -29,6 +29,24 @@ beforeEach(() => {
 afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks(); vi.useRealTimers() })
 
 describe('Upstream wallet balances', () => {
+  it('opens the query account API address in a new tab and preserves the management link', async () => {
+    vi.mocked(balanceAPI.list).mockResolvedValue({ items: [{ ...wallet, accounts: [{ ...account, id: 2, upstream_url: 'https://other.example' }, { ...account, upstream_url: 'https://relay.example/prefix/v1' }] }], timezone: 'Asia/Shanghai', server_time: '' })
+    const wrapper = render(); await flushPromises()
+    const link = wrapper.get('a.balance-button')
+    expect(link.attributes()).toMatchObject({ href: 'https://relay.example/prefix/v1', target: '_blank', rel: 'noopener noreferrer' })
+    expect(link.text()).toContain(en.upstreamBalance.openUpstream)
+    expect(wrapper.get('a.balance-link').attributes('href')).toBe(wallet.management_url)
+    expect(balanceAPI.query).not.toHaveBeenCalled()
+  })
+  it('supports linked manual wallets and disables navigation when no safe API address exists', async () => {
+    expect(walletURL({ ...wallet, mode: 'manual', query_account_id: null, accounts: [{ ...account, upstream_url: 'http://localhost:8080/v1' }] })).toBe('http://localhost:8080/v1')
+    expect(walletURL({ ...wallet, accounts: [{ ...account, upstream_url: 'javascript:alert(1)' }] })).toBe('')
+    expect(walletURL({ ...wallet, accounts: [{ ...account, upstream_url: 'https://user:password@relay.example' }] })).toBe('')
+    const wrapper = render(); await flushPromises()
+    const disabled = wrapper.findAll('button').find(b => b.text().includes(en.upstreamBalance.openUpstream))!
+    expect(disabled.attributes('disabled')).toBeDefined()
+    expect(disabled.attributes('title')).toBe(en.upstreamBalance.noUpstreamURL)
+  })
   it('includes New API wallet funds but excludes token quota from the balance total', () => {
     const newapi: Wallet = { ...wallet, mode: 'newapi', quota_per_unit: 500000 }
     expect(actualTotals([newapi])).toEqual([{ currency: 'USD', amount: '100.123456' }])

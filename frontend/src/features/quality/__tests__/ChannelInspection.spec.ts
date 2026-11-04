@@ -13,6 +13,7 @@ const wrappers: ReturnType<typeof mount>[] = []
 function render(questions: InspectionQuestion[] = []) { const wrapper = mount(Inspection, { props: { targets: [target], settings: { ...settings, inspection_questions: questions } } }); wrappers.push(wrapper); return wrapper }
 beforeEach(() => {
   vi.useFakeTimers(); vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+  vi.spyOn(qualityAPI, 'assurance').mockResolvedValue({version:1,references:[],policy:{scenario:'chat',weights:{availability:25,capability:25,compatibility:20,latency:10,integrity:10,billing:10},min_samples:8,min_runs:3,min_span_minutes:60,billing_tolerance_percent:2,min_coverage:60,fresh_hours:48,slow_ms:5000,failure_percent:20,usage_tolerance_percent:15,required_checks:['protocol_stream']}})
   vi.spyOn(qualityAPI, 'inspectionQuestions').mockResolvedValue({ items: [], version: 1 })
   vi.spyOn(qualityAPI, 'history').mockResolvedValue([])
   vi.spyOn(qualityAPI, 'detail').mockResolvedValue(report)

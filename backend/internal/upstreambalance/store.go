@@ -55,7 +55,7 @@ func (s *Store) Options(ctx context.Context) ([]AccountOption, error) {
 	return options(ctx, s.DB)
 }
 func options(ctx context.Context, q querier) ([]AccountOption, error) {
-	rows, e := q.QueryContext(ctx, `SELECT a.id,a.name,a.platform,a.type,a.status,COALESCE(l.wallet_id::text,'') FROM accounts a LEFT JOIN upstream_wallet_accounts l ON l.account_id=a.id WHERE a.deleted_at IS NULL ORDER BY a.name,a.id`)
+	rows, e := q.QueryContext(ctx, `SELECT a.id,a.name,a.platform,a.type,a.status,COALESCE(l.wallet_id::text,''),COALESCE(a.credentials->>'base_url','') FROM accounts a LEFT JOIN upstream_wallet_accounts l ON l.account_id=a.id WHERE a.deleted_at IS NULL ORDER BY a.name,a.id`)
 	if e != nil {
 		return nil, e
 	}
@@ -63,9 +63,10 @@ func options(ctx context.Context, q querier) ([]AccountOption, error) {
 	items := []AccountOption{}
 	for rows.Next() {
 		var a AccountOption
-		if e = rows.Scan(&a.ID, &a.Name, &a.Platform, &a.Type, &a.Status, &a.WalletID); e != nil {
+		if e = rows.Scan(&a.ID, &a.Name, &a.Platform, &a.Type, &a.Status, &a.WalletID, &a.UpstreamURL); e != nil {
 			return nil, e
 		}
+		a.UpstreamURL = upstreamNavigationURL(a.UpstreamURL)
 		items = append(items, a)
 	}
 	return items, rows.Err()

@@ -6,7 +6,7 @@ export interface WalletConfig {
   currency: string; auto_enabled: boolean; interval_minutes: number; estimate_enabled: boolean
   low_threshold: string | null; management_url: string; note: string
 }
-export interface AccountOption { id: number; name: string; platform: string; type: string; status: string; wallet_id: string; today_cost?: string; week_cost?: string; month_cost?: string }
+export interface AccountOption { id: number; name: string; platform: string; type: string; status: string; wallet_id: string; upstream_url?: string; today_cost?: string; week_cost?: string; month_cost?: string }
 export interface Observation { amount: string; currency: string; scope: 'wallet' | 'key_quota' | 'subscription' | 'manual'; at: string }
 export interface Wallet extends WalletConfig {
   id: string; version: number; observation: Observation | null; status: string; last_error: string

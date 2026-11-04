@@ -14,7 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const GeneratorVersion = "objective-v2"
+const GeneratorVersion = "objective-v3"
 
 type Profile struct {
 	AvailabilityEnabled         bool   `json:"availability_enabled"`
@@ -154,6 +154,7 @@ type Run struct {
 }
 
 type Result struct {
+	Audit            *AuditResult      `json:"audit,omitempty"`
 	Checks           []InspectionCheck `json:"checks,omitempty"`
 	Reason           string            `json:"reason"`
 	Correct          int               `json:"correct"`
@@ -211,7 +212,7 @@ func profileHash(a *service.Account, t Target, p Profile, bank ...[]QuestionTemp
 	if len(bank) > 0 && len(bank[0]) > 0 {
 		questionBank = bank[0]
 	}
-	data, _ := json.Marshal([]any{GeneratorVersion, a.ID, t.Model, a.GetMappedModel(t.Model), a.Platform, a.Type, a.ProxyID, proxyURL, a.GetBaseURL(), a.GetOpenAIBaseURL(), openai_compat.ShouldUseResponsesAPI(a.Extra), a.GetHeaderOverrides(), p, questionBank})
+	data, _ := json.Marshal([]any{GeneratorVersion, a.ID, t.Model, a.GetMappedModel(t.Model), a.Platform, a.Type, a.ProxyID, proxyURL, a.GetBaseURL(), a.GetOpenAIBaseURL(), openai_compat.ShouldUseResponsesAPI(a.Extra), a.GetHeaderOverrides(), inspectionIdentity(a), p, questionBank})
 	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
 }
