@@ -91,7 +91,7 @@ func (s *Store) Target(ctx context.Context, id string) (Target, error) {
 }
 
 func (s *Store) Targets(ctx context.Context) ([]Target, error) {
-	rows, err := s.DB.QueryContext(ctx, targetSelect+` ORDER BY a.name,t.model`)
+	rows, err := s.DB.QueryContext(ctx, targetSelect+` ORDER BY a.priority ASC,a.id ASC,t.model`)
 	if err != nil {
 		return nil, err
 	}

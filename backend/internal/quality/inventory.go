@@ -146,7 +146,7 @@ func (s *Store) Inventory(ctx context.Context) ([]MonitoredAccount, error) {
  OR NOT(a.type IN ('apikey','oauth') OR (a.platform='anthropic' AND a.type='setup-token'))
  OR a.extra @> '{"synthetic_ui_test":true}'::jsonb
  OR (a.platform='openai' AND a.type='oauth' AND LOWER(BTRIM(COALESCE(a.credentials->>'auth_mode','')))='agentidentity'))
- FROM quality_monitor_accounts m JOIN accounts a ON a.id=m.account_id AND a.deleted_at IS NULL ORDER BY a.name,a.id`)
+ FROM quality_monitor_accounts m JOIN accounts a ON a.id=m.account_id AND a.deleted_at IS NULL ORDER BY a.priority ASC,a.id ASC`)
 	if err != nil {
 		return nil, err
 	}

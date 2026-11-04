@@ -13,6 +13,7 @@ const wrappers: ReturnType<typeof mount>[] = []
 function render(questions: InspectionQuestion[] = []) { const wrapper = mount(Inspection, { props: { targets: [target], settings: { ...settings, inspection_questions: questions } } }); wrappers.push(wrapper); return wrapper }
 beforeEach(() => {
   vi.useFakeTimers(); vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+  vi.spyOn(qualityAPI, 'inspectionQuestions').mockResolvedValue({ items: [], version: 1 })
   vi.spyOn(qualityAPI, 'history').mockResolvedValue([])
   vi.spyOn(qualityAPI, 'detail').mockResolvedValue(report)
   vi.spyOn(qualityAPI, 'inspect').mockResolvedValue({ ...report, status: 'queued' })
@@ -60,18 +61,37 @@ describe('Channel inspection', () => {
     expect(wrapper.text()).not.toContain('private upstream credentials')
   })
 
-  it('loads reusable questions and submits a custom-only run with an accurate request count', async () => {
-    const questions: InspectionQuestion[] = [{ name: 'My task', prompt: 'Explain caching', match: 'contains', expected: 'cache\nhit' }]
-    const wrapper = render(questions); await flushPromises()
+  it('selects a subset, searches without losing selection, and snapshots content independently', async () => {
+    const questions: InspectionQuestion[] = [{ name: 'My task', prompt: 'Explain caching', match: 'contains', expected: 'cache\nhit' }, { name: 'Other task', prompt: '2+2?', match: 'exact', expected: '4' }]
+    const items = questions.map((q, index) => ({ ...q, id: `question-${index}` }))
+    vi.mocked(qualityAPI.inspectionQuestions).mockResolvedValue({ items, version: 1 })
+    const wrapper = render(); await flushPromises()
     for (const input of wrapper.findAll('.quality-inspection-checks input')) await input.setValue(false)
-    await wrapper.get('.quality-custom-entry input[type="checkbox"]').setValue(true)
-    const load = wrapper.findAll('.quality-custom-entry button').find(button => button.text() === en.quality.custom.loadSaved)!
-    await load.trigger('click')
+    await wrapper.get('.quality-custom-entry input[type="checkbox"]').setValue(true); await flushPromises()
+    await wrapper.findAll('.quality-library-choice input')[0]!.setValue(true)
+    await wrapper.get('.quality-library-picker input:not([type="checkbox"])').setValue('Other')
+    expect(wrapper.findAll('.quality-library-choice')).toHaveLength(1)
+    expect(wrapper.get('.quality-library-selected').text()).toContain('My task')
     expect(wrapper.text()).toContain('Up to 1 paid requests')
-    await wrapper.get('.quality-custom-question input').setValue('Edited task')
+    items[0]!.name = 'Changed in library'
     await wrapper.get('form').trigger('submit'); await flushPromises()
-    expect(qualityAPI.inspect).toHaveBeenCalledWith(target.id, { mode: 'quick', checks: ['custom'], questions: [{ ...questions[0], name: 'Edited task' }] })
-    expect(questions[0].name).toBe('My task')
+    expect(qualityAPI.inspect).toHaveBeenCalledWith(target.id, { mode: 'quick', checks: ['custom'], questions: [questions[0]] })
+  })
+
+  it('shares the eight-question limit between library selections and temporary questions', async () => {
+    vi.mocked(qualityAPI.inspectionQuestions).mockResolvedValue({ items: Array.from({length: 9}, (_, i) => ({ id: `q-${i}`, name: `Task ${i}`, prompt: 'Explain caching', match: 'manual' as const, expected: '' })), version: 1 })
+    const wrapper = render(); await flushPromises()
+    await wrapper.get('.quality-custom-entry input[type="checkbox"]').setValue(true); await flushPromises()
+    const add = wrapper.findAll('button').find(button => button.text() === en.quality.addQuestion)!
+    await add.trigger('click')
+    const inputs = wrapper.findAll('.quality-library-choice input')
+    for (const input of inputs.slice(0, 7)) await input.setValue(true)
+    expect(inputs[7]!.attributes('disabled')).toBeDefined()
+    expect(add.attributes('disabled')).toBeDefined()
+    await inputs[0]!.setValue(false)
+    expect(inputs[7]!.attributes('disabled')).toBeUndefined()
+    await wrapper.findAll('.quality-library-selected button')[0]!.trigger('click')
+    expect(wrapper.findAll('.quality-library-selected button')).toHaveLength(5)
   })
 
   it('requires question fields and caps the custom editor at eight questions', async () => {

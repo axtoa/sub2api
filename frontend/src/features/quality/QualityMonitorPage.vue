@@ -3,6 +3,7 @@
     <main class="quality-theme quality-page" data-density="compact">
       <header class="quality-header"><div><h1>{{ t('quality.title') }}<span class="quality-live-dot" /></h1><p class="quality-caption quality-subtitle">{{ t('quality.subtitle') }}</p></div><div class="quality-toolbar">
         <div class="quality-batch-controls"><select v-model="batchKind" :aria-label="t('quality.batchKind')"><option value="availability">{{ t('quality.runAvailability') }}</option><option value="quality">{{ t('quality.runQuality') }}</option><option value="cache">{{ t('quality.runCache') }}</option></select><button class="quality-button primary" :disabled="!batchTargets.length" @click="runBatch"><Icon name="play" size="sm" />{{ t('quality.batchRun') }} <span>{{ batchTargets.length }}</span></button></div>
+        <button class="quality-button" @click="bankOpen = true">{{ t('quality.library.title') }}</button>
         <button class="quality-button" @click="externalOpen = true">{{ t('quality.external.title') }}</button>
         <button class="quality-button" :disabled="!targets.length" @click="inspectionOpen = true">{{ t('quality.inspection') }}</button>
         <button class="quality-button" :disabled="syncing" @click="syncAccounts(false)"><Icon name="refresh" size="sm" />{{ t(syncing ? 'quality.syncing' : 'quality.sync') }}</button><button class="quality-button quality-icon-button" :disabled="!snapshot" :title="t('quality.settings')" :aria-label="t('quality.settings')" @click="openSettings"><Icon name="cog" size="sm" /></button>
@@ -26,12 +27,14 @@
       <p v-else-if="loading || syncing" class="quality-caption" role="status">{{ t('quality.loading') }}</p>
     </main>
 
+    <BaseDialog :show="bankOpen" :title="t('quality.library.title')" width="wide" panel-class="quality-theme" @close="bankOpen = false"><InspectionQuestionBank v-if="bankOpen" /></BaseDialog>
+
     <BaseDialog :show="externalOpen" :title="t('quality.external.title')" width="wide" panel-class="quality-theme" @close="externalOpen = false"><ExternalQualityTools v-if="externalOpen" /></BaseDialog>
 
     <BaseDialog :show="inspectionOpen" :title="t('quality.inspection')" width="wide" panel-class="quality-theme" @close="inspectionOpen = false"><ChannelInspection v-if="inspectionOpen && snapshot" :targets="targets" :settings="snapshot.settings" /></BaseDialog>
 
     <BaseDialog :show="dialog === 'settings'" :title="t('quality.settings')" width="wide" panel-class="quality-theme" @close="closeDialog">
-      <form v-if="settingsDraft && snapshot" id="quality-settings" class="quality-form" @submit.prevent="saveSettings"><label class="quality-check"><input v-model="settingsDraft.auto_enabled" type="checkbox" />{{ t('quality.autoEnabled') }}</label><p class="quality-caption">{{ t('quality.autoHint') }}</p><QualityProfileForm :model-value="settingsDraft" @update:model-value="Object.assign(settingsDraft!, $event)" /><QualityQuestionBank :model-value="settingsDraft.question_bank ?? []" @update:model-value="settingsDraft.question_bank=$event" /><InspectionQuestionEditor :model-value="settingsDraft.inspection_questions ?? []" :disabled="busy" @update:model-value="settingsDraft.inspection_questions = $event" /><h2>{{ t('quality.budget') }}</h2><div class="quality-form-grid"><label>{{ t('quality.requestLimit') }}<input v-model.number="settingsDraft.daily_requests" type="number" min="1" max="100000" step="1" required /></label><label>{{ t('quality.tokenLimit') }}<input v-model.number="settingsDraft.daily_tokens" type="number" min="1000" max="1000000000" step="1" required /></label></div><p class="quality-caption">{{ t('quality.budgetHint', { timezone: snapshot.budget.timezone }) }}</p><p>{{ t('quality.today') }} {{ number(snapshot.budget.requests) }} / {{ number(snapshot.settings.daily_requests) }} · {{ t('quality.tokens') }} {{ number(snapshot.budget.tokens) }} / {{ number(snapshot.settings.daily_tokens) }}</p><p class="quality-caption">{{ t('quality.manualUsage', { count: number(snapshot.budget.manual_requests), tokens: number(snapshot.budget.manual_tokens) }) }}</p><p v-if="snapshot.budget.unconfirmed_requests + snapshot.budget.manual_unconfirmed" class="quality-caption">{{ t('quality.reserved', { count: snapshot.budget.unconfirmed_requests + snapshot.budget.manual_unconfirmed }) }}</p><p class="quality-caption">{{ t('quality.forecast', { count: draftForecast }) }}</p><p v-if="draftForecast>settingsDraft.daily_requests" class="quality-message warning">{{ t('quality.forecastExceeds') }}</p><p class="quality-caption">{{ t('quality.referenceHint') }}</p><p v-if="dialogError" class="quality-message error" role="alert">{{ dialogError }}</p></form>
+      <form v-if="settingsDraft && snapshot" id="quality-settings" class="quality-form" @submit.prevent="saveSettings"><label class="quality-check"><input v-model="settingsDraft.auto_enabled" type="checkbox" />{{ t('quality.autoEnabled') }}</label><p class="quality-caption">{{ t('quality.autoHint') }}</p><QualityProfileForm :model-value="settingsDraft" @update:model-value="Object.assign(settingsDraft!, $event)" /><QualityQuestionBank :model-value="settingsDraft.question_bank ?? []" @update:model-value="settingsDraft.question_bank=$event" /><h2>{{ t('quality.budget') }}</h2><div class="quality-form-grid"><label>{{ t('quality.requestLimit') }}<input v-model.number="settingsDraft.daily_requests" type="number" min="1" max="100000" step="1" required /></label><label>{{ t('quality.tokenLimit') }}<input v-model.number="settingsDraft.daily_tokens" type="number" min="1000" max="1000000000" step="1" required /></label></div><p class="quality-caption">{{ t('quality.budgetHint', { timezone: snapshot.budget.timezone }) }}</p><p>{{ t('quality.today') }} {{ number(snapshot.budget.requests) }} / {{ number(snapshot.settings.daily_requests) }} · {{ t('quality.tokens') }} {{ number(snapshot.budget.tokens) }} / {{ number(snapshot.settings.daily_tokens) }}</p><p class="quality-caption">{{ t('quality.manualUsage', { count: number(snapshot.budget.manual_requests), tokens: number(snapshot.budget.manual_tokens) }) }}</p><p v-if="snapshot.budget.unconfirmed_requests + snapshot.budget.manual_unconfirmed" class="quality-caption">{{ t('quality.reserved', { count: snapshot.budget.unconfirmed_requests + snapshot.budget.manual_unconfirmed }) }}</p><p class="quality-caption">{{ t('quality.forecast', { count: draftForecast }) }}</p><p v-if="draftForecast>settingsDraft.daily_requests" class="quality-message warning">{{ t('quality.forecastExceeds') }}</p><p class="quality-caption">{{ t('quality.referenceHint') }}</p><p v-if="dialogError" class="quality-message error" role="alert">{{ dialogError }}</p></form>
       <template #footer><button class="quality-button" :disabled="busy" @click="restoreDefaults">{{ t('quality.defaults') }}</button><button class="quality-button primary" type="submit" form="quality-settings" :disabled="busy">{{ t('quality.save') }}</button></template>
     </BaseDialog>
 
@@ -66,7 +69,7 @@ import QualityAccountCard from './QualityAccountCard.vue'
 import QualityEvidence from './QualityEvidence.vue'
 import ChannelInspection from './ChannelInspection.vue'
 import ExternalQualityTools from './ExternalQualityTools.vue'
-import InspectionQuestionEditor from './InspectionQuestionEditor.vue'
+import InspectionQuestionBank from './InspectionQuestionBank.vue'
 import { attention, profileOf, qualityAPI } from './api'
 import type { CheckKind, MonitoredAccount, QualityProfile, QualityRun, QualitySettings, QualitySnapshot } from './api'
 import { firstToken, probeRate, runTone, verdictKey, isStale } from './display'
@@ -75,7 +78,7 @@ import './quality.css'
 type DetailMode = CheckKind | 'history' | 'settings'
 const { t } = useI18n()
 const snapshot = ref<QualitySnapshot | null>(null)
-const inspectionOpen = ref(false), externalOpen = ref(false)
+const inspectionOpen = ref(false), externalOpen = ref(false), bankOpen = ref(false)
 const loading = ref(false), syncing = ref(false), busy = ref(false), error = ref(''), notice = ref(''), dialogError = ref('')
 const search = ref(''), filter = ref('all'), groupID = ref('all'), groupSearch = ref(''), groupPicker = ref<HTMLDetailsElement | null>(null)
 const serverNow = computed(() => Date.parse(snapshot.value?.server_time || '') || Date.now())

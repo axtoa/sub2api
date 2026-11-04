@@ -30,6 +30,15 @@ export interface QualitySettings extends QualityProfile {
 }
 
 export interface InspectionQuestion { name: string; prompt: string; match: 'exact' | 'contains' | 'manual'; expected: string }
+export interface InspectionQuestionTemplate extends InspectionQuestion { id: string }
+export interface InspectionQuestionBank { items: InspectionQuestionTemplate[]; version: number }
+export type ExternalToolKind = 'channel' | 'benchmark' | 'ranking' | 'status' | 'pricing' | 'upstream' | 'payment' | 'email' | 'infrastructure' | 'operations' | 'marketplace' | 'creative'
+export interface ExternalTool {
+  id: string; name: string; url: string; kind: ExternalToolKind; families: Array<'gpt' | 'claude'>; description: string
+  tags?: string[]; notes?: string; usage?: 'saved' | 'trial' | 'using'; origin?: 'user' | 'curated' | 'custom'
+  review?: 'public' | 'unconfirmed'; reviewed_at?: string; reference_url?: string
+}
+export interface ExternalTools { items: ExternalTool[]; version: number }
 export type InspectionCheckID = 'protocol_stream' | 'protocol_nonstream' | 'tools' | 'structured' | 'reasoning' | 'speed' | 'cache' | 'context' | 'vision' | 'custom'
 export interface InspectionOptions { mode: 'quick' | 'full'; checks: InspectionCheckID[]; questions?: InspectionQuestion[] }
 export interface InspectionCheck { id: InspectionCheckID; verdict: 'passed' | 'failed' | 'uncompleted' | 'unsupported' | 'unknown' | 'not_observed'; reason?: string; requests: number; sample_ids: string[]; median_first_token_ms: number | null; tokens_per_second: number | null; cache_ratio: number | null }
@@ -174,6 +183,22 @@ export const qualityAPI = {
   },
   async saveSettings(settings: QualitySettings) {
     const { data } = await apiClient.put<QualitySettings>(`${base}/settings`, settings)
+    return data
+  },
+  async inspectionQuestions(signal?: AbortSignal) {
+    const { data } = await apiClient.get<InspectionQuestionBank>(`${base}/inspection-questions`, { signal })
+    return data
+  },
+  async saveInspectionQuestions(bank: InspectionQuestionBank) {
+    const { data } = await apiClient.put<InspectionQuestionBank>(`${base}/inspection-questions`, bank)
+    return data
+  },
+  async externalTools(signal?: AbortSignal) {
+    const { data } = await apiClient.get<ExternalTools>(`${base}/external-tools`, { signal })
+    return data
+  },
+  async saveExternalTools(list: ExternalTools) {
+    const { data } = await apiClient.put<ExternalTools>(`${base}/external-tools`, list)
     return data
   },
   async accounts(search = '', signal?: AbortSignal) {

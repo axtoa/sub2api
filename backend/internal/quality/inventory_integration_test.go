@@ -95,6 +95,39 @@ func TestQualityInventorySyncPreservesPreferences(t *testing.T) {
 	require.Len(t, items, 3)
 }
 
+func TestQualityInventoryFollowsLiveAccountPriority(t *testing.T) {
+	db := qualityTestDB(t)
+	s := &Store{DB: db}
+	ctx := context.Background()
+	_, err := db.Exec(`UPDATE accounts SET name='A low priority',priority=20 WHERE id=1;
+ INSERT INTO accounts(id,name,platform,type,priority) VALUES
+ (2,'Z first','openai','apikey',1),(3,'B same priority','anthropic','apikey',1);`)
+	require.NoError(t, err)
+	_, err = s.SyncAccounts(ctx, true)
+	require.NoError(t, err)
+	assertOrder := func(want []int64) {
+		t.Helper()
+		items, err := s.Inventory(ctx)
+		require.NoError(t, err)
+		ids := []int64{}
+		for _, item := range items {
+			ids = append(ids, item.ID)
+		}
+		require.Equal(t, want, ids)
+		targets, err := s.Targets(ctx)
+		require.NoError(t, err)
+		ids = nil
+		for _, target := range targets {
+			ids = append(ids, target.AccountID)
+		}
+		require.Equal(t, want, ids)
+	}
+	assertOrder([]int64{2, 3, 1}) // Same tie-break as the account management priority sort.
+	_, err = db.Exec(`UPDATE accounts SET priority=0 WHERE id=1`)
+	require.NoError(t, err)
+	assertOrder([]int64{1, 2, 3}) // No inventory resync or copied priority to go stale.
+}
+
 func TestQualityManualQueueIndependentAndBudgetExempt(t *testing.T) {
 	db := qualityTestDB(t)
 	ctx := context.Background()

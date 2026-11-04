@@ -11,14 +11,14 @@
         <label class="quality-check"><input v-model="customEnabled" type="checkbox" :disabled="submitting" />{{ t('quality.custom.enable') }}</label>
         <template v-if="customEnabled">
           <p class="quality-caption">{{ t('quality.custom.reuseHint') }}</p>
-          <button v-if="settings.inspection_questions?.length" type="button" class="quality-text-button" :disabled="submitting" @click="loadSavedQuestions">{{ t('quality.custom.loadSaved') }}</button>
-          <InspectionQuestionEditor v-model="questions" :disabled="submitting" />
+          <InspectionQuestionPicker v-model="selectedQuestions" :used="allQuestions.length" :disabled="submitting" />
+          <InspectionQuestionEditor v-model="questions" :max-questions="8 - selectedQuestions.length" :disabled="submitting" />
         </template>
       </div>
       <p class="quality-caption">{{ t('quality.inspector.cost', { count: requestCount, output: profile.max_output_tokens, prefix: profile.cache_prefix_kb }) }}</p>
       <p v-if="checks.includes('context')" class="quality-caption">{{ t('quality.inspector.contextHint', { kb: mode === 'full' ? 32 : 8 }) }}</p>
       <p class="quality-caption">{{ t('quality.inspector.billingHint') }}</p>
-      <button class="quality-button primary" :disabled="submitting || !targetID || (!checks.length && !customEnabled) || (customEnabled && !questions.length) || !!active">{{ t(submitting ? 'quality.loading' : active ? 'quality.running' : 'quality.inspector.start') }}</button>
+      <button class="quality-button primary" :disabled="submitting || !targetID || (!checks.length && !customEnabled) || (customEnabled && !allQuestions.length) || !!active">{{ t(submitting ? 'quality.loading' : active ? 'quality.running' : 'quality.inspector.start') }}</button>
     </form>
     <p v-if="error" class="quality-message error" role="alert">{{ error }}</p>
     <p v-if="active" class="quality-message" role="status">{{ t('quality.inspector.pending') }}</p>
@@ -61,7 +61,9 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import InspectionQuestionEditor from './InspectionQuestionEditor.vue'
-import { qualityAPI, type InspectionCheckID, type InspectionOptions, type InspectionQuestion, type QualityRun, type QualitySettings, type QualityTarget } from './api'
+import InspectionQuestionPicker from './InspectionQuestionPicker.vue'
+import { questionSnapshot, validInspectionQuestions } from './inspectionQuestions'
+import { qualityAPI, type InspectionCheckID, type InspectionOptions, type InspectionQuestion, type InspectionQuestionTemplate, type QualityRun, type QualitySettings, type QualityTarget } from './api'
 import { runTone, verdictKey } from './display'
 
 const props = defineProps<{ targets: QualityTarget[]; settings: QualitySettings }>()
@@ -70,16 +72,17 @@ const checkIDs: InspectionCheckID[] = ['protocol_stream', 'protocol_nonstream', 
 const mode = ref<InspectionOptions['mode']>('quick')
 const checks = ref<InspectionCheckID[]>(checkIDs.slice(0, 6))
 const customEnabled = ref(false), questions = ref<InspectionQuestion[]>([])
+const selectedQuestions = ref<InspectionQuestionTemplate[]>([])
+const allQuestions = computed(() => [...selectedQuestions.value, ...questions.value].map(questionSnapshot))
 const targetID = ref(props.targets[0]?.id || '')
 const reports = ref<QualityRun[]>([]), run = ref<QualityRun | null>(null)
 const submitting = ref(false), loading = ref(false), error = ref('')
 const profile = computed(() => props.targets.find(target => target.id === targetID.value)?.overrides ?? props.settings)
 const reportTarget = computed(() => props.targets.find(target => target.id === run.value?.target_id))
 const active = computed(() => reports.value.find(report => report.status !== 'finished'))
-const requestCount = computed(() => checks.value.reduce((sum, id) => sum + (id === 'tools' ? 2 : id === 'cache' ? 3 : id === 'reasoning' ? mode.value === 'full' ? 4 : 2 : id === 'speed' ? mode.value === 'full' ? 5 : 2 : 1), 0) + (customEnabled.value ? questions.value.length : 0))
+const requestCount = computed(() => checks.value.reduce((sum, id) => sum + (id === 'tools' ? 2 : id === 'cache' ? 3 : id === 'reasoning' ? mode.value === 'full' ? 4 : 2 : id === 'speed' ? mode.value === 'full' ? 5 : 2 : 1), 0) + (customEnabled.value ? allQuestions.value.length : 0))
 let timer: ReturnType<typeof setTimeout> | undefined, disposed = false, revision = 0, controller: AbortController | undefined
 function choosePreset() { checks.value = mode.value === 'full' ? [...checkIDs] : checkIDs.slice(0, 6) }
-function loadSavedQuestions() { questions.value = (props.settings.inspection_questions ?? []).map(question => ({ ...question })) }
 function date(value: string) { return new Date(value).toLocaleString() }
 function reason(code: string) { return code === 'native_protocol' ? t('quality.inspector.nativeProtocol') : te(`quality.reasons.${code}`) ? t(`quality.reasons.${code}`) : t('quality.unknown') }
 function samples(id: InspectionCheckID) { return run.value?.result?.items?.filter(item => item.check_id === id) ?? [] }
@@ -102,12 +105,12 @@ async function refreshReports(preferred?: string) {
 async function selectReport(id: string) { await refreshReports(id) }
 async function start() {
   if (submitting.value || active.value || !targetID.value || (!checks.value.length && !customEnabled.value)) return
-  if (customEnabled.value && (!questions.value.length || questions.value.some(q => !q.name.trim() || !q.prompt.trim() || (q.match !== 'manual' && !q.expected.trim())))) { error.value = t('quality.custom.invalid'); return }
+  if (customEnabled.value && !validInspectionQuestions(allQuestions.value)) { error.value = t('quality.custom.invalid'); return }
   submitting.value = true; error.value = ''
   const id = targetID.value
   try {
     const options: InspectionOptions = { mode: mode.value, checks: [...checks.value] }
-    if (customEnabled.value) { options.checks.push('custom'); options.questions = questions.value.map(q => ({ ...q })) }
+    if (customEnabled.value) { options.checks.push('custom'); options.questions = allQuestions.value.map(questionSnapshot) }
     const job = await qualityAPI.inspect(id, options)
     if (disposed || targetID.value !== id) return
     reports.value.unshift(job); run.value = job; await refreshReports(job.id)

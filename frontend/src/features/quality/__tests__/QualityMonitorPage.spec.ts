@@ -5,7 +5,7 @@ import QualityMonitorPage from '../QualityMonitorPage.vue'
 import { attention, profileOf, qualityAPI } from '../api'
 import type { QualityProfile } from '../api'
 import { cachePercent, probeRate, probeSlots } from '../display'
-import { account, run, settings, snapshot, target } from './fixtures'
+import { account, run, settings, snapshot, target, externalTools } from './fixtures'
 import en from '@/i18n/locales/en/quality'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key:string, params:Record<string,unknown>={}) => { const value=key.split('.').reduce<unknown>((v,p)=>v && typeof v==='object' ? (v as Record<string,unknown>)[p] : undefined,en);return typeof value==='string' ? value.replace(/\{(\w+)\}/g,(_,name)=>String(params[name] ?? `{${name}}`)) : key },te:(key:string)=>typeof key.split('.').reduce<unknown>((v,p)=>v && typeof v==='object' ? (v as Record<string,unknown>)[p] : undefined,en)==='string' }) }))
@@ -18,6 +18,9 @@ function render(){const wrapper=mount(QualityMonitorPage);wrappers.push(wrapper)
 function buttonByText(wrapper:ReturnType<typeof mount>,label:string){const button=wrapper.findAll('button').find(b=>b.text()===label);expect(button,label).toBeDefined();return button!}
 beforeEach(()=>{
   vi.useFakeTimers();localStorage.clear();vi.spyOn(document,'hidden','get').mockReturnValue(false)
+  vi.spyOn(qualityAPI,'externalTools').mockResolvedValue(structuredClone(externalTools))
+  vi.spyOn(qualityAPI,'inspectionQuestions').mockResolvedValue({items:[],version:1})
+  vi.spyOn(qualityAPI,'saveInspectionQuestions').mockImplementation(async bank=>({...bank,version:bank.version+1}))
   vi.spyOn(qualityAPI,'sync').mockResolvedValue({created:0})
   vi.spyOn(qualityAPI,'snapshot').mockResolvedValue(structuredClone(snapshot))
   vi.spyOn(qualityAPI,'statuses').mockResolvedValue([])
@@ -70,23 +73,52 @@ describe('Quality account monitor',()=>{
     await buttonByText(wrapper,en.quality.defaults).trigger('click');await wrapper.get('#quality-settings').trigger('submit');await flushPromises()
     expect(qualityAPI.saveSettings).toHaveBeenCalledWith(expect.objectContaining({version:7,daily_requests:1000,cache_enabled:false}))
   })
-  it('saves reusable open questions without mutating active settings or starting a test',async()=>{
-    const saved={name:'Support task',prompt:'Explain a failed payment.',match:'manual' as const,expected:'Review clarity'}
-    const current={...structuredClone(snapshot),settings:{...settings,inspection_questions:[saved]}}
-    vi.mocked(qualityAPI.snapshot).mockResolvedValue(current)
+  it('edits, creates and deletes saved questions without changing monitoring settings or running checks',async()=>{
+    const saved={id:'q1',name:'Support task',prompt:'Explain a failed payment.',match:'manual' as const,expected:'Review clarity'}
+    vi.mocked(qualityAPI.inspectionQuestions).mockResolvedValue({items:[saved],version:3})
     const wrapper=render();await flushPromises()
-    await wrapper.get(`button[aria-label="${en.quality.settings}"]`).trigger('click')
+    await buttonByText(wrapper,en.quality.library.title).trigger('click');await flushPromises()
+    await buttonByText(wrapper,en.quality.library.edit).trigger('click')
     await wrapper.get('.quality-custom-question input').setValue('Edited support task')
-    expect(current.settings.inspection_questions[0]!.name).toBe('Support task')
-    await wrapper.get('#quality-settings').trigger('submit');await flushPromises()
-    expect(qualityAPI.saveSettings).toHaveBeenCalledWith(expect.objectContaining({version:7,inspection_questions:[{...saved,name:'Edited support task'}]}))
+    expect(saved.name).toBe('Support task')
+    await wrapper.get('.quality-library-editor').trigger('submit');await flushPromises()
+    expect(qualityAPI.saveInspectionQuestions).toHaveBeenLastCalledWith({version:3,items:[{...saved,name:'Edited support task'}]})
+    await buttonByText(wrapper,en.quality.addQuestion).trigger('click')
+    await wrapper.get('.quality-custom-question input').setValue('New task')
+    await wrapper.get('.quality-custom-question textarea').setValue('Explain routing')
+    await wrapper.get('.quality-library-editor').trigger('submit');await flushPromises()
+    expect(vi.mocked(qualityAPI.saveInspectionQuestions).mock.calls.at(-1)![0].items).toHaveLength(2)
+    await wrapper.findAll('.quality-library-item button')[1]!.trigger('click');await flushPromises()
+    expect(qualityAPI.saveInspectionQuestions).toHaveBeenLastCalledWith(expect.objectContaining({version:5,items:[expect.objectContaining({name:'New task'})]}))
+    expect(qualityAPI.saveSettings).not.toHaveBeenCalled()
+    expect(qualityAPI.run).not.toHaveBeenCalled()
+  })
+  it('retains the draft after a library conflict and supports reloading current content',async()=>{
+    vi.mocked(qualityAPI.saveInspectionQuestions).mockRejectedValue(new Error('private conflict detail'))
+    const wrapper=render();await flushPromises()
+    await buttonByText(wrapper,en.quality.library.title).trigger('click');await flushPromises()
+    await buttonByText(wrapper,en.quality.addQuestion).trigger('click')
+    await wrapper.get('.quality-custom-question input').setValue('Unsaved task')
+    await wrapper.get('.quality-custom-question textarea').setValue('Explain caching')
+    await wrapper.get('.quality-library-editor').trigger('submit');await flushPromises()
+    expect(wrapper.get('[role="dialog"] [role="alert"]').text()).toBe(en.quality.library.saveError)
+    expect((wrapper.get('.quality-custom-question input').element as HTMLInputElement).value).toBe('Unsaved task')
+    await buttonByText(wrapper,en.quality.library.reload).trigger('click');await flushPromises()
+    expect(wrapper.find('.quality-library-editor').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('private conflict detail')
+  })
+  it('opens the question bank even without monitoring targets',async()=>{
+    vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),accounts:[],targets:[]})
+    const wrapper=render();await flushPromises()
+    await buttonByText(wrapper,en.quality.library.title).trigger('click');await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain(en.quality.library.empty)
     expect(qualityAPI.run).not.toHaveBeenCalled()
   })
   it('opens external tools even before monitoring targets exist',async()=>{
     vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),accounts:[],targets:[]})
     const wrapper=render();await flushPromises()
-    await buttonByText(wrapper,en.quality.external.title).trigger('click')
-    expect(wrapper.get('[role="dialog"]').findAll('a[target="_blank"]')).toHaveLength(5)
+    await buttonByText(wrapper,en.quality.external.title).trigger('click');await flushPromises()
+    expect(wrapper.get('[role="dialog"]').findAll('a[target="_blank"]')).toHaveLength(12)
     expect(qualityAPI.run).not.toHaveBeenCalled()
   })
   it('shows exact question, reference, raw answer and local explanation in the drawer',async()=>{

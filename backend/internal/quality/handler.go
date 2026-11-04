@@ -47,7 +47,11 @@ func respondError(c *gin.Context, err error) bool {
 }
 
 func bind(c *gin.Context, dst any) bool {
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 64<<10)
+	return bindLimit(c, dst, 64<<10)
+}
+
+func bindLimit(c *gin.Context, dst any, limit int64) bool {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limit)
 	d := json.NewDecoder(c.Request.Body)
 	d.DisallowUnknownFields()
 	if err := d.Decode(dst); err != nil {
@@ -186,7 +190,7 @@ func (h *Handler) Accounts(c *gin.Context) {
 	}
 	rows, err := h.Runner.Store.DB.QueryContext(c.Request.Context(), `SELECT id,name,platform,status FROM accounts
  WHERE deleted_at IS NULL AND platform IN ('openai','anthropic') AND (type IN ('oauth','apikey') OR (platform='anthropic' AND type='setup-token'))
- AND ($1='' OR name ILIKE '%'||$1||'%') ORDER BY name,id LIMIT 200`, search)
+ AND ($1='' OR name ILIKE '%'||$1||'%') ORDER BY priority ASC,id ASC LIMIT 200`, search)
 	if respondError(c, err) {
 		return
 	}

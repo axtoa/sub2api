@@ -48,6 +48,8 @@ func TestShopAndExistingPanelRoutesUseRealAuthentication(t *testing.T) {
 	RegisterAdminRoutes(router.Group("/api/v1"), handlers, middleware.NewAdminAuthMiddleware(auth, users, nil, nil), audit, stepUp, nil, nil)
 
 	adminRoutes := []struct{ method, path string }{
+		{"GET", "/api/v1/admin/quality-monitor/external-tools"}, {"PUT", "/api/v1/admin/quality-monitor/external-tools"},
+		{"GET", "/api/v1/admin/quality-monitor/inspection-questions"}, {"PUT", "/api/v1/admin/quality-monitor/inspection-questions"},
 		{"GET", "/api/v1/admin/upstream-balances"}, {"POST", "/api/v1/admin/upstream-balances"},
 		{"GET", "/api/v1/admin/upstream-balances/accounts"}, {"PUT", "/api/v1/admin/upstream-balances/wallet"},
 		{"POST", "/api/v1/admin/upstream-balances/wallet/query"}, {"POST", "/api/v1/admin/upstream-balances/wallet/calibrate"},
