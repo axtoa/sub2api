@@ -29,10 +29,10 @@ func TestListHandlerPassesSortAndPagination(t *testing.T) {
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(rc.value\\), 0\\)::text").WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users", "today", "ignored"}).AddRow("0", 0, 0, "0", 0))
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\), COALESCE").
-		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(0, "0"))
-	mock.ExpectQuery(`ORDER BY i.total_calls ASC NULLS LAST, i.id DESC LIMIT \$7 OFFSET \$8`).
-		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 10, 10, sqlmock.AnyArg()).
+	mock.ExpectQuery(`ORDER BY i.total_calls ASC NULLS LAST, i.id DESC LIMIT \$5 OFFSET \$6`).
+		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 10, 10).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}))
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)

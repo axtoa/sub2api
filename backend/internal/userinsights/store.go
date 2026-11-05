@@ -152,7 +152,7 @@ func redemptionCTE(fromArg, toArg int) string {
 )`
 }
 
-func filteredUsersSQL(segment string) string {
+func filteredUsersSQL(segment string, inactiveSinceArg int) string {
 	where := `u.deleted_at IS NULL AND ` + ignoredUsers + ` AND EXISTS (
         SELECT 1 FROM usage_logs used WHERE used.user_id = u.id
     ) AND
@@ -164,9 +164,9 @@ func filteredUsersSQL(segment string) string {
 	case "repeat":
 		where += " AND r.redeem_count >= 2"
 	case "inactive30":
-		where += ` AND r.redeem_count > 0 AND NOT EXISTS (
+		where += ` AND NOT EXISTS (
             SELECT 1 FROM usage_logs ul WHERE ul.user_id = u.id
-            AND ul.created_at >= $2
+            AND ul.created_at >= $` + fmt.Sprint(inactiveSinceArg) + `
         )`
 	}
 	return ` FROM users u LEFT JOIN redemption r ON r.user_id = u.id WHERE ` + where
@@ -198,27 +198,38 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 		Scan(&result.Summary.Amount, &result.Summary.Codes, &result.Summary.Users, &result.Summary.TodayAmount, &result.IgnoredCount); err != nil {
 		return nil, fmt.Errorf("summary: %w", err)
 	}
-	args := []any{strings.TrimSpace(f.Search), f.TodayFrom.AddDate(0, 0, -30), f.From, f.To, f.TodayFrom, f.TodayTo}
-	baseArgs := []any{args[0], args[1], args[2], args[3]}
+	search := strings.TrimSpace(f.Search)
+	baseArgs := []any{search, f.From, f.To}
+	baseFromArg, baseToArg := 2, 3
+	baseInactiveArg := 0
 	if f.Segment == "inactive30" {
-		baseArgs[1] = time.Now().UTC().AddDate(0, 0, -30)
+		baseArgs = append(baseArgs, time.Now().UTC().AddDate(0, 0, -30))
+		baseInactiveArg = 4
 	}
-	base := redemptionCTE(3, 4) + ` SELECT COUNT(*), COALESCE(SUM(r.redeemed_amount), 0)::text` + filteredUsersSQL(f.Segment)
+	base := redemptionCTE(baseFromArg, baseToArg) + ` SELECT COUNT(*), COALESCE(SUM(r.redeemed_amount), 0)::text` + filteredUsersSQL(f.Segment, baseInactiveArg)
 	if err := s.db.QueryRowContext(ctx, base, baseArgs...).Scan(&result.Total, &result.FilteredAmount); err != nil {
 		return nil, fmt.Errorf("filtered summary: %w", err)
 	}
+	args := []any{search, f.From, f.To}
+	fromArg, toArg := 2, 3
+	inactiveSinceArg := 0
+	if f.Segment == "inactive30" {
+		args = append(args, time.Now().UTC().AddDate(0, 0, -30))
+		inactiveSinceArg = len(args)
+	}
+	usageSinceArg := len(args) + 1
+	args = append(args, time.Now().UTC().AddDate(0, 0, -30))
 	limitArg := len(args) + 1
 	offsetArg := len(args) + 2
-	sinceArg := len(args) + 3
-	query := redemptionCTE(3, 4) + `, candidates AS (
+	query := redemptionCTE(fromArg, toArg) + `, candidates AS (
         SELECT u.id, u.email, u.username, u.notes, u.status, u.balance,
                COALESCE(r.redeemed_amount, 0) AS redeemed_amount,
                COALESCE(r.redeem_count, 0) AS redeem_count, r.last_redeemed_at
-        ` + filteredUsersSQL(f.Segment) + `
+        ` + filteredUsersSQL(f.Segment, inactiveSinceArg) + `
     ), usage_stats AS (
         SELECT ul.user_id,
-               COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $` + fmt.Sprint(sinceArg) + `), 0) AS usage_30d,
-               COUNT(*) FILTER (WHERE ul.created_at >= $` + fmt.Sprint(sinceArg) + `) AS calls_30d,
+               COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.created_at >= $` + fmt.Sprint(usageSinceArg) + `), 0) AS usage_30d,
+               COUNT(*) FILTER (WHERE ul.created_at >= $` + fmt.Sprint(usageSinceArg) + `) AS calls_30d,
                COUNT(*) AS total_calls, MAX(ul.created_at) AS last_used_at
         FROM usage_logs ul JOIN candidates p ON p.id = ul.user_id
         GROUP BY ul.user_id
@@ -232,7 +243,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
            i.usage_30d::text, i.calls_30d, i.total_calls, i.last_used_at
     FROM insights i ORDER BY ` + f.orderBySQL() + `
     LIMIT $` + fmt.Sprint(limitArg) + ` OFFSET $` + fmt.Sprint(offsetArg)
-	args = append(args, f.Size, (f.Page-1)*f.Size, time.Now().UTC().AddDate(0, 0, -30))
+	args = append(args, f.Size, (f.Page-1)*f.Size)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)

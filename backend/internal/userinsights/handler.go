@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -57,6 +58,7 @@ func (h *Handler) List(c *gin.Context) {
 	defer cancel()
 	result, err := h.Store.List(ctx, f)
 	if err != nil {
+		slog.Error("user_insights_list_failed", "request_id", c.GetHeader("X-Request-Id"), "error", err)
 		response.InternalError(c, "User insights unavailable")
 		return
 	}
@@ -79,6 +81,7 @@ func (h *Handler) Ignored(c *gin.Context) {
 	defer cancel()
 	items, err := h.Store.Ignored(ctx)
 	if err != nil {
+		slog.Error("user_insights_ignored_list_failed", "request_id", c.GetHeader("X-Request-Id"), "error", err)
 		response.InternalError(c, "User insights unavailable")
 		return
 	}
@@ -95,6 +98,7 @@ func (h *Handler) Candidates(c *gin.Context) {
 	defer cancel()
 	items, err := h.Store.Candidates(ctx, CandidateFilter{Search: search, Limit: 100})
 	if err != nil {
+		slog.Error("user_insights_candidates_failed", "request_id", c.GetHeader("X-Request-Id"), "error", err)
 		response.InternalError(c, "User insights unavailable")
 		return
 	}
@@ -116,6 +120,7 @@ func (h *Handler) SaveIgnored(c *gin.Context) {
 			response.BadRequest(c, err.Error())
 			return
 		}
+		slog.Error("user_insights_ignored_save_failed", "request_id", c.GetHeader("X-Request-Id"), "user_count", len(request.UserIDs), "error", err)
 		response.InternalError(c, "User insights unavailable")
 		return
 	}
@@ -136,6 +141,7 @@ func (h *Handler) Detail(c *gin.Context) {
 		return
 	}
 	if err != nil {
+		slog.Error("user_insights_detail_failed", "request_id", c.GetHeader("X-Request-Id"), "user_id", id, "error", err)
 		response.InternalError(c, "User insights unavailable")
 		return
 	}

@@ -55,9 +55,9 @@ func TestListIncludesUsersWithRedemptionsInSelectedPeriod(t *testing.T) {
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(rc.value\\), 0\\)::text").WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users", "today", "ignored"}).AddRow("0", 0, 0, "0", 0))
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\), COALESCE\\(SUM\\(r.redeemed_amount\\), 0\\)::text.*r.redeem_count > 0").
-		WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(1, "0"))
-	mock.ExpectQuery("WITH redemption AS").WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0, sqlmock.AnyArg()).
+	mock.ExpectQuery(`LIMIT \$5 OFFSET \$6`).WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}).
 			AddRow(7, "alice@example.com", "Alice", "priority account", "active", "0", "20.00", 1, time.Now(), "0", 0, 1, time.Now().AddDate(0, 0, -40)))
 
@@ -82,11 +82,11 @@ func TestListSeparatesGlobalAndFilteredTotals(t *testing.T) {
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(rc.value\\), 0\\)::text").WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"amount", "codes", "users", "today", "ignored"}).AddRow("100.00", 4, 3, "12.00", 0))
 	mock.ExpectQuery("SELECT COUNT\\(\\*\\), COALESCE\\(SUM\\(r.redeemed_amount\\), 0\\)::text").
-		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(1, "30.00"))
 	usedAt := time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
-	mock.ExpectQuery("WITH redemption AS").
-		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0, sqlmock.AnyArg()).
+	mock.ExpectQuery(`LIMIT \$5 OFFSET \$6`).
+		WithArgs("alice", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}).
 			AddRow(7, "alice@example.com", "Alice", "prefers email", "active", "5.00", "30.00", 2, usedAt, "25.00", 3, 9, usedAt))
 	result, err := NewStore(db).List(context.Background(), Filter{Page: 1, Size: 20, Segment: "repeat", Search: "alice"})
@@ -112,8 +112,8 @@ func TestListInactiveSegmentUsesThirtyDayCutoff(t *testing.T) {
 	mock.ExpectQuery("NOT EXISTS").
 		WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"count", "amount"}).AddRow(0, "0"))
-	mock.ExpectQuery("WITH redemption AS").
-		WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0, sqlmock.AnyArg()).
+	mock.ExpectQuery(`LIMIT \$6 OFFSET \$7`).
+		WithArgs("", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), 20, 0).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "notes", "status", "balance", "redeemed", "count", "last_redeemed", "usage", "calls", "total_calls", "last_used"}))
 	result, err := NewStore(db).List(context.Background(), Filter{Page: 1, Size: 20, Segment: "inactive30"})
 	require.NoError(t, err)
