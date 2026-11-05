@@ -1,11 +1,12 @@
 <template>
   <AppLayout>
     <main class="quality-theme quality-page" data-density="compact">
-      <header class="quality-header"><div><h1>{{ t('quality.title') }}<span class="quality-live-dot" /></h1><p class="quality-caption quality-subtitle">{{ t('quality.subtitle') }}</p></div><div class="quality-toolbar">
-        <div class="quality-batch-controls"><select v-model="batchKind" :aria-label="t('quality.batchKind')"><option value="availability">{{ t('quality.runAvailability') }}</option><option value="quality">{{ t('quality.runQuality') }}</option><option value="cache">{{ t('quality.runCache') }}</option></select><button class="quality-button primary" :disabled="!batchTargets.length" @click="runBatch"><Icon name="play" size="sm" />{{ t('quality.batchRun') }} <span>{{ batchTargets.length }}</span></button></div>
+      <header class="quality-header"><div><h1>{{ t('quality.title') }}<span class="quality-live-dot" /></h1></div><div class="quality-toolbar">
+        <div v-if="!assessmentView" class="quality-batch-controls"><select v-model="batchKind" :aria-label="t('quality.batchKind')"><option value="availability">{{ t('quality.runAvailability') }}</option><option value="quality">{{ t('quality.runQuality') }}</option><option value="cache">{{ t('quality.runCache') }}</option></select><button class="quality-button primary" :disabled="!batchTargets.length" @click="runBatch"><Icon name="play" size="sm" />{{ t('quality.batchRun') }} <span>{{ batchTargets.length }}</span></button></div>
         <button class="quality-button" @click="bankOpen = true">{{ t('quality.library.title') }}</button>
         <button class="quality-button" @click="externalOpen = true">{{ t('quality.external.title') }}</button>
         <button class="quality-button" :disabled="!targets.length" @click="inspectionOpen = true">{{ t('quality.inspection') }}</button>
+        <button class="quality-button" :disabled="!snapshot" :aria-pressed="assessmentView" @click="assessmentView ? showAccounts() : showAssessment()">{{ t(assessmentView ? 'quality.accountTotal' : 'quality.assurance.title') }}</button>
         <button class="quality-button" :disabled="syncing" @click="syncAccounts(false)"><Icon name="refresh" size="sm" />{{ t(syncing ? 'quality.syncing' : 'quality.sync') }}</button><button class="quality-button quality-icon-button" :disabled="!snapshot" :title="t('quality.settings')" :aria-label="t('quality.settings')" @click="openSettings"><Icon name="cog" size="sm" /></button>
       </div></header>
       <p v-if="error" class="quality-message error" role="alert">{{ error }}</p>
@@ -15,15 +16,17 @@
         <p v-if="!snapshot.settings.auto_enabled" class="quality-caption">{{ t('quality.automaticOff') }}</p>
         <p v-if="snapshot.budget.limited" class="quality-message warning">{{ t('quality.budgetLimited') }}</p>
         <div v-if="batchJobs.length" class="quality-batch-progress" role="status" aria-live="polite"><div><strong>{{ t('quality.batchProgress', {done:batchFinished,total:batchJobs.length}) }}</strong><span class="quality-caption">{{ t('quality.batchWaiting',{count:batchJobs.filter(j=>j.status!=='finished').length}) }}</span><button class="quality-text-button" @click="batchJobs=[]">{{ t('quality.hideProgress') }}</button></div><progress :value="batchFinished" :max="batchJobs.length" /><p v-if="batchFailed" class="quality-caption">{{ t('quality.batchFailures',{count:batchFailed}) }}</p></div>
-        <QualityAssurance :targets="targets" :accounts="accounts" />
+        <div v-show="assessmentView" class="quality-assessment-view"><QualityAssurance ref="assurancePanel" :targets="targets" :accounts="accounts" standalone live-scores @scores="setScores" /></div>
+        <template v-if="!assessmentView">
         <div class="quality-filters">
           <details ref="groupPicker" class="quality-group-picker"><summary>{{ selectedGroupName }}<Icon name="chevronDown" size="sm" /></summary><div class="quality-group-popover"><input v-model="groupSearch" :placeholder="t('quality.searchGroups')" :aria-label="t('quality.searchGroups')" /><div class="quality-group-options"><button v-for="group in visibleGroups" :key="group.id" :aria-pressed="groupID === group.id" @click="chooseGroup(group.id)"><span>{{ group.name }}</span><span>{{ groupCount(group.id) }}</span></button><p v-if="!visibleGroups.length" class="quality-caption">{{ t('quality.noMatches') }}</p></div></div></details>
           <input v-model="search" :placeholder="t('quality.search')" :aria-label="t('quality.search')" />
           <select v-model="filter" :aria-label="t('quality.allStatuses')"><option value="all">{{ t('quality.allStatuses') }}</option><option value="attention">{{ t('quality.onlyAttention') }}</option><option value="paused">{{ t('quality.paused') }}</option><option value="new">{{ t('quality.never') }}</option><option value="unsupported">{{ t('quality.unsupportedShort') }}</option></select>
         </div>
         <div class="quality-filter-result quality-caption"><span>{{ t('quality.showingAccounts', { count: visible.length, total: accounts.length }) }}</span><button class="quality-text-button" :disabled="loading" :title="t('quality.refreshResults')" :aria-label="t('quality.refreshResults')" @click="refresh"><Icon name="refresh" size="sm" /></button></div>
-        <div class="quality-account-grid"><QualityAccountCard v-for="account in visible" :key="account.id" :account="account" :targets="accountTargets(account.id)" :target="selectedTarget(account.id)" :saving="savingAccounts.has(account.id)" :settings="snapshot.settings" :now="serverNow" @toggle="toggleAccount(account, $event)" @model="selectedModels[account.id] = $event" @view="(mode, id) => openAccount(account, mode, id)" @run="runAccount(account, $event)" /><p v-if="!visible.length" class="quality-empty">{{ t(accounts.length ? 'quality.noMatches' : 'quality.emptyDescription') }}</p></div>
+        <div class="quality-account-grid"><QualityAccountCard v-for="account in visible" :key="account.id" :account="account" :targets="accountTargets(account.id)" :target="selectedTarget(account.id)" :assessment="assessmentFor(account.id)" :assessment-context="qualityScoreContext" :saving="savingAccounts.has(account.id)" :settings="snapshot.settings" :now="serverNow" @toggle="toggleAccount(account, $event)" @model="selectedModels[account.id] = $event" @view="(mode, id) => openAccount(account, mode, id)" @assessment="showAssessment" @run="runAccount(account, $event)" /><p v-if="!visible.length" class="quality-empty">{{ t(accounts.length ? 'quality.noMatches' : 'quality.emptyDescription') }}</p></div>
         <div class="quality-legend quality-caption"><span><i class="good" />{{ t('quality.passedShort') }}</span><span><i class="bad" />{{ t('quality.unavailable') }}</span><span><i class="warn" />{{ t('quality.incompleteShort') }}</span><span><i />{{ t('quality.noData') }}</span></div>
+        </template>
       </template>
       <p v-else-if="loading || syncing" class="quality-caption" role="status">{{ t('quality.loading') }}</p>
     </main>
@@ -41,7 +44,7 @@
 
     <BaseDialog :show="dialog === 'account'" :title="drawerAccount?.name || t('quality.details')" panel-class="quality-theme quality-detail-drawer" :close-on-click-outside="true" @close="closeDialog">
       <template v-if="drawerAccount"><p class="quality-caption">{{ drawerAccount.platform }} · {{ drawerTarget?.model || t('quality.reasons.unsupported') }}</p><select v-if="accountTargets(drawerAccount.id).length > 1" :value="drawerTarget?.id" :aria-label="t('quality.model')" class="quality-drawer-model" @change="changeDrawerModel(($event.target as HTMLSelectElement).value)"><option v-for="target in accountTargets(drawerAccount.id)" :key="target.id" :value="target.id">{{ target.model }}</option></select>
-        <nav class="quality-detail-tabs" :aria-label="t('quality.details')"><button v-for="tab in detailTabs" :key="tab" class="quality-button" :aria-pressed="detailMode === tab" @click="setDetailMode(tab)">{{ t(`quality.${tab === 'settings' ? 'edit' : tab}`) }}</button></nav>
+        <nav class="quality-detail-tabs" :aria-label="t('quality.details')"><button v-for="tab in detailTabs" :key="tab" class="quality-button" :aria-pressed="detailMode === tab" @click="setDetailMode(tab)">{{ t(`quality.${tab === 'settings' ? 'edit' : tab}`) }}</button><button v-if="drawerTarget" class="quality-button" @click="showAssessment(drawerTarget.id)">{{ t('quality.assurance.title') }}</button></nav>
         <p v-if="dialogError" class="quality-message error" role="alert">{{ dialogError }}</p>
         <template v-if="detailMode === 'settings'">
           <form v-if="drawerTarget && targetProfile" id="quality-target" class="quality-form" @submit.prevent="saveTarget"><label class="quality-check"><input v-model="targetEnabled" type="checkbox" />{{ t('quality.enabled') }}</label><label class="quality-check"><input v-model="inherit" type="checkbox" />{{ t('quality.inheritToggle') }}</label><p class="quality-caption">{{ t('quality.overridesHint') }}</p><QualityProfileForm v-if="!inherit" v-model="targetProfile" :advanced-open="true" /><button class="quality-button primary" :disabled="busy">{{ t('quality.save') }}</button></form>
@@ -59,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -73,7 +76,7 @@ import QualityAssurance from './QualityAssurance.vue'
 import ExternalQualityTools from './ExternalQualityTools.vue'
 import InspectionQuestionBank from './InspectionQuestionBank.vue'
 import { attention, profileOf, qualityAPI } from './api'
-import type { CheckKind, MonitoredAccount, QualityProfile, QualityRun, QualitySettings, QualitySnapshot } from './api'
+import type { CheckKind, MonitoredAccount, QualityProfile, QualityRun, QualityScore, QualitySettings, QualitySnapshot, ScorePolicy } from './api'
 import { firstToken, probeRate, runTone, verdictKey, isStale } from './display'
 import './quality.css'
 
@@ -90,6 +93,9 @@ const batchFinished = computed(() => batchJobs.value.filter(j=>j.status==='finis
 const batchFailed = computed(() => batchJobs.value.filter(j=>j.status==='finished' && !['passed','cache_hit'].includes(j.verdict)).length)
 const draftForecast = computed(() => { const cfg=settingsDraft.value; if(!cfg?.auto_enabled)return 0; return targets.value.filter(t=>t.enabled && t.account_enabled).reduce((sum,target)=>{ const p=target.overrides??cfg; return sum+(p.availability_enabled?Math.ceil(1440/Math.max(1,p.availability_interval_minutes)):0)+(p.quality_enabled?Math.ceil(1440/Math.max(5,p.quality_interval_minutes))*p.questions:0)+(p.cache_enabled?Math.ceil(1440/Math.max(5,p.cache_interval_minutes))*3:0) },0) })
 const selectedModels = ref<Record<number,string>>({}), savingAccounts = ref(new Set<number>())
+const qualityScores = ref<QualityScore[]>([]), assurancePanel = ref<{openScore:(id?:string)=>void}|null>(null)
+const qualityScoreContext = ref('')
+const assessmentView = ref(false)
 const targets = computed(() => snapshot.value?.targets ?? []), accounts = computed(() => snapshot.value?.accounts ?? [])
 const byAccount = computed(() => { const map = new Map<number, typeof targets.value>(); for (const target of targets.value) { const items = map.get(target.account_id) ?? []; items.push(target); map.set(target.account_id, items) } return map })
 const groups = computed(() => [{ id:'all', name:t('quality.allGroups') }, ...[...new Map(accounts.value.flatMap(a=>a.groups).map(g=>[g.id,g])).values()].sort((a,b)=>a.name.localeCompare(b.name)).map(g=>({id:String(g.id),name:g.name})), { id:'none',name:t('quality.ungrouped') }])
@@ -108,6 +114,11 @@ function number(n: number) { return new Intl.NumberFormat().format(n) }
 function date(value?: string | null) { return value ? new Date(value).toLocaleString() : '—' }
 function accountTargets(id: number) { return byAccount.value.get(id) ?? [] }
 function selectedTarget(id: number) { const items=accountTargets(id); return items.find(x=>x.id===selectedModels.value[id]) ?? items.find(x=>x.enabled) ?? items[0] ?? null }
+function assessmentFor(id: number) { const target=selectedTarget(id); return target ? qualityScores.value.find(row=>row.target_id===target.id) ?? null : null }
+function setScores(items: QualityScore[], context: { scenario: ScorePolicy['scenario']; days: number }) { qualityScores.value = items; qualityScoreContext.value = `${t(`quality.assurance.scenarios.${context.scenario}`)} · ${t('quality.assurance.days', { n: context.days })}` }
+function scrollToTop() { void nextTick(() => document.querySelector<HTMLElement>('.quality-header')?.scrollIntoView?.({ block: 'start' })) }
+function showAccounts() { assessmentView.value = false; scrollToTop() }
+function showAssessment(id?: string) { closeDialog(); assessmentView.value = true; scrollToTop(); assurancePanel.value?.openScore(id) }
 function accountAttention(account: MonitoredAccount) { return accountTargets(account.id).some(target=>attention(target) || !!snapshot.value && isStale(target,snapshot.value.settings,serverNow.value)) }
 function inGroup(account: MonitoredAccount, id: string) { return id==='all' || (id==='none' ? !account.groups.length : account.groups.some(g=>String(g.id)===id)) }
 function groupCount(id: string) { return accounts.value.filter(a=>inGroup(a,id)).length }

@@ -1,7 +1,11 @@
 export default {
   quality: {
     assurance: {
-      "title": "Upstream quality assessment",
+      rowHint: 'Open evidence, coverage and issues for this model and use case. The score is not a fixed account ranking.',
+      "title": "Quality assessment",
+      "awaiting": "Pending",
+      "scoreShort": "Score",
+      "statesShort": { "strong": "Strong", "usable": "Usable", "weak": "Weak", "blocked": "Blocked", "review": "Review", "insufficient": "Pending", "stale": "Stale" },
       "intro": "Compare active and scheduled probes by model, use case and evidence. Live-traffic observations remain in the account cards below.",
       "collapse": "Collapse assessment",
       "expand": "Expand assessment",
@@ -60,6 +64,9 @@ export default {
       },
       "samples": "{n} samples",
       "coverage": "{n}% evidence coverage",
+      "coverageShort": "Coverage",
+      "samplesShort": "Samples",
+      "runsShort": "Runs",
       "evidenceCount": "{samples} requests · {runs} runs",
       "severities": {
         "block": "Unacceptable",
@@ -321,7 +328,7 @@ export default {
     },
 
     nativeLimit: 'Native upstream limit (OAuth)',
-    recentCount: 'Last {count} probes', last24Hours: '24h availability', available: 'Available', manualValidation: 'Manual check',
+    recentCount: 'Last {count} probes', recentShort: 'Last {count}', last24Hours: '24h availability', last24Short: '24h', available: 'Available', manualValidation: 'Manual check',
     samplePassed: 'Sample passed', awaitingFirst: 'Awaiting first check · manual checks available', completed: 'Completed',
     batchKind: 'Batch check type', batchProgress: 'Completed {done} / {total}', batchWaiting: '{count} remaining', hideProgress: 'Hide progress',
     batchFailures: '{count} results need review', batchQueued: 'Queued {count} checks for the selected model of each filtered account.',
@@ -344,7 +351,9 @@ export default {
     selected: '{count} selected', selectAll: 'Select visible items', run: 'Run now', batchRun: 'Check current list',
     availability: 'Availability', quality: 'Capability', cache: 'Cache verification', accountModel: 'Account / model',
     recent: 'Recent availability probes', noProbes: 'No probes yet', last24h: 'Real traffic, 24h', successes: 'Success', errors: 'Logged failures',
-    ttft: 'First token', billedCache: 'Billed cache', noData: 'No data', actions: 'Actions', details: 'History & details', edit: 'Individual settings',
+    ttft: 'First token', duration: 'Full request duration', firstShort: 'First', totalShort: 'Total', billedCache: 'Billed cache', noData: 'No data', actions: 'Actions', details: 'History & details', edit: 'Individual settings',
+    abilityStates: { suspected: 'Suspected', normal: 'Normal', unknown: 'Untested' },
+    abilityHints: { suspected: 'Repeated capability anomalies or a declining historical pass rate; model substitution is unproven.', normal: 'The latest capability sample passed; model identity remains unverified.', unknown: 'No recent capability result to assess.' },
     inherited: 'Global settings', overridden: 'Individual settings', next: 'Next', lastChecked: 'Last', automaticOff: 'Automatic checks are off',
     emptyTitle: 'No accounts', emptyDescription: 'Add accounts in account management, then synchronize.',
     autoEnabled: 'Automatic checks', autoHint: 'Disabling stops automatic schedules. Manual checks remain available.',

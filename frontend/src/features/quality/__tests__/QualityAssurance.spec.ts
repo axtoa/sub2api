@@ -12,7 +12,7 @@ const cfg: AssuranceSettings={version:1,references:[],manual_references:[],polic
 const row: QualityScore={target_id:target.id,account_id:account.id,account_name:account.name,platform:'openai',model:target.model,cohort:'openai:model:abc',score:78.3,coverage:80,samples:40,runs:4,excluded:2,truncated:false,rank:1,state:'usable',last_at:'2026-11-04T00:00:00Z',dimensions:scoreDimensions.map(id=>({id,value:id==='integrity'||id==='billing'?null:78,samples:10,passed:10,p95_ms:null})),issues:[],evidence:[],run_ids:[run.id]}
 const board: ScoreBoard={version:'assurance-v1',generated_at:'2026-11-04T00:00:00Z',days:7,policy:cfg.policy,items:[row]}
 const wrappers: ReturnType<typeof mount>[]=[]
-function render(){const w=mount(QualityAssurance,{props:{targets:[target],accounts:[account]},global:{stubs:{BaseDialog:{props:['show'],template:'<div v-if="show"><slot /></div>'}}}});wrappers.push(w);return w}
+async function render(expanded=true){const w=mount(QualityAssurance,{props:{targets:[target],accounts:[account]},global:{stubs:{BaseDialog:{props:['show'],template:'<div v-if="show"><slot /></div>'}}}});wrappers.push(w);if(expanded)await button(w,en.quality.assurance.expand).trigger('click');return w}
 function button(w:ReturnType<typeof mount>,text:string){return w.findAll('button').find(b=>b.text()===text)!}
 beforeEach(()=>{
  vi.useFakeTimers();vi.spyOn(document,'hidden','get').mockReturnValue(false)
@@ -27,21 +27,25 @@ beforeEach(()=>{
 afterEach(()=>{wrappers.splice(0).forEach(w=>w.unmount());vi.restoreAllMocks();vi.useRealTimers()})
 describe('Upstream quality assessment',()=>{
  it('shows measured coverage and unknown dimensions without starting probes',async()=>{
-  const w=render();await flushPromises()
-  expect(w.text()).toContain('78.3');expect(w.text()).toContain('80% evidence coverage')
+  const w=await render(false);await flushPromises()
+  expect(w.get('.quality-assurance').classes()).toContain('is-collapsed')
+  expect(w.text()).toContain('Usable 1')
+  expect(qualityAPI.inspect).not.toHaveBeenCalled()
+  await button(w,en.quality.assurance.expand).trigger('click')
+  expect(w.text()).toContain('78.3');expect(w.get('.quality-score-meta').text()).toContain('Coverage 80%')
   expect(w.findAll('.quality-score-dimensions strong').map(node=>node.text()).slice(-2)).toEqual(['—','—'])
   expect(qualityAPI.inspect).not.toHaveBeenCalled()
   expect(w.text()).toContain(en.quality.assurance.boundaries)
  })
  it('keeps critical, unranked and untested accounts visible',async()=>{
   vi.mocked(qualityAPI.scores).mockResolvedValue({...board,items:[{...row,score:95,rank:null,state:'blocked',issues:[{code:'privacy',severity:'block',run_ids:[run.id]}]}]})
-  const w=render();await flushPromises()
+  const w=await render();await flushPromises()
   expect(w.text()).toContain('Critical issue')
   expect(w.text()).toContain('Data privacy verification record')
   expect(w.get('.quality-score-card').text()).not.toContain('#1')
  })
  it('saves references as account/model IDs and preserves unsaved edits after a conflict',async()=>{
-  const w=render();await flushPromises();await button(w,en.quality.assurance.rules).trigger('click')
+  const w=await render();await flushPromises();await button(w,en.quality.assurance.rules).trigger('click')
   await button(w,en.quality.assurance.addReference).trigger('click')
   const row=w.get('.quality-reference-row')
   await row.get('input').setValue('Official key account')
@@ -56,7 +60,7 @@ describe('Upstream quality assessment',()=>{
   expect(qualityAPI.inspect).not.toHaveBeenCalled()
  })
  it('requires a model cohort and explicit confirmation before batch paid probes',async()=>{
-  const w=render();await flushPromises()
+  const w=await render();await flushPromises()
   const form=w.get('.quality-assessment-batch form')
   expect(form.get('button.primary').attributes('disabled')).toBeDefined()
   await w.findAll('select')[2]!.setValue(row.cohort)
@@ -70,14 +74,14 @@ describe('Upstream quality assessment',()=>{
  })
  it('does not retry an unconfirmed submission or poll after unmount',async()=>{
   vi.mocked(qualityAPI.inspect).mockRejectedValueOnce(new Error('unknown'))
-  const w=render();await flushPromises();await w.findAll('select')[2]!.setValue(row.cohort);await button(w,en.quality.assurance.selectAll).trigger('click')
+  const w=await render();await flushPromises();await w.findAll('select')[2]!.setValue(row.cohort);await button(w,en.quality.assurance.selectAll).trigger('click')
   await w.get('.quality-assessment-batch form').trigger('submit');await flushPromises()
   await vi.advanceTimersByTimeAsync(10000);expect(qualityAPI.inspect).toHaveBeenCalledTimes(1)
   w.unmount();const calls=vi.mocked(qualityAPI.scores).mock.calls.length
   await vi.advanceTimersByTimeAsync(120000);expect(qualityAPI.scores).toHaveBeenCalledTimes(calls)
  })
  it('appends attributable billing evidence to the selected run',async()=>{
-  const w=render();await flushPromises()
+  const w=await render();await flushPromises()
   await button(w,'#run-1').trigger('click');await flushPromises()
   const form=w.findAll('form').at(-1)!
   const inputs=form.findAll('input')

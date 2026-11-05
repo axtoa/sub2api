@@ -2,7 +2,7 @@
   <AppLayout>
     <section class="balance-theme balance-page">
       <header class="balance-head">
-        <div><h1>{{ t('upstreamBalance.title') }}</h1><p class="balance-muted">{{ t('upstreamBalance.subtitle') }}</p></div>
+        <div><h1>{{ t('upstreamBalance.title') }}</h1></div>
         <div class="balance-tools">
           <button class="balance-button" :disabled="loading" @click="refresh">{{ t('upstreamBalance.refresh') }}</button>
           <button class="balance-button" @click="openSettings">{{ t('upstreamBalance.settings') }}</button>
@@ -15,44 +15,19 @@
       <div class="balance-overview">
         <article><p class="balance-muted">{{ t('upstreamBalance.walletCount') }}</p><strong>{{ wallets.length }}</strong></article>
         <article><p class="balance-muted">{{ t('upstreamBalance.lowCount') }}</p><strong :class="lowCount ? 'warn' : ''">{{ lowCount }}</strong></article>
-        <article><p class="balance-muted">{{ t('upstreamBalance.actualTotal') }}</p><div class="balance-totals"><strong v-for="total in totals" :key="total.currency">{{ money(total.amount) }} <small>{{ total.currency }}</small></strong><strong v-if="!totals.length">—</strong></div></article>
+        <article><p class="balance-muted">{{ t('upstreamBalance.actualTotal') }}</p><div class="balance-totals"><strong v-for="total in totals" :key="total.currency">{{ money2(total.amount) }} <small>{{ total.currency }}</small></strong><strong v-if="!totals.length">—</strong></div></article>
       </div>
-      <p class="balance-muted">{{ t('upstreamBalance.totalHint') }}</p>
       <div class="balance-filters">
         <input v-model="search" type="search" :aria-label="t('upstreamBalance.search')" :placeholder="t('upstreamBalance.search')" />
         <select v-model="filter" :aria-label="t('upstreamBalance.filter')"><option v-for="item in filters" :key="item" :value="item">{{ t(`upstreamBalance.${item}`) }}</option></select>
       </div>
       <p v-if="!ready && loading" class="balance-empty">{{ t('upstreamBalance.loading') }}</p>
       <div v-else-if="!visibleWallets.length" class="balance-empty">{{ t(wallets.length ? 'upstreamBalance.noMatches' : 'upstreamBalance.empty') }}</div>
-      <div v-else class="balance-grid">
+      <div v-else class="balance-list">
         <article v-for="wallet in visibleWallets" :key="wallet.id" class="balance-card" :class="{ 'is-low': wallet.low && !wallet.stale }" :aria-label="wallet.name">
-          <div class="balance-card-head"><div class="balance-card-name"><h2>{{ wallet.name }}</h2><p class="balance-muted">{{ wallet.provider || '—' }}</p></div><span class="balance-badge">{{ t(`upstreamBalance.sources.${wallet.mode}`) }}</span></div>
-          <div>
-            <p class="balance-muted">{{ wallet.estimated_balance != null ? t('upstreamBalance.estimated') : wallet.observation ? t(`upstreamBalance.scopes.${wallet.observation.scope}`) : t('upstreamBalance.statuses.never') }}</p>
-            <p class="balance-amount" :class="wallet.low && !wallet.stale ? 'warn' : ''">{{ money(wallet.estimated_balance ?? wallet.observation?.amount) }}<small>{{ wallet.observation?.currency ?? wallet.currency }}</small></p>
-            <p v-if="wallet.estimated_balance != null && wallet.observation" class="balance-muted">{{ t('upstreamBalance.baseline') }} {{ money(wallet.observation.amount) }} {{ wallet.observation.currency }}</p>
-            <p v-if="wallet.stale" class="balance-muted warn">{{ t('upstreamBalance.lastKnown') }}</p>
-          </div>
-          <div>
-            <div class="balance-cost-head balance-muted">
-              <p>{{ t('upstreamBalance.costLabel') }}</p>
-              <p class="balance-lifetime-cost" :title="t('upstreamBalance.totalCostHint')">{{ t('upstreamBalance.totalCost') }} {{ money(wallet.total_cost) }}</p>
-            </div>
-            <dl class="balance-metrics"><div v-for="metric in metrics" :key="metric"><dt>{{ t(`upstreamBalance.${metric}`) }}</dt><dd>{{ money(wallet[`${metric}_cost`]) }}</dd></div></dl>
-          </div>
-          <div>
-            <p v-if="wallet.days_remaining != null" class="good">{{ t('upstreamBalance.estimateDays', { days: wallet.days_remaining }) }}</p>
-            <p v-if="wallet.days_remaining != null" class="balance-muted">{{ t('upstreamBalance.forecastHint') }}</p>
-            <p class="balance-muted">{{ wallet.accounts.length ? `${t('upstreamBalance.linkedAccounts')} · ${wallet.accounts.map(a => a.name).join('、')}` : t('upstreamBalance.notLinked') }}</p>
-            <details v-if="wallet.accounts.length" class="balance-breakdown"><summary class="balance-link">{{ t('upstreamBalance.accountBreakdown') }}</summary><div class="balance-table-wrap"><table><thead><tr><th>{{ t('upstreamBalance.accounts') }}</th><th v-for="metric in metrics" :key="metric">{{ t(`upstreamBalance.${metric}`) }}</th></tr></thead><tbody><tr v-for="account in wallet.accounts" :key="account.id"><th>{{ account.name }}</th><td v-for="metric in metrics" :key="metric">{{ money(account[`${metric}_cost`] ?? '0') }}</td></tr></tbody></table></div></details>
-            <p v-if="wallet.usage_incomplete" class="balance-muted warn">{{ t('upstreamBalance.incomplete') }}</p>
-          </div>
-          <div class="balance-muted">
-            <p :class="needsAttention(wallet) ? 'warn' : 'good'">{{ t(`upstreamBalance.statuses.${wallet.stale && wallet.status === 'ok' ? 'stale' : wallet.status}`) }}</p>
-            <p v-if="wallet.last_error" class="warn">{{ reason(wallet.last_error) }}</p>
-            <p v-if="wallet.observation">{{ t(wallet.mode === 'manual' ? 'upstreamBalance.baselineTime' : 'upstreamBalance.queriedAt') }} · {{ datetime(wallet.observation.at) }}</p>
-            <p v-if="wallet.mode !== 'manual'">{{ wallet.auto_enabled ? `${t('upstreamBalance.nextQuery')} · ${datetime(wallet.next_query_at)}` : t('upstreamBalance.autoOff') }}</p>
-          </div>
+          <div class="balance-card-head"><div class="balance-card-name"><h2 :title="wallet.name">{{ wallet.name }}</h2><p class="balance-muted" :title="walletURL(wallet) || wallet.provider">{{ walletURL(wallet) || wallet.provider || '—' }}</p></div><span v-if="needsAttention(wallet)" class="balance-badge warn" :title="t(`upstreamBalance.statuses.${wallet.stale && wallet.status === 'ok' ? 'stale' : wallet.status}`)">{{ wallet.stale ? t('upstreamBalance.staleShort') : wallet.low ? t('upstreamBalance.lowShort') : t('upstreamBalance.alertShort') }}</span></div>
+          <div class="balance-amount-row"><p class="balance-amount" :class="wallet.low && !wallet.stale ? 'warn' : ''" :title="wallet.estimated_balance != null ? t('upstreamBalance.estimated') : wallet.observation ? t(`upstreamBalance.scopes.${wallet.observation.scope}`) : t('upstreamBalance.statuses.never')">{{ money2(wallet.estimated_balance ?? wallet.observation?.amount) }}<small>{{ wallet.observation?.currency ?? wallet.currency }}</small></p><time v-if="wallet.mode !== 'manual' && wallet.observation?.at" class="balance-last-query" :datetime="wallet.observation.at" :title="`${t('upstreamBalance.queriedAt')} · ${datetime(wallet.observation.at)}`">{{ shortDatetime(wallet.observation.at) }}</time></div>
+          <dl class="balance-row-spend"><div v-for="metric in metrics" :key="metric"><dt>{{ t(`upstreamBalance.${metric}Short`) }}</dt><dd>{{ money2(wallet[`${metric}_cost`]) }}</dd></div><div :title="t('upstreamBalance.totalCostHint')"><dt>{{ t('upstreamBalance.totalShort') }}</dt><dd class="balance-lifetime-cost">{{ money2(wallet.total_cost) }}</dd></div></dl>
           <footer class="balance-footer">
             <div class="balance-tools">
               <button v-if="wallet.mode !== 'manual'" class="balance-button" :disabled="querying.has(wallet.id) || batch" @click="queryOne(wallet)">{{ t(querying.has(wallet.id) ? 'upstreamBalance.querying' : 'upstreamBalance.query') }}</button>
@@ -60,11 +35,29 @@
               <a v-if="walletURL(wallet)" class="balance-button" :href="walletURL(wallet)" :title="walletURL(wallet)" target="_blank" rel="noopener noreferrer">{{ t('upstreamBalance.openUpstream') }} ↗</a>
               <button v-else class="balance-button" disabled :title="t('upstreamBalance.noUpstreamURL')">{{ t('upstreamBalance.openUpstream') }} ↗</button>
             </div>
-            <div class="balance-actions"><button class="balance-link" @click="openWallet(wallet)">{{ t('upstreamBalance.edit') }}</button><button class="balance-link" @click="openHistory(wallet)">{{ t('upstreamBalance.history') }}</button><a v-if="safeURL(wallet.management_url)" class="balance-link" :href="wallet.management_url" target="_blank" rel="noopener noreferrer">{{ t('upstreamBalance.manage') }}</a></div>
+            <div class="balance-actions"><button class="balance-link" @click="openDetail(wallet)">{{ t('upstreamBalance.details') }}</button><button class="balance-link" @click="openWallet(wallet)">{{ t('upstreamBalance.edit') }}</button></div>
           </footer>
         </article>
       </div>
     </section>
+
+    <BaseDialog :show="dialog === 'details'" :title="selectedWallet?.name || t('upstreamBalance.details')" width="wide" panel-class="balance-theme" @close="closeDialog">
+      <div v-if="selectedWallet" class="balance-details-body">
+        <p :class="needsAttention(selectedWallet) ? 'warn' : 'good'">{{ t(`upstreamBalance.statuses.${selectedWallet.stale && selectedWallet.status === 'ok' ? 'stale' : selectedWallet.status}`) }}</p>
+        <p v-if="selectedWallet.estimated_balance != null && selectedWallet.observation" class="balance-muted">{{ t('upstreamBalance.baseline') }} {{ money2(selectedWallet.observation.amount) }} {{ selectedWallet.observation.currency }}</p>
+        <p v-if="selectedWallet.stale" class="balance-muted warn">{{ t('upstreamBalance.lastKnown') }}</p>
+        <p v-if="selectedWallet.days_remaining != null" class="good">{{ t('upstreamBalance.estimateDays', { days: selectedWallet.days_remaining }) }}</p>
+        <p v-if="selectedWallet.days_remaining != null" class="balance-muted">{{ t('upstreamBalance.forecastHint') }}</p>
+        <p>{{ selectedWallet.accounts.length ? `${t('upstreamBalance.linkedAccounts')} · ${selectedWallet.accounts.map(a => a.name).join('、')}` : t('upstreamBalance.notLinked') }}</p>
+        <details v-if="selectedWallet.accounts.length" class="balance-breakdown"><summary class="balance-link">{{ t('upstreamBalance.accountBreakdown') }}</summary><div class="balance-table-wrap"><table><thead><tr><th>{{ t('upstreamBalance.accounts') }}</th><th v-for="metric in metrics" :key="metric">{{ t(`upstreamBalance.${metric}`) }}</th></tr></thead><tbody><tr v-for="account in selectedWallet.accounts" :key="account.id"><th>{{ account.name }}</th><td v-for="metric in metrics" :key="metric">{{ money2(account[`${metric}_cost`] ?? '0') }}</td></tr></tbody></table></div></details>
+        <p v-if="selectedWallet.usage_incomplete" class="warn">{{ t('upstreamBalance.incomplete') }}</p>
+        <p v-if="selectedWallet.last_error" class="warn">{{ reason(selectedWallet.last_error) }}</p>
+        <p v-if="selectedWallet.observation" class="balance-muted">{{ t(selectedWallet.mode === 'manual' ? 'upstreamBalance.baselineTime' : 'upstreamBalance.queriedAt') }} · {{ datetime(selectedWallet.observation.at) }}</p>
+        <p v-if="selectedWallet.mode !== 'manual'" class="balance-muted">{{ selectedWallet.auto_enabled ? `${t('upstreamBalance.nextQuery')} · ${datetime(selectedWallet.next_query_at)}` : t('upstreamBalance.autoOff') }}</p>
+        <p v-if="safeURL(selectedWallet.management_url)"><a class="balance-link" :href="selectedWallet.management_url" target="_blank" rel="noopener noreferrer">{{ t('upstreamBalance.manage') }} ↗</a></p>
+        <button class="balance-link balance-detail-history" @click="openHistory(selectedWallet)">{{ t('upstreamBalance.history') }}</button>
+      </div>
+    </BaseDialog>
 
     <BaseDialog :show="dialog === 'wallet'" :title="t(editID ? 'upstreamBalance.edit' : 'upstreamBalance.add')" width="wide" panel-class="balance-theme" @close="closeDialog">
       <form id="upstream-wallet-form" class="balance-form" @submit.prevent="saveWallet($event)">
@@ -137,7 +130,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { balanceAPI, type AccountOption, type Delivery, type Event as WalletEvent, type Settings, type Wallet, type WalletInput } from './api'
-import { actualTotals, currencies, money, safeURL, walletURL } from './display'
+import { actualTotals, currencies, money2, safeURL, walletURL } from './display'
 import './balance.css'
 
 const { t, te } = useI18n()
@@ -152,7 +145,7 @@ const visibleWallets = computed(() => wallets.value.filter(w => {
   return matches && (filter.value === 'all' || (filter.value === 'low' && w.low && !w.stale) || (filter.value === 'attention' && needsAttention(w)) || (filter.value === 'manualOnly' && w.mode === 'manual') || (filter.value === 'autoOnly' && w.mode !== 'manual'))
 }))
 const querying = ref(new Set<string>()), batch = ref(false), batchDone = ref(0), batchTotal = ref(0)
-const dialog = ref<'' | 'wallet' | 'calibrate' | 'settings' | 'history'>(''), dialogError = ref(''), busy = ref(false), editID = ref(''), selectedWallet = ref<Wallet | null>(null)
+const dialog = ref<'' | 'wallet' | 'calibrate' | 'settings' | 'history' | 'details'>(''), dialogError = ref(''), busy = ref(false), editID = ref(''), selectedWallet = ref<Wallet | null>(null)
 const accounts = ref<AccountOption[]>([]), accountsLoading = ref(false), accountsFailed = ref(false), accountSearch = ref('')
 function emptyDraft(): WalletInput { return { name: '', provider: '', mode: 'sub2api', quota_per_unit: 500000, query_account_id: null, account_ids: [], currency: 'USD', auto_enabled: true, interval_minutes: 30, estimate_enabled: false, low_threshold: null, management_url: '', note: '', version: 0, initial_balance: null } }
 const draft = ref(emptyDraft()), thresholdDraft = ref(''), initialDraft = ref(''), settingsDraft = ref<Settings | null>(null), recipientsDraft = ref(''), deliveries = ref<Delivery[]>([]), history = ref<WalletEvent[]>([]), historyLoading = ref(false)
@@ -172,6 +165,7 @@ watch(() => [draft.value.mode, draft.value.currency, draft.value.account_ids.joi
   if (!accountsLoading.value && draft.value.query_account_id && !queryAccounts.value.some(a => a.id === draft.value.query_account_id)) draft.value.query_account_id = null
 })
 function datetime(s: string) { return new Date(s).toLocaleString(undefined, { timeZone: timezone.value, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) }
+function shortDatetime(s: string) { const parts = new Intl.DateTimeFormat('en-GB', { timeZone: timezone.value, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(s)); const part = (type: string) => parts.find(item => item.type === type)?.value ?? '00'; return `${part('month')}/${part('day')} ${part('hour')}:${part('minute')}` }
 function reason(code: string) { return te(`upstreamBalance.reasons.${code}`) ? t(`upstreamBalance.reasons.${code}`) : t('upstreamBalance.queryFailed') }
 function requestError(e: unknown) { const err = e as { status?: number; response?: { status?: number } }; return (err?.status ?? err?.response?.status) === 409 ? t('upstreamBalance.conflict') : t('upstreamBalance.requestError') }
 let disposed = false, revision = 0, dialogRevision = 0, controller: AbortController | undefined, timer: ReturnType<typeof setInterval> | undefined
@@ -196,6 +190,7 @@ async function openWallet(wallet?: Wallet) {
   finally { if (!disposed && current === dialogRevision) accountsLoading.value = false }
 }
 function openCalibration(wallet: Wallet) { startDialog('calibrate'); selectedWallet.value = wallet; initialDraft.value = '' }
+function openDetail(wallet: Wallet) { startDialog('details'); selectedWallet.value = wallet }
 async function perform(action: string, body: unknown, fn: (key: string) => Promise<unknown>) {
   if (busy.value) return; busy.value = true; dialogError.value = ''
   try { const result = await fn(requestKey(action, body)); if (disposed) return; busy.value = false; closeDialog(); notice.value = t('upstreamBalance.saved'); await refresh(); return result }

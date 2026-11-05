@@ -1,6 +1,6 @@
 <template>
-  <section class="quality-assurance">
-    <div class="quality-card-heading"><div><h2>{{ t('quality.assurance.title') }}</h2><p class="quality-caption">{{ t('quality.assurance.intro') }}</p></div><button class="quality-button" :aria-expanded="expanded" @click="expanded = !expanded">{{ t(expanded ? 'quality.assurance.collapse' : 'quality.assurance.expand') }}</button></div>
+  <section class="quality-assurance" :class="{ 'is-collapsed': !expanded }">
+    <div class="quality-assurance-heading"><div><h2>{{ t('quality.assurance.title') }}</h2></div><div v-if="board" class="quality-score-summary"><span v-for="state in ['strong','usable','weak','blocked','review','insufficient','stale']" :key="state">{{ t('quality.assurance.states.' + state) }} <strong>{{ board.items.filter(row => row.state === state).length }}</strong></span></div><button v-if="!standalone" class="quality-button" :aria-expanded="expanded" @click="expanded = !expanded">{{ t(expanded ? 'quality.assurance.collapse' : 'quality.assurance.expand') }}</button></div>
     <template v-if="expanded">
       <div class="quality-toolbar">
         <label>{{ t('quality.assurance.scenario') }}<select v-model="scenario" @change="refresh"><option v-for="id in scenarios" :key="id" :value="id">{{ t('quality.assurance.scenarios.' + id) }}</option></select></label>
@@ -54,25 +54,25 @@
         </form>
       </details>
       <template v-if="board">
-        <p class="quality-caption">{{ t('quality.assurance.method', {samples: board.policy.min_samples, runs: board.policy.min_runs, coverage: board.policy.min_coverage, hours: board.policy.fresh_hours, span:board.policy.min_span_minutes}) }}</p>
-        <details class="quality-protocol"><summary>{{ t('quality.assurance.formulaTitle') }}</summary><p class="quality-caption">{{ t('quality.assurance.formula') }}</p></details>
-        <div class="quality-score-summary"><span v-for="state in ['strong','usable','weak','blocked','review','insufficient','stale']" :key="state">{{ t('quality.assurance.states.' + state) }} <strong>{{ board.items.filter(row => row.state === state).length }}</strong></span></div>
         <div class="quality-score-list">
-          <article v-for="row in rows" :key="row.target_id" class="quality-score-card" :class="'score-' + row.state">
-            <div class="quality-card-heading">
-              <div><strong>{{ row.rank == null ? '—' : '#' + row.rank }} · {{ row.account_name }}</strong><p class="quality-caption">{{ row.model }} · {{ row.cohort.split(':').at(-1) }}</p></div>
+          <article v-for="row in rows" :key="row.target_id" class="quality-score-card" :data-score-target="row.target_id" :class="'score-' + row.state">
+            <div class="quality-score-head">
+              <div class="quality-score-identity"><strong>{{ row.account_name }}</strong><span :title="row.model">{{ row.model }}</span></div>
               <div class="quality-score-total"><strong>{{ row.score == null ? '—' : row.score.toFixed(1) }}</strong><span :class="tone(row.state)">{{ t('quality.assurance.states.' + row.state) }}</span></div>
             </div>
-            <p v-if="row.comparison_set?.length" class="quality-caption">{{ t('quality.assurance.rankingScope') }}: {{ row.comparison_set.map(id => t('quality.assurance.dimensions.' + id)).join(' / ') }}</p>
+            <div class="quality-score-meta quality-caption"><span :title="t('quality.assurance.coverage', {n:row.coverage})">{{ t('quality.assurance.coverageShort') }} <strong>{{ row.coverage }}%</strong></span><span :title="t('quality.assurance.evidenceCount', {samples:row.samples, runs:row.runs})">{{ t('quality.assurance.samplesShort') }} <strong>{{ row.samples }}</strong> · {{ t('quality.assurance.runsShort') }} <strong>{{ row.runs }}</strong></span><time v-if="row.last_at" :datetime="row.last_at" :title="date(row.last_at)">{{ shortDate(row.last_at) }}</time></div>
             <div class="quality-score-dimensions"><div v-for="dimension in row.dimensions" :key="dimension.id">
-              <span>{{ t('quality.assurance.dimensions.' + dimension.id) }}</span><strong>{{ dimension.value == null ? '—' : dimension.value.toFixed(1) }}</strong>
+              <span>{{ t('quality.assurance.dimensions.' + dimension.id) }}</span><strong>{{ dimension.value == null ? '—' : dimension.value.toFixed(0) }}</strong>
               <progress :value="dimension.value ?? 0" max="100" :aria-label="t('quality.assurance.dimensions.' + dimension.id)" />
-              <small>{{ t('quality.assurance.samples', {n: dimension.samples}) }}<template v-if="dimension.p95_ms != null"> · P95 {{ dimension.p95_ms }} ms</template></small>
+              <small>{{ dimension.samples }} {{ t('quality.assurance.samplesShort') }}<template v-if="dimension.p95_ms != null"> · P95 {{ dimension.p95_ms }} ms</template></small>
             </div></div>
-            <p v-if="row.trend" class="quality-caption">{{ t('quality.assurance.trend', {recent:row.trend.recent_correct, recentTotal:row.trend.recent_samples, previous:row.trend.previous_correct, previousTotal:row.trend.previous_samples}) }}</p>
-            <div class="quality-score-meta quality-caption"><strong>{{ t('quality.assurance.coverage', {n:row.coverage}) }}</strong><span>{{ t('quality.assurance.evidenceCount', {samples:row.samples, runs:row.runs}) }}</span><span>{{ date(row.last_at) }}</span><span>{{ t('quality.assurance.span', {n:row.span_minutes ?? 0}) }}</span></div>
-            <ul v-if="row.issues.length" class="quality-score-issues"><li v-for="(issue,index) in uniqueIssues(row)" :key="index" :class="issue.severity === 'block' ? 'bad' : 'warn'">{{ t('quality.assurance.severities.' + issue.severity) }} · {{ t('quality.assurance.issues.' + issue.code) }}<template v-if="issue.check"> · {{ t('quality.inspector.checks.' + issue.check) }}</template></li></ul>
+            <p v-if="row.issues.length" class="quality-score-alert" :class="row.state === 'blocked' ? 'bad' : 'warn'" :title="uniqueIssues(row).map(issue => t('quality.assurance.issues.' + issue.code)).join(' · ')">{{ t('quality.assurance.issues.' + uniqueIssues(row)[0]!.code) }}<span v-if="uniqueIssues(row).length > 1"> +{{ uniqueIssues(row).length - 1 }}</span></p>
             <details class="quality-protocol"><summary>{{ t('quality.assurance.evidence') }}</summary>
+              <p v-if="row.rank != null" class="quality-caption">#{{ row.rank }} · {{ row.cohort.split(':').at(-1) }}</p>
+              <p v-if="row.comparison_set?.length" class="quality-caption">{{ t('quality.assurance.rankingScope') }}: {{ row.comparison_set.map(id => t('quality.assurance.dimensions.' + id)).join(' / ') }}</p>
+              <p v-if="row.trend" class="quality-caption">{{ t('quality.assurance.trend', {recent:row.trend.recent_correct, recentTotal:row.trend.recent_samples, previous:row.trend.previous_correct, previousTotal:row.trend.previous_samples}) }}</p>
+              <p class="quality-caption">{{ t('quality.assurance.span', {n:row.span_minutes ?? 0}) }}</p>
+              <ul v-if="row.issues.length" class="quality-score-issues"><li v-for="(issue,index) in uniqueIssues(row)" :key="index" :class="issue.severity === 'block' ? 'bad' : 'warn'">{{ t('quality.assurance.severities.' + issue.severity) }} · {{ t('quality.assurance.issues.' + issue.code) }}<template v-if="issue.check"> · {{ t('quality.inspector.checks.' + issue.check) }}</template></li></ul>
               <p class="quality-caption">{{ t('quality.assurance.excluded', {n:row.excluded}) }}</p>
               <div class="quality-toolbar"><button v-for="id in row.run_ids" :key="id" class="quality-text-button" @click="loadRun(id, row.target_id)">#{{ id.slice(0,8) }}</button></div>
               <div v-for="evidence in row.evidence" :key="evidence.id" class="quality-message"><strong>{{ t('quality.assurance.evidenceKinds.' + evidence.kind) }} · {{ t('quality.assurance.evidenceStates.' + evidence.status) }}</strong><p>{{ evidence.note }}</p><button class="quality-text-button" @click="loadRun(evidence.run_id, row.target_id)">{{ t('quality.view') }} #{{ evidence.run_id.slice(0,8) }}</button><p>{{ evidence.receipt }}<template v-if="evidence.kind === 'billing'"> · {{ evidence.expected }} → {{ evidence.actual }} {{ evidence.currency }}</template></p></div>
@@ -81,8 +81,7 @@
           <p v-if="!rows.length" class="quality-caption">{{ t('quality.noData') }}</p>
         </div>
         <p v-for="account in withoutTargets" :key="account.id" class="quality-caption">{{ account.name }} · {{ t(account.unsupported ? 'quality.unsupportedShort' : 'quality.never') }}</p>
-        <p class="quality-caption">{{ t('quality.assurance.boundaries') }}</p>
-        <p class="quality-caption">{{ t('quality.assurance.generated', {date:date(board.generated_at)}) }}</p>
+        <details class="quality-protocol"><summary>{{ t('quality.assurance.formulaTitle') }}</summary><p class="quality-caption">{{ t('quality.assurance.method', {samples: board.policy.min_samples, runs: board.policy.min_runs, coverage: board.policy.min_coverage, hours: board.policy.fresh_hours, span:board.policy.min_span_minutes}) }}</p><p class="quality-caption">{{ t('quality.assurance.formula') }}</p><p class="quality-caption">{{ t('quality.assurance.boundaries') }}</p><p class="quality-caption">{{ t('quality.assurance.generated', {date:date(board.generated_at)}) }}</p></details>
       </template>
       <p v-else-if="loading" class="quality-caption">{{ t('quality.loading') }}</p>
     </template>
@@ -115,15 +114,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import QualityEvidence from './QualityEvidence.vue'
 import AuditEvidence from './AuditEvidence.vue'
 import { qualityAPI, scoreDimensions, type ManualTokenReference, type AssuranceSettings, type ScoreBoard, type ScorePolicy, type QualityTarget, type MonitoredAccount, type QualityScore, type InspectionCheckID, type QualityRun, type AssuranceEvidence } from './api'
-const props = defineProps<{targets: QualityTarget[]; accounts: MonitoredAccount[]}>()
+const props = defineProps<{targets: QualityTarget[]; accounts: MonitoredAccount[]; standalone?: boolean; liveScores?: boolean}>()
+const emit = defineEmits<{ scores: [items: QualityScore[], context: { scenario: ScorePolicy['scenario']; days: number }] }>()
 const { t } = useI18n()
-const expanded = ref(true), editing = ref(false), loading = ref(false), saving = ref(false)
+const expanded = ref(false), editing = ref(false), loading = ref(false), saving = ref(false)
 const error = ref(''), notice = ref(''), config = ref<AssuranceSettings | null>(null), draft = ref<AssuranceSettings | null>(null), board = ref<ScoreBoard | null>(null)
 const days = ref(7), scenario = ref<ScorePolicy['scenario']>('chat'), cohort = ref('')
 const batchTargets = ref<string[]>([]), batchChecks = ref<InspectionCheckID[]>(['protocol_stream','reasoning','speed','cache']), batchBusy = ref(false), batchJobs = ref<QualityRun[]>([])
@@ -169,16 +169,17 @@ const evidenceDraft = ref<AssuranceEvidence>(emptyEvidence())
 let controller: AbortController | undefined, revision = 0, disposed = false, timer: ReturnType<typeof setTimeout> | undefined
 function emptyEvidence(): AssuranceEvidence { return {run_id:'',kind:'billing',status:'suspected',note:'',receipt:'',currency:'USD',expected:0,actual:0,attributable:false} }
 function date(value: string | null) { return value ? new Date(value).toLocaleString() : '—' }
+function shortDate(value: string) { const dateValue = new Date(value); return `${String(dateValue.getMonth() + 1).padStart(2, '0')}/${String(dateValue.getDate()).padStart(2, '0')} ${String(dateValue.getHours()).padStart(2, '0')}:${String(dateValue.getMinutes()).padStart(2, '0')}` }
 function tone(state: string) { return state === 'blocked' || state === 'weak' ? 'bad' : state === 'strong' || state === 'usable' ? 'good' : 'warn' }
 function uniqueIssues(row: QualityScore) { return [...new Map(row.issues.map(issue => [issue.code + issue.check, issue])).values()] }
 async function refresh() {
   const current = ++revision; clearTimeout(timer); controller?.abort(); controller = new AbortController()
   loading.value = true
-  try { const result = await qualityAPI.scores(days.value, scenario.value, controller.signal); if (disposed || current !== revision) return; board.value = result; error.value = '' }
+  try { const result = await qualityAPI.scores(days.value, scenario.value, controller.signal); if (disposed || current !== revision) return; board.value = result; emit('scores', result.items, { scenario: scenario.value, days: days.value }); error.value = '' }
   catch { if (!disposed && current === revision) error.value = t('quality.loadError') }
-  finally { if (!disposed && current === revision) { loading.value = false; timer = setTimeout(() => { if (!document.hidden && expanded.value) void refresh(); else schedule() },60000) } }
+  finally { if (!disposed && current === revision) { loading.value = false; timer = setTimeout(() => { if (!document.hidden && (expanded.value || props.liveScores)) void refresh(); else schedule() },60000) } }
 }
-function schedule() { clearTimeout(timer); if (!disposed) timer = setTimeout(() => { if (!document.hidden && expanded.value) void refresh(); else schedule() },60000) }
+function schedule() { clearTimeout(timer); if (!disposed) timer = setTimeout(() => { if (!document.hidden && (expanded.value || props.liveScores)) void refresh(); else schedule() },60000) }
 function setDate(manual: ManualTokenReference, event: Event) { const value = (event.target as HTMLInputElement).value; manual.captured_at = value ? new Date(value + 'T00:00:00Z').toISOString() : '' }
 function addManualReference() { if (draft.value) (draft.value.manual_references ??= []).push({id:crypto.randomUUID(),name:'',model:'',protocol:'chat',request_hash:'',input_tokens:1,captured_at:new Date().toISOString()}) }
 function addReference() { draft.value?.references.push({id:crypto.randomUUID(),target_id:'',name:'',source:'trusted'}) }
@@ -218,6 +219,14 @@ onMounted(async () => {
   catch { if (!disposed) error.value = t('quality.loadError') }
   if (!disposed) await refresh()
 })
+defineExpose({ openScore: (id?: string) => {
+  expanded.value = true
+  if (!id) { cohort.value = ''; return }
+  const row = board.value?.items.find(item => item.target_id === id)
+  if (!row) return
+  cohort.value = row.cohort
+  void nextTick(() => [...document.querySelectorAll<HTMLElement>('[data-score-target]')].find(item => item.dataset.scoreTarget === id)?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
+} })
 watch(cohort, () => { batchTargets.value = [] })
 onUnmounted(() => { clearTimeout(batchTimer); disposed = true; revision++; controller?.abort(); clearTimeout(timer) })
 </script>

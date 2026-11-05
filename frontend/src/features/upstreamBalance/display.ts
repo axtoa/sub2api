@@ -7,6 +7,15 @@ export function money(value: string | null | undefined) {
   const trimmed = fraction.replace(/0+$/, '').padEnd(2, '0')
   return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${trimmed}`
 }
+export function money2(value: string | null | undefined) {
+  if (value == null || !/^-?\d+(\.\d+)?$/.test(value)) return '—'
+  const negative = value.startsWith('-')
+  const [whole, fraction = ''] = (negative ? value.slice(1) : value).split('.')
+  let cents = BigInt(whole) * 100n + BigInt(fraction.slice(0, 2).padEnd(2, '0'))
+  if (fraction.length > 2 && fraction[2]! >= '5') cents++
+  const integer = String(cents / 100n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return `${negative && cents !== 0n ? '-' : ''}${integer}.${String(cents % 100n).padStart(2, '0')}`
+}
 // Never add key quotas or subscription allowances to actual wallet funds.
 export function actualTotals(wallets: Wallet[]) {
   const totals = new Map<string, bigint>()

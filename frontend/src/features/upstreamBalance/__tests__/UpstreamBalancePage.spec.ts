@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import Page from '../UpstreamBalancePage.vue'
 import { balanceAPI, type Wallet } from '../api'
-import { actualTotals, money, safeURL, walletURL } from '../display'
+import { actualTotals, money, money2, safeURL, walletURL } from '../display'
 import en from '@/i18n/locales/en/upstreamBalance'
 
 function lookup(key: string) { return key.split('.').reduce<unknown>((value, part) => value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined, en) }
@@ -35,7 +35,8 @@ describe('Upstream wallet balances', () => {
     const link = wrapper.get('a.balance-button')
     expect(link.attributes()).toMatchObject({ href: 'https://relay.example/prefix/v1', target: '_blank', rel: 'noopener noreferrer' })
     expect(link.text()).toContain(en.upstreamBalance.openUpstream)
-    expect(wrapper.get('a.balance-link').attributes('href')).toBe(wallet.management_url)
+    await button(wrapper, en.upstreamBalance.details).trigger('click')
+    expect(wrapper.get('[role="dialog"] a.balance-link').attributes('href')).toBe(wallet.management_url)
     expect(balanceAPI.query).not.toHaveBeenCalled()
   })
   it('supports linked manual wallets and disables navigation when no safe API address exists', async () => {
@@ -115,17 +116,32 @@ describe('Upstream wallet balances', () => {
     expect(actualTotals(rows)).toEqual([{ currency: 'USD', amount: '100.123457' }]); expect(money('-0.000001')).toBe('-0.000001'); expect(safeURL('javascript:alert(1)')).toBe(false)
     expect(actualTotals([{ ...wallet, observation: { ...wallet.observation!, amount: '-0.000001' } }])[0]!.amount).toBe('-0.000001')
   })
+  it('rounds displayed amounts to cents without changing precise source values', () => {
+    expect(money2('28.306684')).toBe('28.31')
+    expect(money2('999.995')).toBe('1,000.00')
+    expect(money2('-1.235')).toBe('-1.24')
+    expect(money2('0.004999')).toBe('0.00')
+    expect(money2(null)).toBe('—')
+    expect(money('28.306684')).toBe('28.306684')
+  })
   it('renders a wallet card, current cost snapshots and no automatic upstream request on page open', async () => {
     const wrapper = render(); await flushPromises()
-    expect(wrapper.findAll('.balance-card')).toHaveLength(1); expect(wrapper.text()).toContain('100.123456'); expect(wrapper.text()).toContain('Local account'); expect(wrapper.text()).toContain('3.000001')
-    expect(wrapper.get('.balance-cost-head .balance-lifetime-cost').text()).toBe('Total spent 1,234.567891')
-    expect(wrapper.get('.balance-lifetime-cost').attributes('title')).toBe(en.upstreamBalance.totalCostHint)
+    expect(wrapper.findAll('.balance-card')).toHaveLength(1); expect(wrapper.text()).toContain('100.12'); expect(wrapper.text()).toContain('3.00')
+    expect(wrapper.get('.balance-last-query').text()).toBe('10/23 10:00')
+    expect(wrapper.get('.balance-last-query').attributes('title')).toContain(en.upstreamBalance.queriedAt)
+    expect(wrapper.get('.balance-lifetime-cost').text()).toBe('1,234.57')
+    expect(wrapper.find('.balance-card').text()).not.toContain(en.upstreamBalance.history)
+    expect(wrapper.find('.balance-details-body').exists()).toBe(false)
+    await button(wrapper, en.upstreamBalance.details).trigger('click')
+    expect(wrapper.get('[role="dialog"] .balance-details-body').text()).toContain(en.upstreamBalance.linkedAccounts)
+    await button(wrapper, en.upstreamBalance.history).trigger('click'); await flushPromises()
+    expect(balanceAPI.history).toHaveBeenCalledWith('w1')
     expect(balanceAPI.query).not.toHaveBeenCalled(); expect(balanceAPI.save).not.toHaveBeenCalled()
   })
   it('shows each wallet lifetime cost, including zero for an unlinked manual wallet', async () => {
     vi.mocked(balanceAPI.list).mockResolvedValue({ items: [wallet, { ...wallet, id: 'w2', name: 'Manual wallet', mode: 'manual', currency: 'CNY', account_ids: [], accounts: [], total_cost: '0.000000' }], timezone: 'Asia/Shanghai', server_time: '2026-10-23T02:00:00Z' })
     const wrapper = render(); await flushPromises()
-    expect(wrapper.findAll('.balance-lifetime-cost').map(node => node.text())).toEqual(['Total spent 1,234.567891', 'Total spent 0.00'])
+    expect(wrapper.findAll('.balance-lifetime-cost').map(node => node.text())).toEqual(['1,234.57', '0.00'])
   })
   it('manual query works repeatedly even with scheduling disabled', async () => {
     const wrapper = render(); await flushPromises()
@@ -134,7 +150,9 @@ describe('Upstream wallet balances', () => {
   })
   it('keeps the last successful value visibly stale on failures', async () => {
     vi.mocked(balanceAPI.list).mockResolvedValue({ items: [{ ...wallet, stale: true, status: 'failed', last_error: 'request_failed', days_remaining: null }], timezone: 'Asia/Shanghai', server_time: '2026-10-23T02:00:00Z' })
-    const wrapper = render(); await flushPromises(); expect(wrapper.text()).toContain('100.123456'); expect(wrapper.text()).toContain(en.upstreamBalance.lastKnown)
+    const wrapper = render(); await flushPromises(); expect(wrapper.text()).toContain('100.12'); expect(wrapper.get('.balance-badge').text()).toBe(en.upstreamBalance.staleShort)
+    expect(wrapper.get('.balance-last-query').text()).toBe('10/23 10:00')
+    await button(wrapper, en.upstreamBalance.details).trigger('click'); expect(wrapper.get('[role="dialog"]').text()).toContain(en.upstreamBalance.lastKnown)
     expect(wrapper.get('.balance-totals').text()).toBe('—'); expect(wrapper.text()).not.toContain('About 10.0 days')
   })
   it('retries uncertain writes with the same key and preserves the selected query source', async () => {

@@ -4,6 +4,7 @@ export interface Summary {
   amount: string
   codes: number
   users: number
+  today_amount: string
 }
 
 export interface InsightUser {
@@ -38,19 +39,32 @@ export interface InsightDetail extends InsightUser {
   models: Array<{ name: string; calls: number; cost: string }>
 }
 
+export interface IgnoreUser { id: number; email: string; username: string }
+
 export type Segment = 'all' | 'redeemed' | 'repeat' | 'inactive30'
 export type SortKey = 'email' | 'notes' | 'redeemed_amount' | 'redeem_count' | 'last_redeemed_at' | 'balance' | 'usage_30d' | 'calls_30d' | 'total_calls' | 'last_used_at'
 export type SortOrder = 'asc' | 'desc'
 
 export const userInsightsAPI = {
-  async list(page: number, search: string, segment: Segment, sortBy: SortKey, sortOrder: SortOrder, signal?: AbortSignal) {
+  async list(page: number, search: string, segment: Segment, sortBy: SortKey, sortOrder: SortOrder, from: string, to: string, todayFrom: string, signal?: AbortSignal) {
     const { data } = await apiClient.get<InsightList>('/admin/user-insights', {
-      params: { page, page_size: 20, search, segment, sort_by: sortBy, sort_order: sortOrder }, signal
+      params: { page, page_size: 20, search, segment, sort_by: sortBy, sort_order: sortOrder, from, to, today_from: todayFrom }, signal
     })
     return data
   },
   async detail(id: number, signal?: AbortSignal) {
     const { data } = await apiClient.get<InsightDetail>(`/admin/user-insights/${id}`, { signal })
     return data
+  },
+  async ignored(signal?: AbortSignal) {
+    const { data } = await apiClient.get<{ items: IgnoreUser[] }>('/admin/user-insights/ignored', { signal })
+    return data.items
+  },
+  async candidates(search: string, signal?: AbortSignal) {
+    const { data } = await apiClient.get<{ items: IgnoreUser[] }>('/admin/user-insights/candidates', { params: { search }, signal })
+    return data.items
+  },
+  async saveIgnored(userIDs: number[]) {
+    await apiClient.put('/admin/user-insights/ignored', { user_ids: userIDs })
   }
 }

@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import QualityMonitorPage from '../QualityMonitorPage.vue'
 import { attention, profileOf, qualityAPI } from '../api'
-import type { QualityProfile } from '../api'
+import type { AssuranceSettings, QualityProfile, QualityScore } from '../api'
 import { cachePercent, probeRate, probeSlots } from '../display'
 import { account, run, settings, snapshot, target, externalTools } from './fixtures'
 import en from '@/i18n/locales/en/quality'
@@ -37,6 +37,9 @@ describe('Quality account monitor',()=>{
     vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),accounts:[account,{...account,id:2,name:'Paused',enabled:false},{...account,id:3,name:'Unsupported',unsupported:true}],targets:[target,{...target,id:'watch-2',model:'another-model'}]})
     const wrapper=render();await flushPromises()
     expect(qualityAPI.sync).toHaveBeenCalledWith(true);expect(wrapper.findAll('.quality-account-card')).toHaveLength(3)
+    expect(wrapper.find('.quality-assurance')?.classes()).toContain('is-collapsed')
+    expect(wrapper.find('.quality-account-grid').exists()).toBe(true)
+    expect(wrapper.findAll('.quality-assessment-chip')).toHaveLength(1)
     expect(wrapper.findAll('.quality-account-card')[0]!.findAll('.quality-mark')).toHaveLength(48)
     expect(wrapper.findAll('.quality-account-card')[2]!.get('.quality-card-actions .quality-button').attributes('disabled')).toBeDefined()
     await vi.advanceTimersByTimeAsync(60000);expect(qualityAPI.sync).toHaveBeenCalledTimes(1)
@@ -50,6 +53,22 @@ describe('Quality account monitor',()=>{
     await wrapper.get('.quality-account-card').trigger('keydown',{key:'Enter'});await flushPromises()
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
     expect(qualityAPI.saveTarget).not.toHaveBeenCalled()
+    expect(qualityAPI.run).not.toHaveBeenCalled()
+  })
+  it('shows a saved assessment on the account card and opens its evidence without running a check',async()=>{
+    const policy: AssuranceSettings['policy']={scenario:'chat',weights:{availability:25,capability:25,compatibility:20,latency:10,integrity:10,billing:10},min_samples:8,min_runs:3,min_span_minutes:60,billing_tolerance_percent:2,min_coverage:60,fresh_hours:48,slow_ms:5000,failure_percent:20,usage_tolerance_percent:15,required_checks:[]}
+    const row: QualityScore={target_id:target.id,account_id:account.id,account_name:account.name,platform:account.platform,model:target.model,cohort:'openai:model:chat',score:82,coverage:80,samples:12,runs:3,excluded:0,truncated:false,rank:1,state:'usable',last_at:'2026-11-04T00:00:00Z',dimensions:[],issues:[],evidence:[],run_ids:[]}
+    vi.spyOn(qualityAPI,'assurance').mockResolvedValue({version:1,references:[],policy})
+    vi.spyOn(qualityAPI,'scores').mockResolvedValue({version:'v1',generated_at:'2026-11-04T00:00:00Z',days:7,policy,items:[row]})
+    const wrapper=render();await flushPromises()
+    expect(wrapper.get('.quality-assessment-chip').text()).toContain('82')
+    expect(wrapper.get('.quality-assessment-view').attributes('style')).toContain('display: none')
+    await wrapper.get('.quality-assessment-chip').trigger('click');await flushPromises()
+    expect(wrapper.get('.quality-assessment-view').attributes('style')).not.toContain('display: none')
+    expect(wrapper.get('.quality-score-card').text()).toContain('82')
+    expect(wrapper.find('.quality-account-grid').exists()).toBe(false)
+    await buttonByText(wrapper,en.quality.accountTotal).trigger('click')
+    expect(wrapper.get('.quality-account-grid').isVisible()).toBe(true)
     expect(qualityAPI.run).not.toHaveBeenCalled()
   })
   it('keeps a multi-group account unique in group search and filtering',async()=>{
@@ -122,7 +141,8 @@ describe('Quality account monitor',()=>{
     expect(qualityAPI.run).not.toHaveBeenCalled()
   })
   it('shows exact question, reference, raw answer and local explanation in the drawer',async()=>{
-    const wrapper=render();await flushPromises();await wrapper.get('.quality-compact-facts button:last-child').trigger('click');await flushPromises()
+    const wrapper=render();await flushPromises();await wrapper.get('.quality-account-name').trigger('click');await flushPromises()
+    await buttonByText(wrapper,en.quality.quality).trigger('click');await flushPromises()
     expect(wrapper.get('[role="dialog"]').text()).toContain('Count the paths. Return JSON.')
     expect(wrapper.get('[role="dialog"]').text()).toContain('{"answer":8}');expect(wrapper.get('[role="dialog"]').text()).toContain('{"answer":12}')
     expect(wrapper.text()).toContain('20 minus 12 equals 8.')
@@ -132,8 +152,10 @@ describe('Quality account monitor',()=>{
     vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),targets:[{...target,latest_quality:interrupted}]})
     vi.mocked(qualityAPI.detail).mockResolvedValue(interrupted)
     const wrapper=render();await flushPromises()
-    expect(wrapper.get('.quality-compact-facts button:last-child').text()).toBe(en.quality.reasons.configuration_changed)
-    await wrapper.get('.quality-compact-facts button:last-child').trigger('click');await flushPromises()
+    expect(wrapper.get('.quality-compact-facts').text()).not.toContain(en.quality.samplePassed)
+    await wrapper.get('.quality-account-name').trigger('click');await flushPromises()
+    await buttonByText(wrapper,en.quality.quality).trigger('click');await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain(en.quality.reasons.configuration_changed)
     expect(wrapper.get('.quality-evidence h3').text()).toBe(en.quality.question)
     expect(wrapper.text()).not.toContain('quality.families.legacy-family')
   })
@@ -176,13 +198,29 @@ describe('Quality account monitor',()=>{
 })
 
 describe('Compact monitor diagnostics and batches',()=>{
-  it('keeps the last valid capability result visible while showing the latest failure and queue state',async()=>{
+  it('keeps capability details in the drawer while reserving the card for status and historical assessment',async()=>{
     const valid={...run,verdict:'passed',result:{...run.result!,correct:1}}
-    vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),targets:[{...target,last_valid_quality:valid,latest_quality:{...run,verdict:'unknown',result:{...run.result!,reason:'request_rejected'}}}]})
+    const failed={...run,verdict:'unknown',result:{...run.result!,reason:'request_rejected'}}
+    vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),targets:[{...target,last_valid_quality:valid,latest_quality:failed}]})
+    vi.mocked(qualityAPI.history).mockResolvedValue([failed])
+    vi.mocked(qualityAPI.detail).mockResolvedValue(failed)
     const wrapper=render();await flushPromises()
-    expect(wrapper.get('.quality-compact-facts').text()).toContain(en.quality.samplePassed)
-    expect(wrapper.get('.quality-card-note').text()).toContain(en.quality.reasons.request_rejected)
-    expect(wrapper.get('.quality-compact-facts').text()).toContain(en.quality.manualValidation)
+    expect(wrapper.get('.quality-compact-facts').text()).toContain(en.quality.firstShort)
+    expect(wrapper.get('.quality-compact-facts').text()).toContain(en.quality.assurance.scoreShort)
+    expect(wrapper.get('.quality-compact-facts').text()).not.toContain(en.quality.totalShort)
+    expect(wrapper.get('.quality-compact-facts').text()).toContain(en.quality.assurance.statesShort.insufficient)
+    expect(wrapper.get('.quality-compact-facts').text()).not.toContain(en.quality.samplePassed)
+    await wrapper.get('.quality-account-card').trigger('click');await flushPromises()
+    await buttonByText(wrapper,en.quality.quality).trigger('click');await flushPromises()
+    expect(wrapper.get('[role="dialog"]').text()).toContain(en.quality.reasons.request_rejected)
+  })
+  it('labels capability conservatively from existing results and keeps score color tied to assessment state',async()=>{
+    const failed={...run,verdict:'degraded'}
+    vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),targets:[{...target,latest_quality:failed}]})
+    const wrapper=render();await flushPromises()
+    expect(wrapper.get('.quality-ability-chip').text()).toBe(en.quality.abilityStates.suspected)
+    expect(wrapper.get('.quality-ability-chip').classes()).toContain('suspected')
+    expect(qualityAPI.run).not.toHaveBeenCalled()
   })
   it('batches only the currently filtered accounts and tracks the exact submitted jobs',async()=>{
     vi.mocked(qualityAPI.snapshot).mockResolvedValue({...structuredClone(snapshot),accounts:[account,{...account,id:2,name:'Hidden account'}],targets:[target,{...target,id:'watch-2',account_id:2}]})

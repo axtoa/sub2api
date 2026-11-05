@@ -6,20 +6,23 @@
           <h1 class="text-2xl font-semibold">{{ t('userInsights.title') }}</h1>
           <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('userInsights.subtitle') }}</p>
         </div>
-        <button type="button" class="btn btn-secondary px-2.5" :title="t('userInsights.refresh')" :aria-label="t('userInsights.refresh')" :disabled="loading" @click="load">
-          <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
-        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" class="btn btn-secondary h-10" @click="openIgnoreDialog">{{ t('userInsights.ignoreUsers') }}</button>
+          <button type="button" class="btn btn-secondary h-10 w-10 px-0" :title="t('userInsights.refresh')" :aria-label="t('userInsights.refresh')" :disabled="loading" @click="load">
+            <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
+          </button>
+        </div>
       </header>
 
-      <section v-if="list" class="mb-7 grid grid-cols-2 border-y border-gray-200 py-5 md:grid-cols-4 dark:border-dark-700" :aria-label="t('userInsights.title')">
-        <div v-for="(metric, index) in metrics" :key="metric.label" class="min-w-0 px-3 py-2 first:pl-0 md:border-r md:border-gray-200 md:last:border-r-0 dark:md:border-dark-700">
+      <section v-if="list" class="mb-7 grid grid-cols-2 border-y border-gray-200 py-4 sm:grid-cols-4 dark:border-dark-700" :aria-label="t('userInsights.title')">
+        <div v-for="(metric, index) in metrics" :key="metric.label" class="min-w-0 px-3 py-2 first:pl-0 sm:border-r sm:border-gray-200 sm:last:border-r-0 dark:sm:border-dark-700">
           <p class="text-xs text-gray-500 dark:text-dark-400">{{ metric.label }}</p>
-          <p class="mt-1 truncate text-xl font-semibold tabular-nums" :class="index === 0 ? 'text-emerald-700 dark:text-emerald-400' : ''" :title="metric.value">{{ metric.value }}</p>
+          <p class="mt-1 truncate text-xl font-semibold tabular-nums" :class="index === 0 || index === 3 ? 'text-emerald-700 dark:text-emerald-400' : ''" :title="metric.value">{{ metric.value }}</p>
         </div>
       </section>
       <p class="mb-6 text-xs leading-relaxed text-gray-500 dark:text-dark-400">{{ t('userInsights.totalHint') }}</p>
 
-      <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(210px,260px)] sm:items-center">
         <div class="flex min-w-0 flex-1 items-center gap-2 rounded border border-gray-300 bg-white px-3 dark:border-dark-600 dark:bg-dark-800">
           <Icon name="search" size="sm" class="shrink-0 text-gray-400" />
           <input v-model="searchDraft" type="search" maxlength="100" class="h-10 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-gray-400" :placeholder="t('userInsights.search')" :aria-label="t('userInsights.search')" @keyup.enter="applySearch" />
@@ -27,10 +30,24 @@
         <button type="button" class="btn btn-secondary h-10" @click="applySearch">{{ t('userInsights.searchAction') }}</button>
         <select v-model="segment" class="input h-10 w-full sm:w-64" :aria-label="t('userInsights.segment')" @change="applySegment">
           <option value="all">{{ t('userInsights.allUsers') }}</option>
-          <option value="redeemed">{{ t('userInsights.redeemed') }}</option>
           <option value="repeat">{{ t('userInsights.repeat') }}</option>
           <option value="inactive30">{{ t('userInsights.inactive30') }}</option>
         </select>
+      </div>
+
+      <div class="mb-4 flex flex-wrap items-center gap-2 border-b border-gray-200 pb-4 dark:border-dark-700">
+        <span class="mr-1 text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('userInsights.range') }}</span>
+        <div class="flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-dark-800" role="group" :aria-label="t('userInsights.range')">
+          <button v-for="preset in rangePresets" :key="preset.id" type="button" class="rounded-md px-3 py-1.5 text-xs transition" :class="rangeMode === preset.id ? 'bg-white font-medium text-emerald-700 shadow-sm dark:bg-dark-600 dark:text-emerald-300' : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'" :aria-pressed="rangeMode === preset.id" @click="selectRange(preset.id)">{{ t(`userInsights.${preset.label}`) }}</button>
+          <button type="button" class="rounded-md px-3 py-1.5 text-xs transition" :class="rangeMode === 'custom' ? 'bg-white font-medium text-emerald-700 shadow-sm dark:bg-dark-600 dark:text-emerald-300' : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'" :aria-pressed="rangeMode === 'custom'" @click="selectRange('custom')">{{ t('userInsights.customRange') }}</button>
+        </div>
+        <div v-if="rangeMode === 'custom'" class="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <input v-model="customFrom" type="datetime-local" class="input h-9 w-full sm:w-[205px]" :aria-label="t('userInsights.rangeFrom')" />
+          <span class="text-gray-400">–</span>
+          <input v-model="customTo" type="datetime-local" class="input h-9 w-full sm:w-[205px]" :aria-label="t('userInsights.rangeTo')" />
+          <button type="button" class="btn btn-secondary h-9" :disabled="!validCustomRange" @click="applyCustomRange">{{ t('userInsights.applyRange') }}</button>
+        </div>
+        <span v-else class="text-xs tabular-nums text-gray-500 dark:text-dark-400 sm:ml-auto">{{ rangeCaption }}</span>
       </div>
 
       <div class="mb-4 flex items-center gap-2 md:hidden">
@@ -96,6 +113,34 @@
         </div>
       </footer>
 
+      <BaseDialog :show="ignoreDialog" :title="t('userInsights.ignoreTitle')" width="wide" @close="closeIgnoreDialog">
+        <div class="grid gap-4 text-sm">
+          <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.ignoreHint') }}</p>
+          <div v-if="ignoredUsers.length" class="grid gap-1 rounded border border-gray-200 p-3 dark:border-dark-600">
+            <span class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ t('userInsights.currentlyIgnored') }}</span>
+            <label v-for="user in ignoredUsers" :key="`ignored-${user.id}`" class="flex min-w-0 cursor-pointer items-center gap-2 py-1">
+              <input v-model="selectedIgnored" type="checkbox" :value="user.id" class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              <span class="min-w-0 truncate">{{ user.email }} <small class="text-gray-500 dark:text-dark-400">#{{ user.id }}</small></span>
+            </label>
+          </div>
+          <input v-model="candidateSearch" type="search" maxlength="100" class="input h-10" :placeholder="t('userInsights.ignoreSearch')" @input="searchCandidates" />
+          <div class="max-h-64 divide-y divide-gray-100 overflow-y-auto rounded border border-gray-200 dark:divide-dark-700 dark:border-dark-600">
+            <label v-for="candidate in candidates" :key="candidate.id" class="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-dark-700/50">
+              <input v-model="selectedIgnored" type="checkbox" :value="candidate.id" class="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              <span class="min-w-0"><span class="block truncate font-medium">{{ candidate.email }}</span><span class="text-xs text-gray-500 dark:text-dark-400">{{ candidate.username || `#${candidate.id}` }}</span></span>
+              <span v-if="ignoredIDs.includes(candidate.id)" class="ml-auto text-xs text-emerald-700 dark:text-emerald-400">{{ t('userInsights.ignored') }}</span>
+            </label>
+            <p v-if="!candidates.length && !candidateLoading" class="px-3 py-6 text-center text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.noCandidates') }}</p>
+            <p v-if="candidateLoading" class="px-3 py-4 text-center text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.loading') }}</p>
+          </div>
+          <p v-if="ignoreError" class="text-sm text-red-600 dark:text-red-400" role="alert">{{ ignoreError }}</p>
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('userInsights.selectedCount', { count: selectedIgnored.length }) }}</span>
+            <div class="flex gap-2"><button type="button" class="btn btn-secondary" :disabled="savingIgnored" @click="closeIgnoreDialog">{{ t('userInsights.cancel') }}</button><button type="button" class="btn btn-primary" :disabled="savingIgnored" @click="saveIgnoreList">{{ t(savingIgnored ? 'userInsights.saving' : 'userInsights.save') }}</button></div>
+          </div>
+        </div>
+      </BaseDialog>
+
       <BaseDialog :show="detailID !== null" :title="t('userInsights.detail')" width="wide" @close="closeDetail">
         <p v-if="detailLoading" class="py-10 text-center text-sm text-gray-500 dark:text-dark-400">{{ t('userInsights.loading') }}</p>
         <p v-else-if="detailError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ detailError }}</p>
@@ -125,7 +170,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { userInsightsAPI, type InsightDetail, type InsightList, type Segment, type SortKey, type SortOrder } from './api'
+import { userInsightsAPI, type IgnoreUser, type InsightDetail, type InsightList, type Segment, type SortKey, type SortOrder } from './api'
 
 const { t, locale } = useI18n()
 const list = ref<InsightList | null>(null)
@@ -136,12 +181,30 @@ const segment = ref<Segment>('all')
 const page = ref(1)
 const sortBy = ref<SortKey>('redeemed_amount')
 const sortOrder = ref<SortOrder>('desc')
+type RangeMode = 'today' | '24h' | '7d' | '30d' | 'custom'
+const rangeMode = ref<RangeMode>('today')
+const range = ref({ from: '', to: '' })
+const customFrom = ref('')
+const customTo = ref('')
+const rangePresets: Array<{ id: Exclude<RangeMode, 'custom'>; label: string }> = [
+  { id: 'today', label: 'today' }, { id: '24h', label: 'last24Hours' }, { id: '7d', label: 'last7Days' }, { id: '30d', label: 'last30Days' }
+]
+const ignoreDialog = ref(false)
+const ignoredUsers = ref<IgnoreUser[]>([])
+const candidates = ref<IgnoreUser[]>([])
+const candidateSearch = ref('')
+const selectedIgnored = ref<number[]>([])
+const candidateLoading = ref(false)
+const savingIgnored = ref(false)
+const ignoreError = ref('')
+let candidateController: AbortController | undefined
+let candidateTimer: ReturnType<typeof setTimeout> | undefined
 const columns: Array<{ key: SortKey; label: string; numeric?: boolean }> = [
   { key: 'email', label: 'user' },
   { key: 'notes', label: 'notes' },
-  { key: 'redeemed_amount', label: 'redeemedAmount', numeric: true },
-  { key: 'redeem_count', label: 'redeemCount', numeric: true },
-  { key: 'last_redeemed_at', label: 'lastRedeemed' },
+  { key: 'redeemed_amount', label: 'periodRedeemedAmount', numeric: true },
+  { key: 'redeem_count', label: 'periodRedeemCount', numeric: true },
+  { key: 'last_redeemed_at', label: 'periodLastRedeemed' },
   { key: 'balance', label: 'balance', numeric: true },
   { key: 'usage_30d', label: 'usage30d', numeric: true },
   { key: 'calls_30d', label: 'calls30d', numeric: true },
@@ -165,9 +228,44 @@ const metrics = computed(() => list.value ? [
   { label: t('userInsights.totalAmount'), value: money(list.value.summary.amount) },
   { label: t('userInsights.totalUsers'), value: list.value.summary.users.toLocaleString(locale.value) },
   { label: t('userInsights.totalCodes'), value: list.value.summary.codes.toLocaleString(locale.value) },
-  { label: t('userInsights.filteredAmount'), value: money(list.value.filtered_amount) }
+  { label: t('userInsights.todayAmount'), value: money(list.value.summary.today_amount) }
 ] : [])
 const totalPages = computed(() => list.value ? Math.max(1, Math.ceil(list.value.total / list.value.page_size)) : 1)
+const ignoredIDs = computed(() => ignoredUsers.value.map(user => user.id))
+const validCustomRange = computed(() => {
+  const from = new Date(customFrom.value).getTime(), to = new Date(customTo.value).getTime()
+  return Number.isFinite(from) && Number.isFinite(to) && from < to && to - from <= 366 * 24 * 60 * 60 * 1000
+})
+const rangeCaption = computed(() => `${date(range.value.from)} – ${date(range.value.to)}`)
+function localTodayStart() { const now = new Date(); now.setHours(0, 0, 0, 0); return now.toISOString() }
+
+function setRange(mode: RangeMode) {
+  const now = new Date()
+  const from = new Date(now)
+  if (mode === 'today') from.setHours(0, 0, 0, 0)
+  else if (mode === '24h') from.setTime(now.getTime() - 24 * 60 * 60 * 1000)
+  else if (mode === '7d') from.setTime(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  else if (mode === '30d') from.setTime(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  range.value = { from: from.toISOString(), to: now.toISOString() }
+}
+function selectRange(mode: RangeMode) {
+  rangeMode.value = mode
+  if (mode !== 'custom') { setRange(mode); page.value = 1; void load() }
+  else {
+    customFrom.value = toLocalInput(new Date(range.value.from))
+    customTo.value = toLocalInput(new Date(range.value.to))
+  }
+}
+function toLocalInput(value: Date) {
+  const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 16)
+}
+function applyCustomRange() {
+  if (!validCustomRange.value) return
+  range.value = { from: new Date(customFrom.value).toISOString(), to: new Date(customTo.value).toISOString() }
+  page.value = 1
+  void load()
+}
 
 async function load() {
   const revision = ++listRevision
@@ -176,7 +274,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await userInsightsAPI.list(page.value, search.value, segment.value, sortBy.value, sortOrder.value, listController.signal)
+    const result = await userInsightsAPI.list(page.value, search.value, segment.value, sortBy.value, sortOrder.value, range.value.from, range.value.to, localTodayStart(), listController.signal)
     if (revision !== listRevision) return
     list.value = result
   } catch (cause) {
@@ -185,6 +283,41 @@ async function load() {
   } finally {
     if (revision === listRevision) loading.value = false
   }
+}
+async function loadCandidates() {
+  candidateController?.abort()
+  candidateController = new AbortController()
+  candidateLoading.value = true
+  try { candidates.value = await userInsightsAPI.candidates(candidateSearch.value.trim(), candidateController.signal) }
+  catch (cause) { if (!(cause && typeof cause === 'object' && 'code' in cause && cause.code === 'ERR_CANCELED')) ignoreError.value = t('userInsights.loadError') }
+  finally { if (!candidateController.signal.aborted) candidateLoading.value = false }
+}
+function searchCandidates() {
+  if (candidateTimer) clearTimeout(candidateTimer)
+  candidateTimer = setTimeout(() => { void loadCandidates() }, 250)
+}
+async function openIgnoreDialog() {
+  ignoreDialog.value = true
+  ignoreError.value = ''
+  candidateSearch.value = ''
+  try {
+    ignoredUsers.value = await userInsightsAPI.ignored()
+    selectedIgnored.value = ignoredIDs.value
+    void loadCandidates()
+  } catch { ignoreError.value = t('userInsights.loadError') }
+}
+function closeIgnoreDialog() { ignoreDialog.value = false; candidateController?.abort() }
+async function saveIgnoreList() {
+  savingIgnored.value = true
+  ignoreError.value = ''
+  try {
+    await userInsightsAPI.saveIgnored(selectedIgnored.value)
+    ignoredUsers.value = await userInsightsAPI.ignored()
+    closeIgnoreDialog()
+    page.value = 1
+    await load()
+  } catch { ignoreError.value = t('userInsights.saveError') }
+  finally { savingIgnored.value = false }
 }
 function applySearch() { search.value = searchDraft.value.trim(); page.value = 1; void load() }
 function applySegment() { page.value = 1; void load() }
@@ -214,6 +347,7 @@ async function openDetail(id: number) {
   }
 }
 function closeDetail() { ++detailRevision; detailController?.abort(); detailID.value = null; detail.value = null }
+setRange('today')
 onMounted(() => { void load() })
-onUnmounted(() => { ++listRevision; ++detailRevision; listController?.abort(); detailController?.abort() })
+onUnmounted(() => { ++listRevision; ++detailRevision; listController?.abort(); detailController?.abort(); candidateController?.abort(); if (candidateTimer) clearTimeout(candidateTimer) })
 </script>

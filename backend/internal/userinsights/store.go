@@ -3,7 +3,9 @@ package userinsights
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -15,9 +17,10 @@ type Store struct{ db *sql.DB }
 func NewStore(db *sql.DB) *Store { return &Store{db: db} }
 
 type Summary struct {
-	Amount string `json:"amount"`
-	Codes  int64  `json:"codes"`
-	Users  int64  `json:"users"`
+	Amount      string `json:"amount"`
+	Codes       int64  `json:"codes"`
+	Users       int64  `json:"users"`
+	TodayAmount string `json:"today_amount"`
 }
 
 type User struct {
@@ -43,6 +46,18 @@ type ListResult struct {
 	PageSize       int     `json:"page_size"`
 	Summary        Summary `json:"summary"`
 	FilteredAmount string  `json:"filtered_amount"`
+	IgnoredCount   int     `json:"ignored_count"`
+}
+
+type IgnoreUser struct {
+	ID       int64  `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+type CandidateFilter struct {
+	Search string
+	Limit  int
 }
 
 type Redemption struct {
@@ -71,6 +86,10 @@ type Filter struct {
 	Size      int
 	SortBy    string
 	SortOrder string
+	From      time.Time
+	To        time.Time
+	TodayFrom time.Time
+	TodayTo   time.Time
 }
 
 func (f Filter) Validate() error {
@@ -84,6 +103,12 @@ func (f Filter) Validate() error {
 	}
 	if f.SortOrder != "" && f.SortOrder != "asc" && f.SortOrder != "desc" {
 		return fmt.Errorf("invalid sort order")
+	}
+	if (!f.From.IsZero() || !f.To.IsZero()) && (f.From.IsZero() || f.To.IsZero() || !f.From.Before(f.To) || f.To.Sub(f.From) > 366*24*time.Hour) {
+		return fmt.Errorf("invalid date range")
+	}
+	if (!f.TodayFrom.IsZero() || !f.TodayTo.IsZero()) && (f.TodayFrom.IsZero() || f.TodayTo.IsZero() || !f.TodayFrom.Before(f.TodayTo)) {
+		return fmt.Errorf("invalid today range")
 	}
 	switch f.Segment {
 	case "all", "redeemed", "repeat", "inactive30":
@@ -112,19 +137,27 @@ func (f Filter) orderBySQL() string {
 	return column + " " + direction + " NULLS LAST, i.id DESC"
 }
 
-const redemptionCTE = `WITH redemption AS (
+const ignoredUsers = `u.id NOT IN (
+    SELECT value::bigint FROM jsonb_array_elements_text(
+        COALESCE((SELECT value::jsonb FROM settings WHERE key = 'user_insights_ignored_ids'), '[]'::jsonb)
+    )
+)`
+
+func redemptionCTE(fromArg, toArg int) string {
+	return `WITH redemption AS (
     SELECT used_by AS user_id, COUNT(*) AS redeem_count,
            SUM(value) AS redeemed_amount, MIN(used_at) AS first_redeemed_at,
            MAX(used_at) AS last_redeemed_at
-    FROM redeem_codes WHERE ` + redeemedBalance + ` GROUP BY used_by
+    FROM redeem_codes WHERE ` + redeemedBalance + ` AND used_at >= $` + fmt.Sprint(fromArg) + ` AND used_at < $` + fmt.Sprint(toArg) + ` GROUP BY used_by
 )`
+}
 
 func filteredUsersSQL(segment string) string {
-	where := `u.deleted_at IS NULL AND EXISTS (
+	where := `u.deleted_at IS NULL AND ` + ignoredUsers + ` AND EXISTS (
         SELECT 1 FROM usage_logs used WHERE used.user_id = u.id
     ) AND
-        (POSITION(LOWER($1) IN LOWER(u.email)) > 0 OR
-         POSITION(LOWER($1) IN LOWER(u.username)) > 0 OR u.id::text = $1)`
+		 (POSITION(LOWER($1) IN LOWER(u.email)) > 0 OR
+         POSITION(LOWER($1) IN LOWER(u.username)) > 0 OR u.id::text = $1) AND r.redeem_count > 0`
 	switch segment {
 	case "redeemed":
 		where += " AND r.redeem_count > 0"
@@ -140,28 +173,44 @@ func filteredUsersSQL(segment string) string {
 }
 
 func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
+	now := time.Now()
+	if f.TodayFrom.IsZero() {
+		f.TodayFrom = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	}
+	if f.TodayTo.IsZero() {
+		f.TodayTo = now
+	}
+	if f.From.IsZero() {
+		f.From = f.TodayFrom
+	}
+	if f.To.IsZero() {
+		f.To = f.TodayTo
+	}
 	if err := f.Validate(); err != nil {
 		return nil, err
 	}
-	since := time.Now().UTC().AddDate(0, 0, -30)
 	result := &ListResult{Items: []User{}, Page: f.Page, PageSize: f.Size}
-	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(value), 0)::text,
-        COUNT(*), COUNT(DISTINCT used_by) FROM redeem_codes WHERE `+redeemedBalance).
-		Scan(&result.Summary.Amount, &result.Summary.Codes, &result.Summary.Users); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(rc.value), 0)::text,
+	    COUNT(*), COUNT(DISTINCT rc.used_by), COALESCE(SUM(rc.value) FILTER (WHERE rc.used_at >= $1 AND rc.used_at < $2), 0)::text
+	    , jsonb_array_length(COALESCE((SELECT value::jsonb FROM settings WHERE key = 'user_insights_ignored_ids'), '[]'::jsonb))
+	    FROM redeem_codes rc WHERE rc.type = 'balance' AND rc.status = 'used' AND rc.value > 0 AND rc.used_by IS NOT NULL
+	    AND rc.used_by NOT IN (SELECT value::bigint FROM jsonb_array_elements_text(COALESCE((SELECT value::jsonb FROM settings WHERE key = 'user_insights_ignored_ids'), '[]'::jsonb)))`, f.TodayFrom, f.TodayTo).
+		Scan(&result.Summary.Amount, &result.Summary.Codes, &result.Summary.Users, &result.Summary.TodayAmount, &result.IgnoredCount); err != nil {
 		return nil, fmt.Errorf("summary: %w", err)
 	}
-	args := []any{strings.TrimSpace(f.Search)}
+	args := []any{strings.TrimSpace(f.Search), f.TodayFrom.AddDate(0, 0, -30), f.From, f.To, f.TodayFrom, f.TodayTo}
+	baseArgs := []any{args[0], args[1], args[2], args[3]}
 	if f.Segment == "inactive30" {
-		args = append(args, since)
+		baseArgs[1] = time.Now().UTC().AddDate(0, 0, -30)
 	}
-	base := redemptionCTE + ` SELECT COUNT(*), COALESCE(SUM(r.redeemed_amount), 0)::text` + filteredUsersSQL(f.Segment)
-	if err := s.db.QueryRowContext(ctx, base, args...).Scan(&result.Total, &result.FilteredAmount); err != nil {
+	base := redemptionCTE(3, 4) + ` SELECT COUNT(*), COALESCE(SUM(r.redeemed_amount), 0)::text` + filteredUsersSQL(f.Segment)
+	if err := s.db.QueryRowContext(ctx, base, baseArgs...).Scan(&result.Total, &result.FilteredAmount); err != nil {
 		return nil, fmt.Errorf("filtered summary: %w", err)
 	}
 	limitArg := len(args) + 1
 	offsetArg := len(args) + 2
 	sinceArg := len(args) + 3
-	query := redemptionCTE + `, candidates AS (
+	query := redemptionCTE(3, 4) + `, candidates AS (
         SELECT u.id, u.email, u.username, u.notes, u.status, u.balance,
                COALESCE(r.redeemed_amount, 0) AS redeemed_amount,
                COALESCE(r.redeem_count, 0) AS redeem_count, r.last_redeemed_at
@@ -183,7 +232,7 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
            i.usage_30d::text, i.calls_30d, i.total_calls, i.last_used_at
     FROM insights i ORDER BY ` + f.orderBySQL() + `
     LIMIT $` + fmt.Sprint(limitArg) + ` OFFSET $` + fmt.Sprint(offsetArg)
-	args = append(args, f.Size, (f.Page-1)*f.Size, since)
+	args = append(args, f.Size, (f.Page-1)*f.Size, time.Now().UTC().AddDate(0, 0, -30))
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
@@ -207,6 +256,75 @@ func (s *Store) List(ctx context.Context, f Filter) (*ListResult, error) {
 	}
 	return result, rows.Err()
 }
+
+func (s *Store) Ignored(ctx context.Context) ([]IgnoreUser, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT u.id, u.email, u.username FROM users u
+		WHERE u.id IN (SELECT value::bigint FROM jsonb_array_elements_text(COALESCE((SELECT value::jsonb FROM settings WHERE key = 'user_insights_ignored_ids'), '[]'::jsonb)))
+		ORDER BY u.email, u.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	items := make([]IgnoreUser, 0)
+	for rows.Next() {
+		var item IgnoreUser
+		if err := rows.Scan(&item.ID, &item.Email, &item.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) Candidates(ctx context.Context, f CandidateFilter) ([]IgnoreUser, error) {
+	search := strings.TrimSpace(f.Search)
+	rows, err := s.db.QueryContext(ctx, `SELECT u.id, u.email, u.username FROM users u
+		WHERE u.deleted_at IS NULL AND EXISTS (SELECT 1 FROM usage_logs ul WHERE ul.user_id = u.id)
+		AND (POSITION(LOWER($1) IN LOWER(u.email)) > 0 OR POSITION(LOWER($1) IN LOWER(u.username)) > 0 OR u.id::text = $1)
+		ORDER BY u.email, u.id LIMIT $2`, search, f.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	items := make([]IgnoreUser, 0)
+	for rows.Next() {
+		var item IgnoreUser
+		if err := rows.Scan(&item.ID, &item.Email, &item.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) SaveIgnored(ctx context.Context, ids []int64) error {
+	if len(ids) > 5000 {
+		return fmt.Errorf("too many ignored users")
+	}
+	unique := make(map[int64]struct{}, len(ids))
+	clean := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return fmt.Errorf("invalid user id")
+		}
+		if _, ok := unique[id]; !ok {
+			unique[id] = struct{}{}
+			clean = append(clean, id)
+		}
+	}
+	sort.Slice(clean, func(i, j int) bool { return clean[i] < clean[j] })
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE id IN (SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb))`, string(encodedJSON(clean))).Scan(&count); err != nil {
+		return err
+	}
+	if count != len(clean) {
+		return fmt.Errorf("unknown user id")
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO settings (key, value, updated_at) VALUES ('user_insights_ignored_ids', $1, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, string(encodedJSON(clean)))
+	return err
+}
+
+func encodedJSON(ids []int64) []byte { data, _ := json.Marshal(ids); return data }
 
 func (s *Store) Detail(ctx context.Context, userID int64) (*Detail, error) {
 	if userID <= 0 {

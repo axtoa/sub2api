@@ -110,6 +110,9 @@ func RegisterAdminRoutes(
 		registerUserManagementRoutes(admin, h)
 		insights := admin.Group("/user-insights")
 		insights.Use(func(c *gin.Context) { c.Header("Cache-Control", "no-store"); c.Next() })
+		insights.GET("/ignored", h.UserInsights.Ignored)
+		insights.PUT("/ignored", h.UserInsights.SaveIgnored)
+		insights.GET("/candidates", h.UserInsights.Candidates)
 		insights.GET("", h.UserInsights.List)
 		insights.GET("/:id", h.UserInsights.Detail)
 

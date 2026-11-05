@@ -1,7 +1,11 @@
 export default {
   quality: {
     assurance: {
-      "title": "上游质量评估",
+      rowHint: '点击查看该模型与用途下的评估证据、覆盖率和问题。得分不代表账号固定排名。',
+      "title": "质量评估",
+      "awaiting": "待评估",
+      "scoreShort": "评",
+      "statesShort": { "strong": "优", "usable": "可用", "weak": "较差", "blocked": "阻断", "review": "复核", "insufficient": "待评估", "stale": "过期" },
       "intro": "基于主动与定时实测，按模型、用途和证据比较账号；线上观察在下方账号卡片中单独参考。",
       "collapse": "收起评估",
       "expand": "展开评估",
@@ -60,6 +64,9 @@ export default {
       },
       "samples": "{n} 个样本",
       "coverage": "证据覆盖 {n}%",
+      "coverageShort": "覆盖",
+      "samplesShort": "样本",
+      "runsShort": "批次",
       "evidenceCount": "{samples} 次请求 · {runs} 批检测",
       "severities": {
         "block": "不可接受",
@@ -321,7 +328,7 @@ export default {
     },
 
     nativeLimit: '上游原生限制（OAuth）',
-    recentCount: '最近 {count} 次探测', last24Hours: '24h 可用率', available: '可用', manualValidation: '手动验证',
+    recentCount: '最近 {count} 次探测', recentShort: '近 {count} 次', last24Hours: '24h 可用率', last24Short: '24h', available: '可用', manualValidation: '手动验证',
     samplePassed: '抽检通过', awaitingFirst: '等待首次检测，可立即手动触发', completed: '已完成',
     batchKind: '批量检测类型', batchProgress: '已完成 {done} / {total}', batchWaiting: '剩余 {count} 项', hideProgress: '收起进度',
     batchFailures: '其中 {count} 项需要查看结果或复核', batchQueued: '已提交 {count} 个检测任务，使用当前筛选账号各自所选的模型。',
@@ -344,7 +351,9 @@ export default {
     selected: '已选 {count} 项', selectAll: '选择当前列表', run: '立即检测', batchRun: '检测当前列表',
     availability: '可用性', quality: '能力抽检', cache: '缓存验证', accountModel: '账号 / 模型',
     recent: '近期可用性探测', noProbes: '尚无探测记录', last24h: '24 小时真实调用', successes: '成功', errors: '失败记录',
-    ttft: '首字延迟', billedCache: '计费缓存', noData: '暂无数据', actions: '操作', details: '历史与详情', edit: '单独设置',
+    ttft: '首字延迟', duration: '整次请求耗时', firstShort: '首', totalShort: '全程', billedCache: '计费缓存', noData: '暂无数据', actions: '操作', details: '历史与详情', edit: '单独设置',
+    abilityStates: { suspected: '疑似降智', normal: '正常', unknown: '待测' },
+    abilityHints: { suspected: '能力抽检重复异常或历史正确率下降；不能仅据此认定模型被替换。', normal: '最近一次能力抽检通过；不代表模型身份已验证。', unknown: '暂无可判断的近期能力结果。' },
     inherited: '使用全局设置', overridden: '单独配置', next: '下次', lastChecked: '上次', automaticOff: '自动检测已关闭',
     emptyTitle: '暂无账号', emptyDescription: '暂无账号，请先在账号管理添加账号，再同步。',
     autoEnabled: '启用自动检测', autoHint: '关闭后停止自动计划，仍可手动检测。',
