@@ -98,7 +98,7 @@ func TestObserveCreativeVideoTaskKeepsTerminalStatus(t *testing.T) {
 	// A re-sync of a finished row must not walk its status back to "running";
 	// only the artifact references may still be filled in.
 	repo := &creativeVideoRepository{sql: db}
-	mock.ExpectExec(regexp.QuoteMeta(`SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') THEN status ELSE $4 END`)).
+	mock.ExpectExec(regexp.QuoteMeta(`SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') THEN status WHEN status = 'pending_confirmation' AND $4 IN ('submitted', 'running') THEN status ELSE $4 END`)).
 		WithArgs("vid_done", int64(1), int64(2), "running", "", "", 0, "", "", "file_7", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -145,5 +145,17 @@ func TestCompleteCreativeVideoTaskSubmitRequiresExistingTask(t *testing.T) {
 		DurationSeconds:   8,
 	})
 	require.ErrorIs(t, err, service.ErrCreativeVideoTaskNotFound)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCreativeVideoSyncClaimsHiddenAndUnsettledTasks(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	repo := &creativeVideoRepository{sql: db}
+	mock.ExpectQuery(`(?s)UPDATE creative_video_tasks SET updated_at = NOW\(\).*provider IN \('openai', 'minimax', 'grok'\).*pending_confirmation.*actual_cost IS NULL.*FOR UPDATE SKIP LOCKED`).WithArgs(4).WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	tasks, err := repo.ClaimCreativeVideoTasksForSync(context.Background(), 4)
+	require.NoError(t, err)
+	require.Empty(t, tasks)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

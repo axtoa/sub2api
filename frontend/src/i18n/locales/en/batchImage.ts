@@ -189,7 +189,7 @@ export default {
       loadingModels: 'Loading available models...',
       noModels: 'No available models',
       noModelsHint: 'This key’s group has no models configured for batch image generation.',
-      noCompatibleAccount: 'No usable upstream batch image account is available for this key’s group. Contact an administrator to check the group’s schedulable Gemini API key or Vertex service account and model support.',
+      noCompatibleAccount: 'No available upstream account supports the selected image model in this channel. Switch channels or ask an administrator to check account group bindings, scheduling status, and image model configuration.',
       unsupportedProvider: 'The batch image provider for this job is not available. Contact an administrator to check the batch image provider configuration.',
       providerSubmitFailed: 'The upstream batch image job failed to submit. Contact an administrator to check the upstream account, model permission, or provider status.',
       vertexGcsBucketMissing: 'Vertex batch image generation is missing the managed GCS bucket configuration. Contact an administrator to configure BATCH_IMAGE_VERTEX_MANAGED_GCS_BUCKET before submitting again.',

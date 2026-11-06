@@ -321,7 +321,7 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 
 	input := BatchImageInput{
 		BatchID:          job.BatchID,
-		Model:            normalized.Model,
+		Model:            account.GetMappedModel(normalized.Model),
 		DisplayName:      job.BatchID,
 		ResponseMimeType: normalized.ResponseMimeType,
 		AspectRatio:      normalized.AspectRatio,
@@ -969,7 +969,7 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 		}
 		sort.SliceStable(accounts, func(i, j int) bool {
 			if accounts[i].Priority != accounts[j].Priority {
-				return accounts[i].Priority > accounts[j].Priority
+				return accounts[i].Priority < accounts[j].Priority
 			}
 			return accounts[i].ID < accounts[j].ID
 		})

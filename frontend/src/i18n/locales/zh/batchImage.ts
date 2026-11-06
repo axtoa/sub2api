@@ -189,7 +189,7 @@ export default {
       loadingModels: '加载可用模型中...',
       noModels: '无可用模型',
       noModelsHint: '当前密钥所属分组没有配置可用于批量生图的模型。',
-      noCompatibleAccount: '当前密钥所属分组没有可用的批量生图上游账号。请联系管理员检查：该分组是否绑定了可调度的 Gemini API Key 或 Vertex 服务账号，以及账号是否支持所选模型。',
+      noCompatibleAccount: '当前渠道没有支持所选图片模型的可用上游账号。请切换渠道，或请管理员检查账号分组、调度状态及图片模型配置。',
       unsupportedProvider: '这个任务使用的批量生图通道当前不可用。请联系管理员检查批量生图通道配置。',
       providerSubmitFailed: '上游批量生图任务提交失败。请联系管理员检查上游账号状态、模型权限或服务状态。',
       vertexGcsBucketMissing: 'Vertex 批量生图缺少托管 GCS 存储桶配置。请联系管理员配置 BATCH_IMAGE_VERTEX_MANAGED_GCS_BUCKET 后再提交。',

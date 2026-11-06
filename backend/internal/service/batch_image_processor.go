@@ -47,6 +47,7 @@ func (r *BatchImageAccountRepositoryResolver) ResolveBatchImageAccount(ctx conte
 }
 
 type BatchImageProviderProcessor struct {
+	Concurrency      *ConcurrencyService
 	Repo             BatchImageRepository
 	ProviderRegistry *BatchImageProviderRegistry
 	AccountResolver  BatchImageAccountResolver
@@ -94,6 +95,18 @@ func (p *BatchImageProviderProcessor) Process(ctx context.Context, batchID strin
 		return p.indexAndSettle(ctx, job, provider, account)
 	}
 
+	if p.Concurrency != nil && (job.Provider == BatchImageProviderOpenAI || job.Provider == BatchImageProviderMiniMax) {
+		slot, err := p.Concurrency.AcquireAccountSlot(ctx, account.ID, account.Concurrency)
+		if err != nil {
+			return BatchImageProcessResult{}, err
+		}
+		if !slot.Acquired {
+			return BatchImageProcessResult{RequeueAfter: 3 * time.Second}, nil
+		}
+		if slot.ReleaseFunc != nil {
+			defer slot.ReleaseFunc()
+		}
+	}
 	status, err := provider.Get(ctx, job, account)
 	if err != nil {
 		logger.L().Warn("batch_image.provider_status_check_failed",

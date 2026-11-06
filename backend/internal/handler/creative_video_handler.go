@@ -169,7 +169,7 @@ func (h *OpenAIGatewayHandler) syncCreativeVideoOwnerStatusesBeforeCreate(c *gin
 
 func creativeVideoTaskStatusNeedsSync(status string) bool {
 	switch strings.ToLower(strings.TrimSpace(status)) {
-	case service.CreativeVideoStatusQueued, service.CreativeVideoStatusSubmitted, service.CreativeVideoStatusRunning:
+	case service.CreativeVideoStatusQueued, service.CreativeVideoStatusSubmitted, service.CreativeVideoStatusRunning, service.CreativeVideoStatusPendingConfirmation:
 		return true
 	default:
 		return false

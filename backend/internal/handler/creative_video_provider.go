@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -130,43 +130,40 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		batchImageError(c, err)
 		return
 	}
-	selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-		service.WithOpenAIProfitControlSuppressed(c.Request.Context()),
-		apiKey.GroupID,
-		"",
-		h.gatewayService.GenerateExplicitSessionHash(c, body),
-		"",
-		nil,
-		service.OpenAIUpstreamTransportHTTPSSE,
-		"",
-		false,
-		false,
-		false,
-		platform,
-	)
-	if err != nil || selection == nil || selection.Account == nil {
-		requestLogger(c, "handler.openai_gateway.creative_video").Warn(
-			"creative_video.account_selection_failed",
-			zap.Any("group_id", apiKey.GroupID),
-			zap.String("platform", platform),
-			zap.String("model", req.Model),
-			zap.Error(err),
-		)
-		h.errorResponse(c, http.StatusServiceUnavailable, "video_no_eligible_account", "No eligible video account")
-		return
-	}
 	provider := service.NewCreativeVideoHTTPProvider(platform, nil)
-	if !provider.SupportsAccount(selection.Account) {
-		requestLogger(c, "handler.openai_gateway.creative_video").Error(
-			"creative_video.account_unsupported",
-			zap.Int64("account_id", selection.Account.ID),
-			zap.String("platform", platform),
-			zap.String("base_url", selection.Account.GetOpenAIBaseURL()),
-			zap.String("model", req.Model),
+	excluded := make(map[int64]struct{})
+	var selection *service.AccountSelectionResult
+	for {
+		selection, _, err = h.gatewayService.SelectAccountWithSchedulerForCapability(
+			service.WithOpenAIProfitControlSuppressed(c.Request.Context()), apiKey.GroupID, "",
+			h.gatewayService.GenerateExplicitSessionHash(c, body), req.Model, excluded,
+			service.OpenAIUpstreamTransportHTTPSSE, "", false, false, false, platform,
 		)
-		batchImageError(c, service.ErrCreativeVideoProviderUnsupportedAccount)
+		if err != nil || selection == nil || selection.Account == nil {
+			h.errorResponse(c, http.StatusServiceUnavailable, "video_no_eligible_account", "No eligible video account")
+			return
+		}
+		if provider.SupportsAccount(selection.Account) {
+			break
+		}
+		if selection.ReleaseFunc != nil {
+			selection.ReleaseFunc()
+		}
+		excluded[selection.Account.ID] = struct{}{}
+	}
+	if !selection.Acquired {
+		if selection.ReleaseFunc != nil {
+			selection.ReleaseFunc()
+		}
+		h.errorResponse(c, http.StatusTooManyRequests, "video_account_busy", "Video account is busy; retry shortly")
 		return
 	}
+	if selection.ReleaseFunc != nil {
+		defer selection.ReleaseFunc()
+	}
+	// Preserve the public model on the task; map only the provider request.
+	providerReq := req
+	providerReq.Model = selection.Account.GetMappedModel(req.Model)
 	task, err := h.creativeVideoService.CreateProviderPending(c.Request.Context(), service.BatchImageOwner{
 		UserID:   subject.UserID,
 		APIKeyID: apiKey.ID,
@@ -185,10 +182,16 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		batchImageError(c, err)
 		return
 	}
-	status, err := provider.Submit(c.Request.Context(), selection.Account, req)
+	submitCtx, cancelSubmit := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 2*time.Minute)
+	defer cancelSubmit()
+	status, err := provider.Submit(submitCtx, selection.Account, providerReq)
+	// Persist even when the upstream request used up its timeout or the browser
+	// disconnected. The submit context may already be cancelled at this point.
+	persistCtx, cancelPersist := context.WithTimeout(context.WithoutCancel(c.Request.Context()), 15*time.Second)
+	defer cancelPersist()
 	if err != nil {
 		if task != nil {
-			h.creativeVideoService.FailTask(c.Request.Context(), task.TaskID, "UPSTREAM_REQUEST_FAILED", err.Error())
+			h.creativeVideoService.FailTask(persistCtx, task.TaskID, "UPSTREAM_REQUEST_FAILED", err.Error())
 		}
 		logger.L().Warn("creative_video.provider_submit_failed",
 			zap.String("provider", provider.Name()),
@@ -201,7 +204,7 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 		return
 	}
 	if task != nil {
-		if err := h.creativeVideoService.CompleteProviderSubmit(c.Request.Context(), task.TaskID, selection.Account.ID, status, req); err != nil {
+		if err := h.creativeVideoService.CompleteProviderSubmit(persistCtx, task.TaskID, selection.Account.ID, status, req); err != nil {
 			requestLogger(c, "handler.openai_gateway.creative_video").Error(
 				"creative_video.task_record_submit_update_failed",
 				zap.String("task_id", task.TaskID),
@@ -210,7 +213,7 @@ func (h *OpenAIGatewayHandler) CreativeVideoGeneration(c *gin.Context) {
 				zap.String("model", req.Model),
 				zap.Error(err),
 			)
-			h.creativeVideoService.FailTask(c.Request.Context(), task.TaskID, "TASK_SUBMIT_FAILED", err.Error())
+			h.creativeVideoService.FailTask(persistCtx, task.TaskID, "TASK_SUBMIT_FAILED", err.Error())
 			batchImageError(c, err)
 			return
 		}
@@ -476,44 +479,16 @@ func (h *OpenAIGatewayHandler) recordCreativeVideoUsageIfCompleted(c *gin.Contex
 	if result == nil {
 		return
 	}
-	claimed, err := h.gatewayService.ClaimGrokVideoBilling(c.Request.Context(), requestID, subject.UserID, apiKey.ID)
-	if err != nil || !claimed {
+	owner := service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}
+	task, err := h.creativeVideoService.GetTask(c.Request.Context(), owner, taskID)
+	if err != nil || task == nil || task.ActualCost != nil {
 		return
 	}
-	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	userAgent := c.GetHeader("User-Agent")
-	clientIP := ip.GetClientIP(c)
-	sessionID := service.ExtractClientSessionID(c)
-	payloadHash := service.HashUsageRequestPayload([]byte(requestID))
 	h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
-		if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-			Result:             result,
-			APIKey:             apiKey,
-			User:               apiKey.User,
-			Account:            account,
-			Subscription:       subscription,
-			InboundEndpoint:    GetInboundEndpoint(c),
-			UpstreamEndpoint:   GetUpstreamEndpoint(c, account.Platform),
-			UserAgent:          userAgent,
-			IPAddress:          clientIP,
-			RequestPayloadHash: payloadHash,
-			APIKeyService:      h.apiKeyService,
-			QuotaPlatform:      service.QuotaPlatform(c.Request.Context(), apiKey),
-			SessionID:          sessionID,
-			ChannelUsageFields: service.ChannelUsageFields{
-				OriginalModel:      status.Model,
-				ChannelMappedModel: status.Model,
-			},
-			OnVideoUsageRecorded: func(actualCost float64) {
-				_ = h.creativeVideoService.MarkUsageRecorded(ctx, service.BatchImageOwner{
-					UserID:   subject.UserID,
-					APIKeyID: apiKey.ID,
-					GroupID:  apiKey.GroupID,
-				}, firstNonEmpty(requestID, taskID), actualCost)
-			},
-		}); err != nil {
-			_ = h.gatewayService.ReleaseGrokVideoBilling(ctx, requestID, subject.UserID, apiKey.ID)
-			logger.L().With(zap.String("component", "handler.openai_gateway.creative_video")).Error("creative_video.record_usage_failed", zap.Error(err))
+		err := h.gatewayService.RecordCreativeVideoTaskUsage(ctx, apiKey, account, task, status, h.apiKeyService,
+			func(cost float64) error { return h.creativeVideoService.MarkUsageRecorded(ctx, owner, taskID, cost) })
+		if err != nil {
+			logger.L().Warn("creative_video.record_usage_failed", zap.String("task_id", taskID), zap.Error(err))
 		}
 	})
 }

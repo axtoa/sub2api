@@ -114,7 +114,7 @@ func (p *CreativeVideoHTTPProvider) Get(ctx context.Context, account *Account, r
 	switch p.platform {
 	case PlatformOpenAI:
 		var resp map[string]any
-		if err := client.doJSON(ctx, http.MethodGet, "/v1/videos/"+requestID, nil, &resp); err != nil {
+		if err := client.doJSON(ctx, http.MethodGet, "/v1/videos/"+url.PathEscape(requestID), nil, &resp); err != nil {
 			return nil, err
 		}
 		return normalizeOpenAIVideoStatus(resp), nil
@@ -158,7 +158,7 @@ func (p *CreativeVideoHTTPProvider) OpenContent(ctx context.Context, account *Ac
 	client := newCreativeVideoHTTPClient(account, p.platform, p.client)
 	switch p.platform {
 	case PlatformOpenAI:
-		return client.open(ctx, "/v1/videos/"+strings.TrimSpace(status.ID)+"/content")
+		return client.open(ctx, "/v1/videos/"+url.PathEscape(strings.TrimSpace(status.ID))+"/content")
 	case PlatformMiniMax:
 		downloadURL := strings.TrimSpace(status.DownloadURL)
 		if downloadURL == "" && strings.TrimSpace(status.FileID) != "" {
@@ -250,7 +250,7 @@ func (p *CreativeVideoHTTPProvider) submitMiniMaxHappyCode(ctx context.Context, 
 	payload := map[string]any{
 		"model":      normalizeMiniMaxCreativeVideoModel(req.Model),
 		"content":    content,
-		"resolution": "768P",
+		"resolution": miniMaxV2Resolution(req.Model, req.Resolution),
 		"duration":   NormalizeVideoBillingDurationSecondsOrDefault(req.Duration),
 		"ratio":      miniMaxV2Ratio(req.AspectRatio),
 	}
@@ -302,7 +302,7 @@ func (p *CreativeVideoHTTPProvider) submitMiniMaxV2(ctx context.Context, client 
 
 func (p *CreativeVideoHTTPProvider) miniMaxDownloadURL(ctx context.Context, client *creativeVideoHTTPClient, fileID string) (string, error) {
 	var resp map[string]any
-	path := "/v1/files/retrieve?file_id=" + strings.TrimSpace(fileID)
+	path := "/v1/files/retrieve?file_id=" + url.QueryEscape(strings.TrimSpace(fileID))
 	if err := client.doJSON(ctx, http.MethodGet, path, nil, &resp); err != nil {
 		return "", err
 	}
@@ -318,9 +318,11 @@ func (p *CreativeVideoHTTPProvider) miniMaxDownloadURL(ctx context.Context, clie
 }
 
 type creativeVideoHTTPClient struct {
-	baseURL string
-	apiKey  string
-	client  *http.Client
+	baseURL  string
+	apiKey   string
+	client   *http.Client
+	initErr  error
+	protocol string
 }
 
 func newCreativeVideoHTTPClient(account *Account, platform string, client *http.Client) *creativeVideoHTTPClient {
@@ -340,7 +342,12 @@ func newCreativeVideoHTTPClient(account *Account, platform string, client *http.
 	if client == nil {
 		client = batchImageDefaultHTTPClient()
 	}
-	return &creativeVideoHTTPClient{baseURL: baseURL, apiKey: batchImageProviderAPIKey(account), client: client}
+	accountClient, err := creativeMediaAccountClient(account, client)
+	protocol := ""
+	if account != nil {
+		protocol = account.GetCredential("creative_video_protocol")
+	}
+	return &creativeVideoHTTPClient{baseURL: baseURL, apiKey: batchImageProviderAPIKey(account), client: accountClient, initErr: err, protocol: protocol}
 }
 
 func (c *creativeVideoHTTPClient) doJSON(ctx context.Context, method, path string, payload any, out any) error {
@@ -417,6 +424,9 @@ func effectivePort(u *url.URL) string {
 }
 
 func (c *creativeVideoHTTPClient) isHappyCodeRelay() bool {
+	if c.protocol != "" && c.protocol != "auto" {
+		return c.protocol == "openai"
+	}
 	u, err := url.Parse(strings.TrimSpace(c.baseURL))
 	if err != nil {
 		return false
@@ -448,6 +458,9 @@ func creativeVideoProviderJoinURL(baseURL, path string) string {
 }
 
 func (c *creativeVideoHTTPClient) do(req *http.Request, out any) error {
+	if c.initErr != nil {
+		return c.initErr
+	}
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
@@ -464,6 +477,9 @@ func (c *creativeVideoHTTPClient) do(req *http.Request, out any) error {
 }
 
 func (c *creativeVideoHTTPClient) doOpen(req *http.Request) (io.ReadCloser, string, error) {
+	if c.initErr != nil {
+		return nil, "", c.initErr
+	}
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, "", err

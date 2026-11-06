@@ -195,10 +195,19 @@ func (s *BatchImageCleanupService) Start() {
 	s.done = make(chan struct{})
 	go func() {
 		defer close(s.done)
-		ticker := time.NewTicker(s.cleanupInterval())
+		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
+		nextCleanup := time.Now()
 		for {
-			_, _ = s.RunOnce(ctx, time.Now())
+			if s.CreativeVideo != nil && s.CreativeVideo.Reconcile != nil {
+				if err := s.CreativeVideo.Reconcile(ctx); err != nil && ctx.Err() == nil {
+					logger.L().Warn("creative_video.reconcile_failed", zap.Error(err))
+				}
+			}
+			if time.Now().After(nextCleanup) {
+				_, _ = s.RunOnce(ctx, time.Now())
+				nextCleanup = time.Now().Add(s.cleanupInterval())
+			}
 			select {
 			case <-ctx.Done():
 				return

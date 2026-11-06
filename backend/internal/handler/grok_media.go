@@ -740,6 +740,23 @@ func recordGrokMediaUsage(
 		}
 	}
 	h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
+		// Studio tasks use the same durable settlement path as the background
+		// reconciler. Ordinary gateway clients retain their existing path.
+		if videoTaskID != "" && h.creativeVideoService != nil {
+			owner := service.BatchImageOwner{UserID: subject.UserID, APIKeyID: apiKey.ID, GroupID: apiKey.GroupID}
+			task, err := h.creativeVideoService.GetTask(ctx, owner, videoTaskID)
+			if err == nil && task != nil {
+				status := &service.CreativeVideoProviderStatus{ID: videoTaskID, Status: service.CreativeVideoStatusCompleted, Model: result.Model, Resolution: result.VideoResolution, DurationSeconds: result.VideoDurationSeconds}
+				err = h.gatewayService.RecordCreativeVideoTaskUsage(ctx, apiKey, account, task, status, h.apiKeyService, func(cost float64) error {
+					return h.creativeVideoService.MarkUsageRecorded(ctx, owner, task.TaskID, cost)
+				})
+				if err != nil {
+					_ = h.gatewayService.ReleaseGrokVideoBilling(ctx, videoTaskID, subject.UserID, apiKey.ID)
+					reqLog.Warn("creative_video.billing_failed", zap.Error(err))
+				}
+				return
+			}
+		}
 		if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 			Result:             result,
 			APIKey:             apiKey,

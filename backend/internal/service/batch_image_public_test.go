@@ -872,7 +872,7 @@ func testBatchImageAccount(id int64, accountType string) Account {
 		Type:          accountType,
 		Status:        StatusActive,
 		Schedulable:   true,
-		Priority:      int(id),
+		Priority:      1000 - int(id), // Smaller number means higher scheduling priority.
 		Credentials:   map[string]any{"api_key": "test-secret"},
 		Concurrency:   1,
 		RateLimitedAt: nil,

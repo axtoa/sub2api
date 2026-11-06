@@ -1,28 +1,31 @@
 <template>
   <AppLayout>
-    <section class="relative h-[calc(100vh-7.5rem)] min-h-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
+    <section class="relative h-[calc(100dvh-7.5rem)] min-h-0 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-dark-700 dark:bg-dark-900">
       <div class="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div class="flex h-full min-h-0 min-w-0 flex-col">
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-dark-700 sm:px-5">
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-gray-900 dark:text-white">任务记录 {{ activeTab === 'image' ? `${batchJobs.length}/${imageRecordLimit}` : `${videoTasks.length}/${videoLimits.maxRecords}` }}</p>
-              <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                {{ activeTab === 'image' ? '图片任务统一保留 3 天，超过数量上限会优先清理最早记录。' : `视频任务保留 ${videoLimits.retentionDays} 天，进行中 ${videoRunningCount}/${videoLimits.maxRunning}。` }}
-              </p>
+            <div class="flex min-w-0 flex-wrap items-center gap-3">
+              <h1 class="text-sm font-semibold text-gray-900 dark:text-white">AI 创作台</h1>
+              <nav aria-label="创作类型" class="inline-flex rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
+                <button v-for="tab in ([{ id: 'image', label: '图片' }, { id: 'video', label: '视频' }, { id: 'text', label: '文本' }] as const)" :key="tab.id" type="button" :aria-pressed="activeTab === tab.id" class="rounded-md px-4 py-1.5 text-sm font-medium transition" :class="activeTab === tab.id ? 'bg-white text-primary-600 shadow-sm dark:bg-dark-700 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'" @click="switchCreativeMode(tab.id)">{{ tab.label }}</button>
+              </nav>
+              <span v-if="activeTab !== 'text'" class="hidden text-xs tabular-nums text-gray-400 sm:inline">{{ activeTab === 'image' ? `${batchJobs.length} 个任务` : `${videoTasks.length} 个任务 · ${videoRunningCount} 进行中` }}</span>
             </div>
             <div class="flex items-center gap-2">
+              <button v-if="activeTab === 'image'" type="button" class="btn btn-secondary btn-sm lg:hidden" @click="templateDrawerState = 'expanded'">模板</button>
               <button type="button" class="btn btn-secondary btn-sm" :disabled="loadingKeys || loadingJobs || videoLoadingTasks" @click="refreshPage">
                 <Icon name="refresh" size="sm" class="mr-1.5" :class="loadingKeys || loadingJobs || videoLoadingTasks ? 'animate-spin' : ''" />
                 刷新
               </button>
               <button type="button" class="btn btn-secondary btn-sm" @click="showGuideModal = true">
                 <Icon name="book" size="sm" class="mr-1.5" />
-                使用说明
+                帮助
               </button>
             </div>
           </div>
 
-          <div class="min-h-0 flex-1 overflow-y-auto bg-gray-50/70 px-4 py-4 dark:bg-dark-950/30 sm:px-5">
+          <CreativeTextStudio v-show="activeTab === 'text'" :api-keys="apiKeys" />
+          <div v-if="activeTab !== 'text'" class="min-h-0 flex-1 overflow-y-auto bg-gray-50/70 px-4 py-4 dark:bg-dark-950/30 sm:px-5">
             <div v-if="activeTab === 'image'" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               <div
                 v-for="job in recentImageJobs"
@@ -34,7 +37,7 @@
                 @keydown.enter.prevent="openJobPreview(job)"
                 @keydown.space.prevent="openJobPreview(job)"
               >
-                <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-rose-50 to-emerald-50 dark:from-sky-950/30 dark:via-rose-950/20 dark:to-emerald-950/20">
+                <div class="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gray-100 dark:bg-dark-800">
                   <img
                     v-if="imageJobPreviewUrls[job.id]"
                     :src="imageJobPreviewUrls[job.id]"
@@ -88,21 +91,21 @@
                 </div>
               </div>
 
-              <div v-if="!loadingJobs && recentImageJobs.length === 0" class="col-span-full flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-6 text-center dark:border-dark-700 dark:bg-dark-800">
+              <div v-if="!loadingJobs && recentImageJobs.length === 0" class="col-span-full flex min-h-[180px] sm:min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-6 text-center dark:border-dark-700 dark:bg-dark-800">
                 <Icon name="sparkles" size="xl" class="mb-4 h-12 w-12 text-primary-400" />
                 <p class="text-base font-medium text-gray-900 dark:text-white">这里还没有作品</p>
                 <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">
-                  选一个模板，或写下你想要的画面，我们一起把它变出来。
+                  输入描述，或选择模板
                 </p>
               </div>
             </div>
 
             <div v-else class="space-y-4">
-              <div v-if="videoLoadingTasks && !videoTasks.length" class="flex min-h-[420px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">加载视频任务中...</div>
-              <div v-else-if="!videoTasks.length" class="flex min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-6 text-center dark:border-dark-700 dark:bg-dark-800">
+              <div v-if="videoLoadingTasks && !videoTasks.length" class="flex min-h-[180px] sm:min-h-[420px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">加载视频任务中...</div>
+              <div v-else-if="!videoTasks.length" class="flex min-h-[180px] sm:min-h-[420px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-6 text-center dark:border-dark-700 dark:bg-dark-800">
                 <Icon name="sparkles" size="xl" class="mb-4 h-12 w-12 text-primary-400" />
                 <p class="text-base font-medium text-gray-900 dark:text-white">还没有视频作品</p>
-                <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">描述一个镜头、一个动作或一段氛围，第一条视频任务会在这里等你。</p>
+                <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">描述镜头，开始创作</p>
               </div>
               <template v-else>
                 <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
@@ -124,7 +127,7 @@
                         :alt="task.prompt_preview || task.model"
                         class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                       />
-                      <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
+                      <div v-else class="flex h-full w-full items-center justify-center bg-dark-800">
                         <Icon v-if="videoThumbnailLoadingIds.has(task.id)" name="refresh" size="lg" class="animate-spin text-white/80" />
                         <Icon v-else name="sparkles" size="xl" class="text-white/80" />
                       </div>
@@ -163,13 +166,10 @@
             </div>
           </div>
 
-          <div class="flex-shrink-0 border-t border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900 sm:p-4">
+          <div v-if="activeTab !== 'text'" class="flex-shrink-0 border-t border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900 sm:p-4">
             <form class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-800/70" @submit.prevent="submitCreative">
               <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div class="inline-flex rounded-lg bg-white p-1 shadow-sm ring-1 ring-gray-200 dark:bg-dark-900 dark:ring-dark-700">
-                  <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition" :class="activeTab === 'image' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'" @click="switchCreativeMode('image')">图片</button>
-                  <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition" :class="activeTab === 'video' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'" @click="switchCreativeMode('video')">视频</button>
-                </div>
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ activeTab === 'image' ? '图片创作' : '视频创作' }}</span>
                 <div v-if="activeTab === 'image'" class="inline-flex rounded-lg bg-white p-1 shadow-sm ring-1 ring-gray-200 dark:bg-dark-900 dark:ring-dark-700">
                   <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition" :class="imageTool === 'text' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'" @click="imageTool = 'text'">文生图</button>
                   <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition" :class="imageTool === 'edit' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'" @click="imageTool = 'edit'">改图</button>
@@ -186,24 +186,24 @@
                 </div>
               </div>
 
-              <div class="mb-3 grid gap-2 md:grid-cols-[minmax(180px,1.2fr)_120px_120px_112px]">
-                <button type="button" class="input flex items-center justify-between gap-2 bg-white text-left dark:bg-dark-900" @click="showModelPicker = true">
+              <div class="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-[minmax(0,1fr)_100px_100px_100px]">
+                <button type="button" class="input col-span-3 flex items-center justify-between gap-2 bg-white text-left dark:bg-dark-900 sm:col-span-1" @click="showModelPicker = true">
                   <span class="min-w-0">
-                    <span class="block text-xs text-gray-400">模型选择</span>
+
                     <span class="block truncate text-sm font-medium text-gray-900 dark:text-white">{{ selectedModelLabel }}</span>
                   </span>
                   <Icon name="chevronDown" size="sm" class="text-gray-400" />
                 </button>
-                <select v-model="composerAspectRatio" class="input bg-white dark:bg-dark-900">
+                <select v-model="composerAspectRatio" class="input bg-white pr-8 dark:bg-dark-900">
                   <option v-for="ratio in aspectRatioOptions" :key="ratio" :value="ratio">{{ ratio }}</option>
                 </select>
-                <select v-model="composerSize" class="input bg-white dark:bg-dark-900">
+                <select v-model="composerSize" class="input bg-white pr-8 dark:bg-dark-900">
                   <option v-for="size in currentSizeOptions" :key="size" :value="size">{{ size }}</option>
                 </select>
-                <select v-if="activeTab === 'image'" v-model.number="composerCount" class="input bg-white dark:bg-dark-900">
+                <select v-if="activeTab === 'image'" v-model.number="composerCount" class="input bg-white pr-8 dark:bg-dark-900">
                   <option v-for="count in currentCountOptions" :key="count" :value="count">{{ activeTab === 'image' ? `${count}张` : `${count}条` }}</option>
                 </select>
-                <select v-else v-model.number="videoForm.duration" class="input bg-white dark:bg-dark-900">
+                <select v-else v-model.number="videoForm.duration" class="input bg-white pr-8 dark:bg-dark-900">
                   <option v-for="seconds in videoDurationOptions" :key="seconds" :value="seconds">{{ seconds }} 秒</option>
                 </select>
               </div>
@@ -211,7 +211,7 @@
               <div v-if="activeTab === 'image' && imageTool === 'edit'" class="mb-3">
                 <label class="flex min-h-[76px] cursor-pointer items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-3 py-3 text-sm text-gray-500 transition hover:border-primary-300 hover:text-primary-600 dark:border-dark-600 dark:bg-dark-900 dark:text-gray-400 dark:hover:border-primary-700 dark:hover:text-primary-300">
                   <Icon name="upload" size="sm" class="mr-2" />
-                  {{ referenceImageDrafts.length ? `已选择 ${referenceImageDrafts.length} 张参考图` : '上传参考图后再告诉我想怎么改' }}
+                  {{ referenceImageDrafts.length ? `已选择 ${referenceImageDrafts.length} 张参考图` : '上传参考图' }}
                   <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleSingleEditReferenceImage" />
                 </label>
               </div>
@@ -220,7 +220,7 @@
                 <div v-if="videoFrameDraft" class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-900">
                   <div class="min-w-0">
                     <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ videoFrameDraft.name }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">作为视频首帧参考，会随本次任务提交</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">首帧参考</p>
                   </div>
                   <button type="button" class="btn btn-secondary btn-sm" @click="videoFrameDraft = null">移除</button>
                 </div>
@@ -230,6 +230,11 @@
                   <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleVideoFrameImage" />
                 </label>
               </div>
+
+              <p v-if="activeTab === 'image' && modelLoadError" role="alert" class="mb-3 text-sm text-amber-600 dark:text-amber-400">{{ modelLoadError }}</p>
+              <p v-else-if="activeTab === 'image' && selectedApiKey && !loadingModels && !availableBatchImageModels.length" role="status" class="mb-3 text-sm text-amber-600 dark:text-amber-400">
+                当前渠道暂无可用图片模型，请切换渠道，或请管理员检查上游账号及图片模型配置。配置更新后点击上方“刷新”。
+              </p>
 
               <textarea
                 v-model="creativePrompt"
@@ -250,12 +255,12 @@
 
         <aside
           v-if="activeTab === 'image'"
-          class="relative h-full min-h-0 border-l border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
-          :class="templateDrawerState === 'expanded' ? 'absolute inset-y-0 right-0 z-20 w-full lg:w-[calc(100%-0px)]' : templateDrawerState === 'rail' ? 'w-[280px]' : 'w-12'"
+          class="h-full min-h-0 border-l border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900"
+          :class="templateDrawerState === 'expanded' ? 'absolute inset-y-0 right-0 z-20 w-full' : templateDrawerState === 'rail' ? 'relative hidden w-[280px] lg:block' : 'relative hidden w-12 lg:block'"
         >
           <button
             type="button"
-            class="absolute -left-3 top-1/2 z-30 flex h-20 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm hover:text-primary-600 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300"
+            class="absolute -left-3 top-1/2 z-30 hidden lg:flex h-20 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm hover:text-primary-600 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300"
             @click="cycleTemplateDrawer"
           >
             <Icon :name="templateDrawerState === 'collapsed' ? 'chevronLeft' : 'chevronRight'" size="xs" />
@@ -269,8 +274,8 @@
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">图片模板</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">点击模板会带入提示词和参数</p>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" @click="templateDrawerState = templateDrawerState === 'expanded' ? 'rail' : 'expanded'">
-                {{ templateDrawerState === 'expanded' ? '收起全部' : '查看全部' }}
+              <button type="button" class="btn btn-secondary btn-sm" @click="templateDrawerState = templateDrawerState === 'expanded' ? 'collapsed' : 'expanded'">
+                {{ templateDrawerState === 'expanded' ? '关闭' : '展开' }}
               </button>
             </div>
             <div class="flex flex-shrink-0 flex-wrap gap-2 border-b border-gray-100 p-3 dark:border-dark-800">
@@ -1421,7 +1426,7 @@ Content-Type: application/json</code></pre>
       <template #footer>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn btn-secondary" :disabled="submitting" @click="closeCreateModal">{{ t('common.cancel') }}</button>
-          <button type="button" class="btn btn-primary inline-flex min-w-[120px] justify-center" :disabled="submitting || (loadingModels && !form.model) || (parsedItems.length === 0 && !promptDraft.trim()) || !selectedApiKey || !form.model" @click="submitJob">
+          <button type="button" class="btn btn-primary inline-flex min-w-[120px] justify-center" :disabled="submitting || loadingModels || (parsedItems.length === 0 && !promptDraft.trim()) || !selectedApiKey || !form.model" @click="submitJob">
             <Icon v-if="submitting" name="refresh" size="sm" class="mr-2 animate-spin" />
             {{ submitting ? t('common.submitting') : t('batchImage.actions.submitJob') }}
           </button>
@@ -1448,7 +1453,7 @@ Content-Type: application/json</code></pre>
 	        <textarea
 	          :value="agentInstruction"
 	          readonly
-	          class="min-h-[420px] w-full resize-y rounded-md border border-gray-200 bg-gray-50 p-4 font-mono text-sm leading-6 text-gray-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-dark-600 dark:bg-dark-900 dark:text-gray-100 dark:focus:border-primary-500 dark:focus:ring-primary-900/40"
+	          class="min-h-[180px] sm:min-h-[420px] w-full resize-y rounded-md border border-gray-200 bg-gray-50 p-4 font-mono text-sm leading-6 text-gray-800 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-dark-600 dark:bg-dark-900 dark:text-gray-100 dark:focus:border-primary-500 dark:focus:ring-primary-900/40"
 	        />
 	        </section>
 	      </div>
@@ -1469,6 +1474,7 @@ Content-Type: application/json</code></pre>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import CreativeTextStudio from '@/components/user/CreativeTextStudio.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -1596,12 +1602,12 @@ const STORAGE_TEMPLATE_DRAWER_KEY = 'creative-studio.templateDrawerState'
 const STORAGE_TEMPLATE_CATEGORY_KEY = 'creative-studio.templateCategory'
 const outputCountOptions = Array.from({ length: BATCH_IMAGE_MAX_OUTPUTS_PER_ITEM }, (_, index) => index + 1)
 const batchPageSizeOptions: SelectOption[] = [20, 50, 100].map(size => ({ value: size, label: String(size) }))
-const videoDurationOptions = [5, 8, 10, 15]
+const videoDurationOptions = computed(() => selectedVideoApiKey.value?.group?.platform === 'openai' ? [4, 8, 12] : [5, 8, 10, 15])
 
 const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 const { t, locale } = useI18n()
-const activeTab = ref<'image' | 'video'>('image')
+const activeTab = ref<'image' | 'video' | 'text'>('image')
 const imageTool = ref<ImageCreativeTool>('text')
 const templateDrawerState = ref<TemplateDrawerState>(readTemplateDrawerState())
 const templateCategory = ref(readStoredString(STORAGE_TEMPLATE_CATEGORY_KEY, '全部'))
@@ -1907,9 +1913,13 @@ const aspectRatioOptions = computed(() => {
   return ['1:1', '4:5', '3:4', '16:9', '9:16']
 })
 
-const currentSizeOptions = computed(() =>
-  activeTab.value === 'video' ? ['480p', '720p', '1080p'] : ['1K'],
-)
+const currentSizeOptions = computed(() => {
+  if (activeTab.value !== 'video') return ['1K']
+  const platform = selectedVideoApiKey.value?.group?.platform
+  if (platform === 'minimax') return /max/i.test(videoForm.model) ? ['480P', '768P'] : ['768P', '2K']
+  if (platform === 'openai') return ['720p']
+  return ['480p', '720p']
+})
 
 const currentCountOptions = computed(() =>
   activeTab.value === 'video' ? [1] : outputCountOptions,
@@ -1921,7 +1931,7 @@ const selectedModelLabel = computed(() => {
     return key ? `${videoForm.model} · ${key.name || `API Key #${key.id}`}` : '选择可用的视频模型'
   }
   const key = selectedApiKey.value
-  return key ? `${form.model || '图片模型'} · ${key.name || `API Key #${key.id}`}` : '选择可用的图片模型'
+  return key ? `${loadingModels.value ? '加载模型中…' : form.model || '暂无可用图片模型'} · ${key.name || `API Key #${key.id}`}` : '选择可用的图片模型'
 })
 
 const currentModelChoices = computed<ModelChoice[]>(() => {
@@ -1964,17 +1974,17 @@ const creativePromptPlaceholder = computed(() => {
 })
 
 const creativeComposerHint = computed(() => {
-  if (activeTab.value === 'video') return `视频任务最多保留 ${videoLimits.retentionDays} 天，请在完成后及时下载。`
+  if (activeTab.value === 'video') return `后台生成 · 保留 ${videoLimits.retentionDays} 天`
   if (!selectedApiKey.value) return '还没有可用于图片创作的 API Key，配置好后这里就能开始生成。'
-  if (imageTool.value === 'edit') return '改图会尽量保留参考图主体，具体效果取决于所选模型能力。'
-  return '生成结果会进入任务记录，完成后可以预览或下载。'
+  if (imageTool.value === 'edit') return '参考图 + 描述'
+  return '后台生成 · 可离开页面'
 })
 
 const creativeSubmittingDisabled = computed(() => {
   if (activeTab.value === 'video') {
     return videoSubmitting.value || !selectedVideoApiKey.value || !creativePrompt.value.trim()
   }
-  return submitting.value || (loadingModels.value && !form.model) || !selectedApiKey.value || !form.model || !creativePrompt.value.trim() || (imageTool.value === 'edit' && referenceImageDrafts.value.length === 0)
+  return submitting.value || loadingModels.value || !selectedApiKey.value || !form.model || !creativePrompt.value.trim() || (imageTool.value === 'edit' && referenceImageDrafts.value.length === 0)
 })
 
 const videoTasks = ref<CreativeVideoTask[]>([])
@@ -2269,7 +2279,7 @@ function writeStoredString(key: string, value: string) {
 }
 
 function readTemplateDrawerState(): TemplateDrawerState {
-  const value = readStoredString(STORAGE_TEMPLATE_DRAWER_KEY, 'rail')
+  const value = readStoredString(STORAGE_TEMPLATE_DRAWER_KEY, 'collapsed')
   return value === 'collapsed' || value === 'expanded' || value === 'rail' ? value : 'rail'
 }
 
@@ -2321,13 +2331,6 @@ function videoModelForKey(key: ApiKey) {
   return 'grok-imagine-video'
 }
 
-function imageModelForKey(key: ApiKey) {
-  const platform = key.group?.platform || ''
-  if (platform === 'openai') return 'gpt-image-2'
-  if (platform === 'minimax') return 'image-01'
-  return 'gemini-2.5-flash-image'
-}
-
 function selectDefaultCreativeModels() {
   const savedImageId = readStoredNumber(STORAGE_IMAGE_MODEL_KEY)
   const savedVideoId = readStoredNumber(STORAGE_VIDEO_MODEL_KEY)
@@ -2336,10 +2339,8 @@ function selectDefaultCreativeModels() {
 
   if (savedImage) {
     form.apiKeyId = savedImage.id
-    if (!form.model) form.model = imageModelForKey(savedImage)
   } else if (!selectedApiKey.value && geminiApiKeys.value.length > 0) {
     form.apiKeyId = geminiApiKeys.value[0].id
-    form.model = imageModelForKey(geminiApiKeys.value[0])
     if (savedImageId) appStore.showError(`上次选择的 API Key 当前不可用，已为你切换到 ${geminiApiKeys.value[0].name || '可用模型'}。`)
   }
 
@@ -2353,10 +2354,17 @@ function selectDefaultCreativeModels() {
   }
 }
 
-function switchCreativeMode(mode: 'image' | 'video') {
+watch(currentSizeOptions, sizes => {
+  if (!sizes.includes(composerSize.value)) composerSize.value = sizes[0]
+})
+watch(videoDurationOptions, durations => {
+  if (!durations.includes(videoForm.duration)) videoForm.duration = durations[0]
+})
+
+function switchCreativeMode(mode: 'image' | 'video' | 'text') {
   activeTab.value = mode
   composerAspectRatio.value = mode === 'video' ? '16:9' : imageTool.value === 'edit' ? '跟随原图' : '1:1'
-  composerSize.value = mode === 'video' ? '720p' : '1K'
+  composerSize.value = mode === 'video' ? (currentSizeOptions.value.includes('720p') ? '720p' : currentSizeOptions.value[0]) : '1K'
   composerCount.value = 1
 }
 
@@ -2369,6 +2377,7 @@ function cycleTemplateDrawer() {
 }
 
 function applyCreativeTemplate(template: CreativeTemplate) {
+  templateDrawerState.value = 'collapsed'
   activeTab.value = 'image'
   imageTool.value = template.mode
   creativePrompt.value = template.prompt
@@ -2384,8 +2393,6 @@ function selectModelChoice(choice: ModelChoice) {
   if (choice.disabled) return
   if (choice.mode === 'image') {
     form.apiKeyId = choice.apiKeyId
-    const key = geminiApiKeys.value.find(item => item.id === choice.apiKeyId)
-    if (key) form.model = imageModelForKey(key)
     writeStoredString(STORAGE_IMAGE_MODEL_KEY, String(choice.apiKeyId))
   } else {
     videoForm.apiKeyId = choice.apiKeyId
@@ -2655,12 +2662,11 @@ async function loadAvailableModels() {
   const requestID = ++modelRequestSeq
   modelLoadError.value = ''
   availableBatchImageModels.value = []
+  const previousModel = form.model
+  form.model = ''
   if (!key) {
-    form.model = ''
+    loadingModels.value = false
     return
-  }
-  if (!form.model) {
-    form.model = imageModelForKey(key)
   }
 
   loadingModels.value = true
@@ -2676,9 +2682,9 @@ async function loadAvailableModels() {
         return true
       })
       .map(model => ({ value: model, label: model }))
-    if (availableBatchImageModels.value.length > 0 && !availableBatchImageModels.value.some(model => model.value === form.model)) {
-      form.model = availableBatchImageModels.value[0]?.value || imageModelForKey(key)
-    }
+    form.model = availableBatchImageModels.value.some(model => model.value === previousModel)
+      ? previousModel
+      : availableBatchImageModels.value[0]?.value || ''
   } catch (error: any) {
     if (requestID !== modelRequestSeq) return
     modelLoadError.value = batchImageErrorMessage(error, batchImageText('loadModelsFailed'))
@@ -2694,7 +2700,7 @@ async function refreshPage() {
   if (activeTab.value === 'video') {
     await loadVideoTasks()
   } else {
-    await loadBatchJobs()
+    await Promise.all([loadAvailableModels(), loadBatchJobs()])
   }
 }
 
@@ -2885,6 +2891,7 @@ function creativeVideoStatusLabel(status: string) {
     pending: '排队中',
     processing: '生成中',
     running: '生成中',
+    pending_confirmation: '待核对',
     completed: '已完成',
     done: '已完成',
     succeeded: '已完成',
@@ -3545,7 +3552,7 @@ function requireApiKey(): ApiKey | null {
 
 function validateForm(): boolean {
   if (!requireApiKey()) return false
-  if (!form.model) {
+  if (loadingModels.value || !availableBatchImageModels.value.some(model => model.value === form.model)) {
     appStore.showError(availableBatchImageModels.value.length === 0 ? batchImageText('noModelsForKey') : batchImageText('selectModel'))
     return false
   }

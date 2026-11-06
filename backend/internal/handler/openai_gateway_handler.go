@@ -247,6 +247,9 @@ func (h *OpenAIGatewayHandler) SetCreativeVideoService(svc *service.CreativeVide
 		return
 	}
 	h.creativeVideoService = svc
+	if svc != nil {
+		svc.Reconcile = h.reconcileCreativeVideoTasks
+	}
 }
 
 func usageRecordContext(parent context.Context, base context.Context) context.Context {

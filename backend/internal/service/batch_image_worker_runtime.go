@@ -31,9 +31,11 @@ func ProvideBatchImageWorkerRuntime(
 	authCache APIKeyAuthCacheInvalidator,
 	cfg *config.Config,
 	settingService *SettingService,
+	concurrencyService *ConcurrencyService,
 ) *BatchImageWorkerRuntime {
 	processor := &BatchImagePipelineProcessor{
 		ProviderProcessor: &BatchImageProviderProcessor{
+			Concurrency:      concurrencyService,
 			Repo:             repo,
 			ProviderRegistry: NewBatchImageProviderRegistryFromConfig(cfg),
 			AccountResolver:  &BatchImageAccountRepositoryResolver{Repo: accountRepo},

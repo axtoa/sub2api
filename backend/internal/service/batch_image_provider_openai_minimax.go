@@ -28,20 +28,24 @@ const (
 
 type OpenAIBatchImageProviderOptions struct {
 	ResultDir string
+	Deferred  bool
 }
 
 type MiniMaxBatchImageProviderOptions struct {
 	ResultDir string
+	Deferred  bool
 }
 
 type OpenAIBatchImageProvider struct {
 	client    *http.Client
 	resultDir string
+	deferred  bool
 }
 
 type MiniMaxBatchImageProvider struct {
 	client    *http.Client
 	resultDir string
+	deferred  bool
 }
 
 type batchImageHTTPClient struct {
@@ -59,14 +63,14 @@ func NewOpenAIBatchImageProvider(opts OpenAIBatchImageProviderOptions, client *h
 	if client == nil {
 		client = batchImageDefaultHTTPClient()
 	}
-	return &OpenAIBatchImageProvider{client: client, resultDir: strings.TrimSpace(opts.ResultDir)}
+	return &OpenAIBatchImageProvider{client: client, resultDir: strings.TrimSpace(opts.ResultDir), deferred: opts.Deferred}
 }
 
 func NewMiniMaxBatchImageProvider(opts MiniMaxBatchImageProviderOptions, client *http.Client) *MiniMaxBatchImageProvider {
 	if client == nil {
 		client = batchImageDefaultHTTPClient()
 	}
-	return &MiniMaxBatchImageProvider{client: client, resultDir: strings.TrimSpace(opts.ResultDir)}
+	return &MiniMaxBatchImageProvider{client: client, resultDir: strings.TrimSpace(opts.ResultDir), deferred: opts.Deferred}
 }
 
 func (p *OpenAIBatchImageProvider) Name() string {
@@ -87,7 +91,14 @@ func (p *OpenAIBatchImageProvider) Submit(ctx context.Context, job *BatchImageJo
 	if err := normalizeBatchImageProviderInput(job, &input); err != nil {
 		return nil, err
 	}
-	client := newBatchImageHTTPClient(account.GetOpenAIBaseURL(), batchImageProviderAPIKey(account), p.client)
+	if p.deferred {
+		return submitCreativeImageInput(ctx, p.resultDir, p.Name(), input)
+	}
+	accountClient, err := creativeMediaAccountClient(account, p.client)
+	if err != nil {
+		return nil, err
+	}
+	client := newBatchImageHTTPClient(account.GetOpenAIBaseURL(), batchImageProviderAPIKey(account), accountClient)
 	resultRef, err := p.writeResult(ctx, input.BatchID, func(w io.Writer) error {
 		for _, item := range input.Items {
 			images, err := p.generateItem(ctx, client, input, item)
@@ -117,6 +128,9 @@ func (p *OpenAIBatchImageProvider) Get(ctx context.Context, job *BatchImageJob, 
 	if !p.SupportsAccount(account) {
 		return nil, ErrBatchImageProviderUnsupportedAccount
 	}
+	if job.ProviderInputRef != nil && strings.Contains(*job.ProviderInputRef, "-input.jsonl") {
+		return processCreativeImageInput(ctx, p.resultDir, p.Name(), job, account, p.client, p.generateItem)
+	}
 	if _, err := p.resultPath(batchImageProviderOutputRef(job)); err != nil {
 		return nil, err
 	}
@@ -129,8 +143,8 @@ func (p *OpenAIBatchImageProvider) Get(ctx context.Context, job *BatchImageJob, 
 	}, nil
 }
 
-func (p *OpenAIBatchImageProvider) Cancel(context.Context, *BatchImageJob, *Account) error {
-	return nil
+func (p *OpenAIBatchImageProvider) Cancel(_ context.Context, job *BatchImageJob, _ *Account) error {
+	return cancelCreativeImageInput(p.resultDir, job)
 }
 
 func (p *OpenAIBatchImageProvider) OpenResult(_ context.Context, job *BatchImageJob, account *Account) (io.ReadCloser, string, error) {
@@ -151,6 +165,11 @@ func (p *OpenAIBatchImageProvider) OpenResult(_ context.Context, job *BatchImage
 func (p *OpenAIBatchImageProvider) Cleanup(_ context.Context, job *BatchImageJob, account *Account, target CleanupTarget) error {
 	if !p.SupportsAccount(account) {
 		return ErrBatchImageProviderUnsupportedAccount
+	}
+	if target == CleanupTargetInput || target == CleanupTargetAll {
+		if err := cleanupCreativeImageInput(p.resultDir, job); err != nil {
+			return err
+		}
 	}
 	if target != CleanupTargetOutput && target != CleanupTargetAll {
 		return nil
@@ -175,7 +194,7 @@ func (p *OpenAIBatchImageProvider) generateItem(ctx context.Context, client *bat
 	if err := client.doJSON(ctx, http.MethodPost, "/v1/images/generations", payload, &resp); err != nil {
 		return nil, err
 	}
-	return extractProviderImageResults(ctx, p.client, resp)
+	return extractProviderImageResults(ctx, client.client, resp)
 }
 
 func (p *OpenAIBatchImageProvider) editItem(ctx context.Context, client *batchImageHTTPClient, input BatchImageInput, item BatchImageInputItem) ([]providerImageResult, error) {
@@ -221,7 +240,7 @@ func (p *OpenAIBatchImageProvider) editItem(ctx context.Context, client *batchIm
 	if err := client.doMultipart(ctx, "/v1/images/edits", writer.FormDataContentType(), body.Bytes(), &resp); err != nil {
 		return nil, err
 	}
-	return extractProviderImageResults(ctx, p.client, resp)
+	return extractProviderImageResults(ctx, client.client, resp)
 }
 
 func (p *OpenAIBatchImageProvider) writeResult(ctx context.Context, batchID string, fn func(io.Writer) error) (string, error) {
@@ -250,7 +269,14 @@ func (p *MiniMaxBatchImageProvider) Submit(ctx context.Context, job *BatchImageJ
 	if err := normalizeBatchImageProviderInput(job, &input); err != nil {
 		return nil, err
 	}
-	client := newBatchImageHTTPClient(account.GetOpenAIBaseURL(), batchImageProviderAPIKey(account), p.client)
+	if p.deferred {
+		return submitCreativeImageInput(ctx, p.resultDir, p.Name(), input)
+	}
+	accountClient, err := creativeMediaAccountClient(account, p.client)
+	if err != nil {
+		return nil, err
+	}
+	client := newBatchImageHTTPClient(account.GetOpenAIBaseURL(), batchImageProviderAPIKey(account), accountClient)
 	resultRef, err := p.writeResult(ctx, input.BatchID, func(w io.Writer) error {
 		for _, item := range input.Items {
 			images, err := p.generateItem(ctx, client, input, item)
@@ -280,6 +306,9 @@ func (p *MiniMaxBatchImageProvider) Get(ctx context.Context, job *BatchImageJob,
 	if !p.SupportsAccount(account) {
 		return nil, ErrBatchImageProviderUnsupportedAccount
 	}
+	if job.ProviderInputRef != nil && strings.Contains(*job.ProviderInputRef, "-input.jsonl") {
+		return processCreativeImageInput(ctx, p.resultDir, p.Name(), job, account, p.client, p.generateItem)
+	}
 	if _, err := p.resultPath(batchImageProviderOutputRef(job)); err != nil {
 		return nil, err
 	}
@@ -292,8 +321,8 @@ func (p *MiniMaxBatchImageProvider) Get(ctx context.Context, job *BatchImageJob,
 	}, nil
 }
 
-func (p *MiniMaxBatchImageProvider) Cancel(context.Context, *BatchImageJob, *Account) error {
-	return nil
+func (p *MiniMaxBatchImageProvider) Cancel(_ context.Context, job *BatchImageJob, _ *Account) error {
+	return cancelCreativeImageInput(p.resultDir, job)
 }
 
 func (p *MiniMaxBatchImageProvider) OpenResult(_ context.Context, job *BatchImageJob, account *Account) (io.ReadCloser, string, error) {
@@ -315,6 +344,11 @@ func (p *MiniMaxBatchImageProvider) Cleanup(_ context.Context, job *BatchImageJo
 	if !p.SupportsAccount(account) {
 		return ErrBatchImageProviderUnsupportedAccount
 	}
+	if target == CleanupTargetInput || target == CleanupTargetAll {
+		if err := cleanupCreativeImageInput(p.resultDir, job); err != nil {
+			return err
+		}
+	}
 	if target != CleanupTargetOutput && target != CleanupTargetAll {
 		return nil
 	}
@@ -328,20 +362,18 @@ func (p *MiniMaxBatchImageProvider) generateItem(ctx context.Context, client *ba
 		"n":      1,
 	}
 	if size := batchImageMiniMaxSize(input.AspectRatio); size != "" {
-		payload["size"] = size
+		payload["aspect_ratio"] = input.AspectRatio
 	}
 	if len(item.ReferenceImages) > 0 {
-		refs := make([]string, 0, len(item.ReferenceImages))
+		refs := make([]map[string]string, 0, len(item.ReferenceImages))
 		for _, ref := range item.ReferenceImages {
 			mimeType := normalizeBatchImageReferenceMimeType(ref.MimeType)
 			if mimeType == "" || len(ref.Data) == 0 {
 				return nil, batchImageProviderInputError("MiniMax image edit requires inline reference image data")
 			}
-			refs = append(refs, fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(ref.Data)))
+			refs = append(refs, map[string]string{"type": "character", "image_file": fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(ref.Data))})
 		}
-		payload["image"] = refs[0]
-		payload["images"] = refs
-		payload["reference_images"] = refs
+		payload["subject_reference"] = refs
 	}
 	var resp map[string]any
 	if err := client.doJSON(ctx, http.MethodPost, "/v1/image_generation", payload, &resp); err != nil {
@@ -350,7 +382,7 @@ func (p *MiniMaxBatchImageProvider) generateItem(ctx context.Context, client *ba
 	if err := minimaxBaseResponseError(resp); err != nil {
 		return nil, err
 	}
-	return extractProviderImageResults(ctx, p.client, resp)
+	return extractProviderImageResults(ctx, client.client, resp)
 }
 
 func (p *MiniMaxBatchImageProvider) writeResult(ctx context.Context, batchID string, fn func(io.Writer) error) (string, error) {
@@ -456,6 +488,10 @@ func (c *batchImageHTTPClient) do(req *http.Request, out any) error {
 }
 
 func writeBatchImageLocalResult(ctx context.Context, root, provider, batchID string, fn func(io.Writer) error) (string, error) {
+	return writeBatchImageLocalResultMode(ctx, root, provider, batchID, 0o640, fn)
+}
+
+func writeBatchImageLocalResultMode(ctx context.Context, root, provider, batchID string, mode os.FileMode, fn func(io.Writer) error) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -475,8 +511,13 @@ func writeBatchImageLocalResult(ctx context.Context, root, provider, batchID str
 		return "", err
 	}
 	tmp := path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
+		return "", err
+	}
+	if err := f.Chmod(mode); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
 		return "", err
 	}
 	writeErr := fn(f)

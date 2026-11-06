@@ -134,7 +134,7 @@ UPDATE creative_video_tasks
 SET provider_request_id = $2,
     account_id = NULLIF($3, 0),
     status = $4,
-    model = COALESCE(NULLIF($5, ''), model),
+    model = COALESCE(NULLIF(model, ''), NULLIF($5, ''), ''),
     resolution = COALESCE(NULLIF($6, ''), resolution),
     duration_seconds = COALESCE(NULLIF($7, 0), duration_seconds),
     download_url = COALESCE(NULLIF($8, ''), download_url),
@@ -184,8 +184,8 @@ func (r *creativeVideoRepository) ObserveCreativeVideoTask(ctx context.Context, 
 	// still picked up, so a completed row with no file_id can gain one.
 	_, err := r.sql.ExecContext(ctx, `
 UPDATE creative_video_tasks
-SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') THEN status ELSE $4 END,
-    model = COALESCE(NULLIF($5, ''), model),
+SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_deleted') THEN status WHEN status = 'pending_confirmation' AND $4 IN ('submitted', 'running') THEN status ELSE $4 END,
+    model = COALESCE(NULLIF(model, ''), NULLIF($5, ''), ''),
     resolution = COALESCE(NULLIF($6, ''), resolution),
     duration_seconds = COALESCE(NULLIF($7, 0), duration_seconds),
     download_url = COALESCE(NULLIF($9, ''), download_url),
@@ -194,8 +194,7 @@ SET status = CASE WHEN status IN ('completed', 'failed', 'expired', 'output_dele
     updated_at = $11
 WHERE (provider_request_id = $1 OR (NULLIF($8, '') IS NOT NULL AND task_id = $8))
   AND user_id = $2
-  AND api_key_id = $3
-  AND user_deleted_at IS NULL`, requestID, params.UserID, params.APIKeyID, status, params.Model, params.Resolution, params.DurationSeconds, strings.TrimSpace(params.TaskID), params.DownloadURL, params.FileID, now)
+  AND api_key_id = $3`, requestID, params.UserID, params.APIKeyID, status, params.Model, params.Resolution, params.DurationSeconds, strings.TrimSpace(params.TaskID), params.DownloadURL, params.FileID, now)
 	return translatePersistenceError(err, nil, nil)
 }
 
@@ -286,8 +285,7 @@ SET actual_cost = $4,
     updated_at = NOW()
 WHERE (provider_request_id = $1 OR task_id = $1)
   AND user_id = $2
-  AND api_key_id = $3
-  AND user_deleted_at IS NULL`, strings.TrimSpace(providerRequestID), userID, apiKeyID, actualCost)
+  AND api_key_id = $3`, strings.TrimSpace(providerRequestID), userID, apiKeyID, actualCost)
 	if err != nil {
 		return translatePersistenceError(err, nil, nil)
 	}
@@ -330,21 +328,19 @@ WHERE (provider_request_id = $1 OR task_id = $1)
 	return requireRowsAffected(res, service.ErrCreativeVideoTaskNotFound)
 }
 
-// FailStaleCreativeVideoTasks fails tasks that have been in flight past the
-// cutoff. Without this an upstream that stops reporting (or reports a status we
-// cannot interpret) leaves a task queued or running forever, holding one of the
-// user's concurrent video slots. The cutoff is measured from submitted_at where
-// known, else created_at, so a task that never reached upstream is covered too.
+// FailStaleCreativeVideoTasks frees the active slot after the deadline. Tasks
+// with an upstream ID remain recoverable as pending_confirmation: a local
+// timeout cannot prove that upstream generation failed or that no charge is due.
 func (r *creativeVideoRepository) FailStaleCreativeVideoTasks(ctx context.Context, cutoff time.Time, code, message string, limit int) (int, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
 	res, err := r.sql.ExecContext(ctx, `
 UPDATE creative_video_tasks
-SET status = 'failed',
+SET status = CASE WHEN provider_request_id IS NULL THEN 'failed' ELSE 'pending_confirmation' END,
     last_error_code = NULLIF($2, ''),
     last_error_message = NULLIF($3, ''),
-    completed_at = COALESCE(completed_at, $4),
+    completed_at = CASE WHEN provider_request_id IS NULL THEN COALESCE(completed_at, $4) ELSE completed_at END,
     updated_at = $4
 WHERE id IN (
     SELECT id
@@ -385,6 +381,7 @@ due AS (
     LEFT JOIN ranked r ON r.id = t.id
     WHERE t.user_deleted_at IS NULL
       AND t.status IN ('completed', 'failed', 'expired', 'output_deleted')
+      AND (t.status NOT IN ('completed', 'output_deleted') OR t.actual_cost IS NOT NULL)
       AND (
           t.created_at <= $1
           OR COALESCE(r.rn, 0) > $2
@@ -540,4 +537,24 @@ func requireRowsAffected(res sql.Result, notFound error) error {
 		return notFound
 	}
 	return nil
+}
+
+// Claim a bounded page, including hidden tasks: hiding a record never cancels
+// its provider cost or its obligation to settle. The timestamp is a short lease.
+func (r *creativeVideoRepository) ClaimCreativeVideoTasksForSync(ctx context.Context, limit int) ([]*service.CreativeVideoTask, error) {
+	rows, err := r.sql.QueryContext(ctx, `
+UPDATE creative_video_tasks SET updated_at = NOW()
+WHERE id IN (
+ SELECT id FROM creative_video_tasks
+ WHERE provider IN ('openai', 'minimax', 'grok')
+   AND provider_request_id IS NOT NULL AND account_id IS NOT NULL
+   AND (status IN ('submitted', 'running', 'pending_confirmation') OR (status IN ('completed', 'output_deleted') AND actual_cost IS NULL))
+   AND updated_at < NOW() - INTERVAL '60 seconds'
+ ORDER BY updated_at, id LIMIT $1 FOR UPDATE SKIP LOCKED
+) RETURNING `+creativeVideoTaskSelectColumns, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanCreativeVideoTasks(rows)
 }

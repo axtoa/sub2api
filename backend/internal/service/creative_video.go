@@ -16,13 +16,14 @@ import (
 const (
 	CreativeVideoProviderGrok = "grok"
 
-	CreativeVideoStatusQueued        = "queued"
-	CreativeVideoStatusSubmitted     = "submitted"
-	CreativeVideoStatusRunning       = "running"
-	CreativeVideoStatusCompleted     = "completed"
-	CreativeVideoStatusFailed        = "failed"
-	CreativeVideoStatusExpired       = "expired"
-	CreativeVideoStatusOutputDeleted = "output_deleted"
+	CreativeVideoStatusQueued              = "queued"
+	CreativeVideoStatusSubmitted           = "submitted"
+	CreativeVideoStatusRunning             = "running"
+	CreativeVideoStatusPendingConfirmation = "pending_confirmation"
+	CreativeVideoStatusCompleted           = "completed"
+	CreativeVideoStatusFailed              = "failed"
+	CreativeVideoStatusExpired             = "expired"
+	CreativeVideoStatusOutputDeleted       = "output_deleted"
 	// CreativeVideoStatusUnknown marks an upstream status we do not recognize.
 	// It is never persisted: treating an unknown value as "running" is what let
 	// tasks sit in flight forever, and overwriting the stored status with it
@@ -179,6 +180,7 @@ type CreativeVideoTasksQuery struct {
 }
 
 type CreativeVideoService struct {
+	Reconcile         func(context.Context) error
 	Repo              CreativeVideoRepository
 	WorkbenchSettings CreativeWorkbenchSettingsReader
 }

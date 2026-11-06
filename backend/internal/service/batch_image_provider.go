@@ -52,8 +52,8 @@ func NewBatchImageProviderRegistryFromConfig(cfg *config.Config) *BatchImageProv
 	return NewBatchImageProviderRegistry(
 		NewGeminiAPIBatchImageProvider(nil),
 		NewVertexBatchImageProviderFromConfig(cfg, nil, nil, nil),
-		NewOpenAIBatchImageProvider(OpenAIBatchImageProviderOptions{ResultDir: resultDir}, nil),
-		NewMiniMaxBatchImageProvider(MiniMaxBatchImageProviderOptions{ResultDir: resultDir}, nil),
+		NewOpenAIBatchImageProvider(OpenAIBatchImageProviderOptions{ResultDir: resultDir, Deferred: true}, nil),
+		NewMiniMaxBatchImageProvider(MiniMaxBatchImageProviderOptions{ResultDir: resultDir, Deferred: true}, nil),
 	)
 }
 

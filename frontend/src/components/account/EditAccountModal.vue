@@ -26,6 +26,15 @@
         <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
       </div>
 
+      <div v-if="account.platform === 'minimax' && account.type === 'apikey'">
+        <label class="input-label">视频协议</label>
+        <select v-model="editCreativeVideoProtocol" class="input">
+          <option value="auto">自动</option>
+          <option value="native">MiniMax 官方</option>
+          <option value="openai">兼容中转（/v1/videos/generations）</option>
+        </select>
+      </div>
+
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
         <div v-if="!isCNApiKeyAccount || editApiProtocol !== 'adaptive'">
@@ -3052,6 +3061,7 @@ interface TempUnschedRuleForm {
 // State
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
+const editCreativeVideoProtocol = ref('auto')
 const editApiKey = ref('')
 
 // ── 国产供应商（Kimi / Zhipu / DeepSeek）account_mode / api_protocol 编辑 ──
@@ -3767,6 +3777,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 
   // Load intercept warmup requests setting (applies to all account types)
   const credentials = newAccount.credentials as Record<string, unknown> | undefined
+  editCreativeVideoProtocol.value = ['native', 'openai'].includes(String(credentials?.creative_video_protocol)) ? String(credentials?.creative_video_protocol) : 'auto'
   interceptWarmupRequests.value = credentials?.intercept_warmup_requests === true
   autoPauseOnExpired.value = newAccount.auto_pause_on_expired === true
   editVertexProjectId.value = ''
@@ -4753,6 +4764,8 @@ const handleSubmit = async () => {
         ...currentCredentials,
         base_url: newBaseUrl
       }
+
+      if (props.account.platform === 'minimax') newCredentials.creative_video_protocol = editCreativeVideoProtocol.value
 
       // 国产供应商：模式与协议写入凭据（决定额度/余额探测与转发端点/格式）。
       if (isCNApiKeyAccount.value) {
